@@ -1,8 +1,10 @@
 use std::{
     io,
     path::Path,
-    process::Command,
 };
+#[cfg(windows)]
+use std::process::Command;
+#[cfg(windows)]
 use log::info;
 
 pub struct AssociationItem {
