@@ -4,6 +4,8 @@
   <img src="src/assets/matterpackr-icon.png" width="96" height="96" alt="MatterPackr Logo" />
   <h3>Modern, ultra-fast, and portable archive manager</h3>
   <p>Built with <strong>Tauri 2</strong>, <strong>React 19</strong>, <strong>TypeScript</strong>, and <strong>Rust</strong>.</p>
+  <br />
+  <img src="src/assets/screenshot.png" alt="MatterPackr Screenshot" width="800" style="border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
 </div>
 
 ---
