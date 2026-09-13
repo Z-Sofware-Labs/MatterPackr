@@ -1,0 +1,30 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default permissions for MatterPackr",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:event:default",
+    "dialog:default",
+    "log:default",
+    "window-state:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        { "path": "$TEMP/matterpackr-view-*/*" },
+        { "path": "$TEMP/matterpackr-view-*/**/*" }
+      ]
+    },
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-start-dragging",
+    "drag:default",
+    "updater:default",
+    "process:default"
+  ]
+}

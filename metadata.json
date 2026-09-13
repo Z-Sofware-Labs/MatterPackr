@@ -1,0 +1,6 @@
+{
+  "name": "MatterPackr",
+  "description": "A UI mockup of the WinZip 8.1 interface.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

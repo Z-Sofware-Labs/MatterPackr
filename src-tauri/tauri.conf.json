@@ -1,0 +1,214 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MatterPackr",
+  "version": "1.0.0",
+  "identifier": "com.shrinkr.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "MatterPackr",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 820,
+        "minHeight": 560,
+        "resizable": true,
+        "decorations": false,
+        "fullscreen": false,
+        "backgroundColor": "#0b1220",
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "Z Software Labs",
+    "copyright": "Copyright © 2026 Z Software Labs",
+    "shortDescription": "A minimalist desktop file archiver",
+    "longDescription": "MatterPackr is a minimalist desktop archive manager focused on fast, simple ZIP workflows.",
+    "category": "Utility",
+    "icon": [
+      "icons/32x32.png",
+      "icons/64x64.png",
+      "icons/128x128.png",
+      "icons/256x256.png",
+      "icons/1024x1024.png",
+      "icons/512x512.png",
+      "icons/icon.ico",
+      "icons/icon.icns"
+    ],
+    "resources": [
+      "icons/filetypes/*"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "zip"
+        ],
+        "mimeType": "application/zip",
+        "name": "ZIP archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "7z"
+        ],
+        "mimeType": "application/x-7z-compressed",
+        "name": "7-Zip archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "tar"
+        ],
+        "mimeType": "application/x-tar",
+        "name": "TAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "tar.gz",
+          "tgz"
+        ],
+        "mimeType": "application/gzip",
+        "name": "GZip TAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "tar.bz2",
+          "tbz2"
+        ],
+        "mimeType": "application/x-bzip2",
+        "name": "BZip2 TAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "gz"
+        ],
+        "mimeType": "application/gzip",
+        "name": "GZip file",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "bz2"
+        ],
+        "mimeType": "application/x-bzip2",
+        "name": "BZip2 file",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "rar"
+        ],
+        "mimeType": "application/vnd.rar",
+        "name": "RAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "cab"
+        ],
+        "mimeType": "application/vnd.ms-cab-compressed",
+        "name": "CAB archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "iso"
+        ],
+        "mimeType": "application/x-iso9660-image",
+        "name": "ISO disk image",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "img"
+        ],
+        "mimeType": "application/octet-stream",
+        "name": "Disk image",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "tar.xz",
+          "txz"
+        ],
+        "mimeType": "application/x-xz",
+        "name": "XZ TAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "tar.zst"
+        ],
+        "mimeType": "application/zstd",
+        "name": "Zstandard TAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "cpio"
+        ],
+        "mimeType": "application/x-cpio",
+        "name": "CPIO archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "ar",
+          "a"
+        ],
+        "mimeType": "application/x-archive",
+        "name": "UNIX Archiver archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "both",
+        "template": "windows/installer.nsi",
+        "installerHooks": "./windows/hooks.nsh",
+        "languages": [
+          "English"
+        ],
+        "displayLanguageSelector": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgxNTBCM0JBOUIxNDdGNEQKUldSTmZ4U2J1ck5RZ1dpY2lwbUFxV2NxbTdwQzlEWWxMS3JVeFlzMWdpUFc0ZVJlb1VZRGlYVSsK",
+      "endpoints": [
+        "https://github.com/z-software-labs/matterpackr/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

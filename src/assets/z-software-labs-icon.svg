@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none">
+  <!-- Top bar (Red) -->
+  <polygon points="240,195 905,195 760,405 95,405" fill="#CC1424" />
+  <!-- Middle bar (Yellow) -->
+  <polygon points="370,425 735,425 630,575 265,575" fill="#F7C600" />
+  <!-- Bottom bar (Blue) -->
+  <polygon points="240,595 905,595 760,805 95,805" fill="#0038A8" />
+</svg>

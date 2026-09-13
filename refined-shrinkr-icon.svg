@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" fill="none">
+  <title>MatterPackr</title>
+  <g stroke="#0049AD" stroke-width="58" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M420 120v300H120"/>
+    <path d="M604 120v300h300"/>
+    <path d="M420 904V604H120"/>
+    <path d="M604 904V604h300"/>
+  </g>
+</svg>
