@@ -32,6 +32,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "publisher": "Z Software Labs",
     "copyright": "Copyright © 2026 Z Software Labs",
     "shortDescription": "A minimalist desktop file archiver",
@@ -205,9 +206,9 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgxNTBCM0JBOUIxNDdGNEQKUldSTmZ4U2J1ck5RZ1dpY2lwbUFxV2NxbTdwQzlEWWxMS3JVeFlzMWdpUFc0ZVJlb1VZRGlYVSsK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENCQzNCODlGMUY1MUEzREUKUldUZW8xRWZuN2pEeS91NTRUSGc5UDZjbWVVY29BRzIyY3RZNHkyaFRWeVhlUjhrMnMzeHNpZnkK",
       "endpoints": [
-        "https://github.com/z-software-labs/matterpackr/releases/latest/download/latest.json"
+        "https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/latest.json"
       ]
     }
   }
