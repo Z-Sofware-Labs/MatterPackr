@@ -10,6 +10,23 @@
 
 ---
 
+## 📥 Downloads
+
+Get the latest official release for your operating system:
+
+| Platform | Architecture | Installer / Package | Type |
+| :--- | :--- | :--- | :--- |
+| **Windows** | 64-bit (`x64`) | [**MatterPackr Setup (.exe)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.0_x64-setup.exe) | NSIS Installer |
+| **Windows** | 64-bit (`x64`) | [**MatterPackr Package (.msi)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.0_x64_en-US.msi) | MSI Installer |
+| **macOS** | Apple Silicon (`M1/M2/M3/M4`) | [**MatterPackr DMG (.dmg)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.0_aarch64.dmg) | Disk Image |
+| **macOS** | Intel 64-bit (`x86_64`) | [**MatterPackr DMG (.dmg)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.0_x64.dmg) | Disk Image |
+| **Linux** | 64-bit (`x86_64`) | [**MatterPackr AppImage (.AppImage)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.0_amd64.AppImage) | Universal Portable |
+| **Linux** | 64-bit (`x86_64`) | [**MatterPackr Debian Package (.deb)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/matterpackr_1.0.0_amd64.deb) | Ubuntu / Debian / Mint |
+
+> 📦 View all release assets, changelogs, and updater signatures on the [**Latest GitHub Release Page**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest).
+
+---
+
 ## 🌟 Overview
 
 **MatterPackr** is a lightweight, cross-platform archive manager designed as a modern, high-performance alternative to legacy archivers like 7-Zip and WinRAR. 
