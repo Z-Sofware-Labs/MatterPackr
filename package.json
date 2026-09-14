@@ -1,7 +1,7 @@
 {
   "name": "matterpackr",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.4",
   "author": "Z Software Labs",
   "type": "module",
   "scripts": {
