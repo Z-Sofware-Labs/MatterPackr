@@ -32,8 +32,8 @@ ${StrLoc}
 
 !define MANUFACTURER "Z Software Labs"
 !define PRODUCTNAME "MatterPackr"
-!define VERSION "1.0.6"
-!define VERSIONWITHBUILD "1.0.6.0"
+!define VERSION "1.0.7"
+!define VERSIONWITHBUILD "1.0.7.0"
 !define HOMEPAGE ""
 !define INSTALLMODE "both"
 !define LICENSE ""
