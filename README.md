@@ -19,8 +19,9 @@ Get the latest official release for your operating system:
 | **Windows** | 64-bit (`x64`) | [**MatterPackr Setup (.exe)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.6_x64-setup.exe) | NSIS Installer |
 | **Windows** | 64-bit (`x64`) | [**MatterPackr Package (.msi)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.6_x64_en-US.msi) | MSI Installer |
 | **macOS** | Universal (`Apple Silicon & Intel`) | [**MatterPackr DMG (.dmg)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.6_universal.dmg) | Universal Disk Image |
-| **Linux** | 64-bit (`x86_64`) | [**MatterPackr AppImage (.AppImage)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.6_amd64.AppImage) | Universal Portable |
+| **Linux** | 64-bit (`x86_64`) | [**MatterPackr Fedora / RHEL (.rpm)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/matterpackr-1.0.6-1.x86_64.rpm) | Fedora / RHEL / openSUSE |
 | **Linux** | 64-bit (`x86_64`) | [**MatterPackr Debian Package (.deb)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/matterpackr_1.0.6_amd64.deb) | Ubuntu / Debian / Mint |
+| **Linux** | 64-bit (`x86_64`) | [**MatterPackr AppImage (.AppImage)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.6_amd64.AppImage) | Universal Portable |
 
 > 📦 View all release assets, changelogs, and updater signatures on the [**Latest GitHub Release Page**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest).
 
