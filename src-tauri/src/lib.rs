@@ -319,6 +319,15 @@ fn apply_file_associations_command(selected_extensions: Vec<String>) -> Result<(
 }
 
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    {
+        // Workaround WebKitGTK EGL/DMABUF driver negotiation failure (EGL_BAD_PARAMETER)
+        // commonly encountered on Fedora, Wayland, and Mesa/Nvidia Linux environments.
+        if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+    }
+
     let args: Vec<String> = std::env::args().collect();
     if let Some(pos) = args.iter().position(|a| a == "--set-associations") {
         let exts_str = args.get(pos + 1).cloned().unwrap_or_default();
