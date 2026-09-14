@@ -624,17 +624,11 @@ export default function App() {
     }
     const parentDir = source.includes('\\') ? source.substring(0, source.lastIndexOf('\\')) : source.includes('/') ? source.substring(0, source.lastIndexOf('/')) : '';
 
-    // Start the folder picker in the directory currently containing the archive.
-    // If the user cancels the picker without selecting another destination, use
-    // that same directory as the extraction destination instead of doing nothing.
     const dir = await chooseExtractionDirectory(parentDir || undefined);
-    const extractionDir = dir?.trim() || parentDir.trim();
-    if (!extractionDir) {
-      setMessage('Unable to determine an extraction directory');
-      await appendLog('warn', 'Extraction cancelled: no destination directory was available');
+    if (!dir || !dir.trim()) {
       return;
     }
-    await startExtraction(source, extractionDir);
+    await startExtraction(source, dir.trim());
   };
 
   const startExtraction = async (source: string, dir: string) => {

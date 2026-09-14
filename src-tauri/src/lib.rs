@@ -327,7 +327,7 @@ pub fn run() {
             .map(|s| s.trim().trim_start_matches('.').to_string())
             .filter(|s| !s.is_empty())
             .collect();
-        let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("hongkong.exe"));
+        let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("matterpackr.exe"));
         if let Err(e) = backend::associations::apply_associations_direct(&exe, &selected) {
             eprintln!("Failed to apply file associations: {}", e);
             std::process::exit(1);

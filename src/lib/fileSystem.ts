@@ -55,19 +55,6 @@ export async function chooseArchive(): Promise<string | null> {
 }
 
 export async function chooseExtractionDirectory(defaultPath?: string): Promise<string | null> {
-  try {
-    const res = await invoke<string | null>('choose_extraction_directory_command', {
-      title: 'Choose extraction folder',
-      defaultPath: defaultPath || null,
-    });
-    if (typeof res === 'string' && res.trim().length > 0) {
-      return res;
-    }
-  } catch {
-    // Fall back below
-  }
-
-  // Cross-platform fallback (Linux, macOS, or when native picker is unavailable)
   const selected = await open({
     directory: true,
     multiple: false,
