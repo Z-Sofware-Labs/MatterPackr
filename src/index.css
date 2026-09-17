@@ -507,6 +507,45 @@ html.dark .modal-title {
   border-bottom-color: #2d3a4d;
 }
 
+/* File associations list in Options dialog */
+.associations-container {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+}
+.associations-item {
+  color: #1e293b;
+  border: 1px solid transparent;
+}
+.associations-item:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+.associations-item .ext-name {
+  color: #0f172a;
+}
+.associations-item .desc-name {
+  color: #64748b;
+}
+
+html.dark .associations-container {
+  background: #0d1522;
+  border: 1px solid #253346;
+}
+html.dark .associations-item {
+  color: #e2e8f0;
+  border: 1px solid transparent;
+}
+html.dark .associations-item:hover {
+  background: #182438;
+  border-color: #33445e;
+}
+html.dark .associations-item .ext-name {
+  color: #f8fafc;
+}
+html.dark .associations-item .desc-name {
+  color: #94a3b8;
+}
+
 /* Create New Archive controls: explicit theme bindings prevent Tailwind/system dark-mode
    variants from leaking dark fills into the light modal. */
 .create-archive-control {

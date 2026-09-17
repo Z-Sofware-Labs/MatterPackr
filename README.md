@@ -16,11 +16,11 @@ Get the latest official release for your operating system:
 
 | Platform | Architecture | Installer / Package | Type |
 | :--- | :--- | :--- | :--- |
-| **Windows** | 64-bit (`x64`) | [**MatterPackr Setup (.exe)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.7_x64-setup.exe) | NSIS Installer |
-| **Windows** | 64-bit (`x64`) | [**MatterPackr Package (.msi)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.7_x64_en-US.msi) | MSI Installer |
-| **macOS** | Universal (`Apple Silicon & Intel`) | [**MatterPackr DMG (.dmg)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.7_universal.dmg) | Universal Disk Image |
-| **Linux** | 64-bit (`x86_64`) | [**MatterPackr Fedora / RHEL (.rpm)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr-1.0.7-1.x86_64.rpm) | Fedora / RHEL / openSUSE |
-| **Linux** | 64-bit (`x86_64`) | [**MatterPackr Debian Package (.deb)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/matterpackr_1.0.7_amd64.deb) | Ubuntu / Debian / Mint |
+| **Windows** | 64-bit (`x64`) | [**MatterPackr Setup (.exe)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.8_x64-setup.exe) | NSIS Installer |
+| **Windows** | 64-bit (`x64`) | [**MatterPackr Package (.msi)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.8_x64_en-US.msi) | MSI Installer |
+| **macOS** | Universal (`Apple Silicon & Intel`) | [**MatterPackr DMG (.dmg)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.8_universal.dmg) | Universal Disk Image |
+| **Linux** | 64-bit (`x86_64`) | [**MatterPackr Fedora / RHEL (.rpm)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr-1.0.8-1.x86_64.rpm) | Fedora / RHEL / openSUSE |
+| **Linux** | 64-bit (`x86_64`) | [**MatterPackr Debian Package (.deb)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/matterpackr_1.0.8_amd64.deb) | Ubuntu / Debian / Mint |
 
 > 📦 View all release assets, changelogs, and updater signatures on the [**Latest GitHub Release Page**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest).
 
@@ -153,8 +153,8 @@ npm run tauri build
 This generates `latest.json` alongside the signed installer archives in `src-tauri/target/release/bundle/`. Simply upload `latest.json` and the `.zip`/`.tar.gz`/`.sig` assets to your GitHub Release!
  
 The output installers and binaries will be placed in:
-- **Windows NSIS Installer**: `src-tauri/target/release/bundle/nsis/MatterPackr_1.0.7_x64-setup.exe`
-- **Windows MSI Package**: `src-tauri/target/release/bundle/msi/MatterPackr_1.0.7_x64_en-US.msi`
+- **Windows NSIS Installer**: `src-tauri/target/release/bundle/nsis/MatterPackr_1.0.8_x64-setup.exe`
+- **Windows MSI Package**: `src-tauri/target/release/bundle/msi/MatterPackr_1.0.8_x64_en-US.msi`
 - **Standalone Portable Binary**: `src-tauri/target/release/matterpackr.exe`
 - **Updater Manifest**: `src-tauri/target/release/bundle/latest.json`
 

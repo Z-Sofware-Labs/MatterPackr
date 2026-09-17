@@ -163,6 +163,14 @@ export async function openExternalUrl(url: string): Promise<void> {
   return invoke('open_external_url', { url });
 }
 
+export async function checkIsLinux(): Promise<boolean> {
+  try {
+    return await invoke('is_linux');
+  } catch {
+    return navigator.userAgent.toLowerCase().includes('linux');
+  }
+}
+
 export async function getFileAssociations(): Promise<string[]> {
   return invoke('get_file_associations_command');
 }

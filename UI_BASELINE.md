@@ -2,8 +2,8 @@
 
 This build freezes the current UI direction while archive backends continue to expand.
 
-- Borderless Tauri window (`decorations: false`).
-- Custom title bar. Windows controls are `—`, maximize, and close; macOS uses custom traffic lights.
+- Borderless Tauri window (`decorations: false`) on Windows/macOS with custom title bar; Native window decorations (`decorations: true`) on Linux (Fedora KDE, GNOME, etc.) to guarantee system window frames, resize edges, and window management.
+- Custom title bar on Windows and macOS. Windows controls are `—`, maximize, and close; macOS uses custom traffic lights; Linux uses native desktop environment titlebar and controls.
 - The title bar is draggable via Tauri `startDragging()` except over interactive controls; double-clicking the non-interactive title bar toggles maximize.
 - Compact header and bottom status bar.
 - System light/dark theme with live system-theme changes.

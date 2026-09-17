@@ -85,6 +85,11 @@ fn capabilities(path: String) -> Result<ArchiveCapabilities, AppError> {
 }
 
 #[tauri::command]
+fn is_linux() -> bool {
+    cfg!(target_os = "linux")
+}
+
+#[tauri::command]
 fn get_cli_open_path() -> Option<String> {
     std::env::args()
         .skip(1)
@@ -364,6 +369,12 @@ pub fn run() {
         )
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "linux")]
+                {
+                    // Provide native window decorations (borders, resizing grips, shadows)
+                    // on Linux window managers (Fedora KDE/KWin, GNOME, etc.)
+                    let _ = window.set_decorations(true);
+                }
                 let _ = window.show();
             }
             Ok(())
@@ -372,6 +383,7 @@ pub fn run() {
             create_archive,
             open_archive,
             inspect_archive,
+            is_linux,
             get_cli_open_path,
             capabilities,
             format_catalog_command,

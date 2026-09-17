@@ -30,7 +30,7 @@ import { checkForAppUpdate, downloadAndInstallUpdate, type UpdateInfo } from './
 import type { ArchiveCapabilities, ArchiveEntry, ArchiveFormatInfo, ArchiveType, Compression, ConflictMode } from './lib/fileSystem';
 import { startDrag } from '@crabnebula/tauri-plugin-drag';
 import {
-  addFiles, applyFileAssociations, browseForArchivePath, checkArchiveEncryption, checkConflicts, chooseArchive, chooseArchiveOrImage, chooseExtractionDirectory,
+  addFiles, applyFileAssociations, browseForArchivePath, checkArchiveEncryption, checkConflicts, checkIsLinux, chooseArchive, chooseArchiveOrImage, chooseExtractionDirectory,
   chooseInputFiles, createArchive, ensureExtractionDestination, extractArchive, extractImage, getCapabilities, getCliOpenPath, getFileAssociations, getFormatCatalog, openArchive, openExternalUrl, prepareDragExtraction, removeEntries, testArchive, viewArchiveEntry
 } from './lib/fileSystem';
 
@@ -252,6 +252,10 @@ export default function App() {
   const [updateProgress, setUpdateProgress] = useState<{ downloaded: number; total: number | null } | null>(null);
   const [updateStatus, setUpdateStatus] = useState<{ type: 'idle' | 'available' | 'latest' | 'error'; message: string; update?: UpdateInfo } | null>(null);
 
+  const [isLinux, setIsLinux] = useState(() => {
+    return typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('linux');
+  });
+
   useEffect(() => {
     let detach: (() => void) | undefined;
     void attachConsole().then(unlisten => { detach = unlisten; });
@@ -313,6 +317,9 @@ export default function App() {
       if (initialPath) {
         void run(async () => refresh(initialPath), `Opened ${initialPath.split(/[\\/]/).pop()}`);
       }
+    }).catch(() => { });
+    checkIsLinux().then(linux => {
+      setIsLinux(linux);
     }).catch(() => { });
   }, []);
 
@@ -1002,7 +1009,7 @@ export default function App() {
 
   return (
     <main className="app-shell font-sans text-sm text-gray-900 dark:text-gray-100 transition-colors" onClick={() => contextMenu && setContextMenu(null)} onContextMenu={event => event.preventDefault()}>
-      {titlebar}
+      {!isLinux && titlebar}
       <section className="app-frame">
         <header className="toolbar">
           <div className="toolbar-left">
@@ -1376,21 +1383,21 @@ export default function App() {
               </div>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              Configure Windows Explorer to open supported archive and disk image formats with MatterPackr:
+              Configure your system file manager to open supported archive and disk image formats with MatterPackr:
             </p>
 
-            <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="associations-container grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1 p-2 rounded-lg">
               {SUPPORTED_ASSOCIATIONS.map(item => (
-                <label key={item.ext} className="flex items-center gap-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700/50 p-2 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
+                <label key={item.ext} className="associations-item flex items-center gap-2 text-xs p-2 rounded-lg cursor-pointer transition-colors">
                   <input
                     type="checkbox"
-                    className="rounded text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                    className="rounded text-blue-600 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600"
                     checked={!!fileAssociations[item.ext]}
                     onChange={e => setFileAssociations(prev => ({ ...prev, [item.ext]: e.target.checked }))}
                   />
                   <div className="flex items-baseline gap-1.5 truncate">
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">{item.extLabel}</span>
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">({item.name})</span>
+                    <span className="ext-name font-semibold">{item.extLabel}</span>
+                    <span className="desc-name text-[11px] truncate">({item.name})</span>
                   </div>
                 </label>
               ))}
@@ -1419,7 +1426,7 @@ export default function App() {
               <span>{savingAssoc ? 'Applying File Associations...' : 'Apply File Associations'}</span>
             </button>
             <p className="text-[11px] text-center text-gray-500 dark:text-gray-400">
-              Windows UAC prompt will appear to apply file association changes system-wide.
+              Administrative elevation or privileges may be required to apply system-wide changes.
             </p>
           </div>
         </div>
@@ -1440,9 +1447,9 @@ export default function App() {
               </button>
             </div>
 
-            {/* Glowing circular icon banner */}
-            <div className="w-20 h-20 rounded-full bg-gradient-to-b from-blue-900/60 to-blue-950/80 border-2 border-blue-500/40 flex items-center justify-center shadow-lg shadow-blue-950/50 mb-3 mt-1">
-              <img src={matterpackrIcon} alt="MatterPackr" className="w-12 h-12 object-contain drop-shadow" />
+            {/* App Icon */}
+            <div className="mb-3 mt-1">
+              <img src={matterpackrIcon} alt="MatterPackr" className="w-16 h-16 object-contain drop-shadow" />
             </div>
 
             {/* Title & Version */}
@@ -1527,13 +1534,12 @@ export default function App() {
 
             {!checkingUpdate && updateStatus && (
               <div className="space-y-3">
-                <div className={`p-3 rounded-lg text-xs flex items-start gap-2.5 ${
-                  updateStatus.type === 'available'
+                <div className={`p-3 rounded-lg text-xs flex items-start gap-2.5 ${updateStatus.type === 'available'
                     ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200 border border-blue-200 dark:border-blue-800'
                     : updateStatus.type === 'latest'
-                    ? 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300 border border-green-200 dark:border-green-800'
-                    : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800'
-                }`}>
+                      ? 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300 border border-green-200 dark:border-green-800'
+                      : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800'
+                  }`}>
                   {updateStatus.type === 'available' ? (
                     <RefreshCw size={16} className="shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
                   ) : updateStatus.type === 'latest' ? (
