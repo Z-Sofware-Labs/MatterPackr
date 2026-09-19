@@ -16,11 +16,11 @@ Get the latest official release for your operating system:
 
 | Platform | Architecture | Installer / Package | Type |
 | :--- | :--- | :--- | :--- |
-| **Windows** | 64-bit (`x64`) | [**MatterPackr Setup (.exe)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.9_x64-setup.exe) | NSIS Installer |
-| **Windows** | 64-bit (`x64`) | [**MatterPackr Package (.msi)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.9_x64_en-US.msi) | MSI Installer |
-| **macOS** | Universal (`Apple Silicon & Intel`) | [**MatterPackr DMG (.dmg)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.0.9_universal.dmg) | Universal Disk Image |
-| **Linux** | 64-bit (`x86_64`) | [**MatterPackr Fedora / RHEL (.rpm)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr-1.0.9-1.x86_64.rpm) | Fedora / RHEL / openSUSE |
-| **Linux** | 64-bit (`x86_64`) | [**MatterPackr Debian Package (.deb)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/matterpackr_1.0.9_amd64.deb) | Ubuntu / Debian / Mint |
+| **Windows** | 64-bit (`x64`) | [**MatterPackr Setup (.exe)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.1.0_x64-setup.exe) | NSIS Installer |
+| **Windows** | 64-bit (`x64`) | [**MatterPackr Package (.msi)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.1.0_x64_en-US.msi) | MSI Installer |
+| **macOS** | Universal (`Apple Silicon & Intel`) | [**MatterPackr DMG (.dmg)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr_1.1.0_universal.dmg) | Universal Disk Image |
+| **Linux** | 64-bit (`x86_64`) | [**MatterPackr Fedora / RHEL (.rpm)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/MatterPackr-1.1.0-1.x86_64.rpm) | Fedora / RHEL / openSUSE |
+| **Linux** | 64-bit (`x86_64`) | [**MatterPackr Debian Package (.deb)**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/matterpackr_1.1.0_amd64.deb) | Ubuntu / Debian / Mint |
 
 > 📦 View all release assets, changelogs, and updater signatures on the [**Latest GitHub Release Page**](https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest).
 
