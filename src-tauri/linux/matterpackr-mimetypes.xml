@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/zip">
+    <icon name="matterpackr-zip"/>
+  </mime-type>
+  <mime-type type="application/x-zip">
+    <icon name="matterpackr-zip"/>
+  </mime-type>
+  <mime-type type="application/x-7z-compressed">
+    <icon name="matterpackr-7z"/>
+  </mime-type>
+  <mime-type type="application/x-tar">
+    <icon name="matterpackr-tar"/>
+  </mime-type>
+  <mime-type type="application/gzip">
+    <icon name="matterpackr-gz"/>
+  </mime-type>
+  <mime-type type="application/x-gzip">
+    <icon name="matterpackr-gz"/>
+  </mime-type>
+  <mime-type type="application/x-bzip2">
+    <icon name="matterpackr-bz2"/>
+  </mime-type>
+  <mime-type type="application/x-bzip">
+    <icon name="matterpackr-bz2"/>
+  </mime-type>
+  <mime-type type="application/vnd.rar">
+    <icon name="matterpackr-rar"/>
+  </mime-type>
+  <mime-type type="application/x-rar">
+    <icon name="matterpackr-rar"/>
+  </mime-type>
+  <mime-type type="application/vnd.ms-cab-compressed">
+    <icon name="matterpackr-cab"/>
+  </mime-type>
+  <mime-type type="application/x-iso9660-image">
+    <icon name="matterpackr-iso"/>
+  </mime-type>
+  <mime-type type="application/x-cd-image">
+    <icon name="matterpackr-iso"/>
+  </mime-type>
+  <mime-type type="application/x-raw-disk-image">
+    <icon name="matterpackr-img"/>
+  </mime-type>
+  <mime-type type="application/x-xz">
+    <icon name="matterpackr-xz"/>
+  </mime-type>
+  <mime-type type="application/x-xz-compressed-tar">
+    <icon name="matterpackr-txz"/>
+  </mime-type>
+  <mime-type type="application/zstd">
+    <icon name="matterpackr-zstd"/>
+  </mime-type>
+  <mime-type type="application/x-zstd-compressed-tar">
+    <icon name="matterpackr-zstd"/>
+  </mime-type>
+  <mime-type type="application/x-cpio">
+    <icon name="matterpackr-cpio"/>
+  </mime-type>
+  <mime-type type="application/x-archive">
+    <icon name="matterpackr-ar"/>
+  </mime-type>
+</mime-info>
