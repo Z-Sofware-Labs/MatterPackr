@@ -16,7 +16,6 @@ import isoIcon from './assets/filetypes/iso.svg';
 import imgIcon from './assets/filetypes/img.svg';
 import cpioIcon from './assets/filetypes/cpio.svg';
 import arIcon from './assets/filetypes/ar.svg';
-import compressionMasterIcon from './assets/filetypes/compression-master.svg';
 import diskMasterIcon from './assets/filetypes/disk-master.svg';
 import archiveMasterIcon from './assets/filetypes/archive-master.svg';
 import { version as appVersion } from '../package.json';
@@ -273,6 +272,18 @@ export default function App() {
     y?: number;
   } | null>(null);
 
+  const [selectionBox, setSelectionBox] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+  const tableWrapRef = useRef<HTMLDivElement | null>(null);
+  const isMouseDownRef = useRef(false);
+  const mouseDownPosRef = useRef<{ clientX: number; clientY: number; target: EventTarget | null } | null>(null);
+  const initialSelectionRef = useRef<string[]>([]);
+  const isBoxSelectingRef = useRef(false);
+
 
 
   useEffect(() => {
@@ -385,6 +396,131 @@ export default function App() {
       return;
     }
     void handleView(node.path);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent | globalThis.MouseEvent) => {
+      if (!isMouseDownRef.current || !mouseDownPosRef.current || !tableWrapRef.current) return;
+
+      const dx = e.clientX - mouseDownPosRef.current.clientX;
+      const dy = e.clientY - mouseDownPosRef.current.clientY;
+
+      if (!isBoxSelectingRef.current) {
+        if (Math.hypot(dx, dy) >= 4) {
+          isBoxSelectingRef.current = true;
+          tableWrapRef.current.classList.add('is-selecting');
+        } else {
+          return;
+        }
+      }
+
+      const rect = tableWrapRef.current.getBoundingClientRect();
+      const headerElem = tableWrapRef.current.querySelector<HTMLElement>('.table-head');
+      const headerHeight = headerElem ? headerElem.offsetHeight : 0;
+      const minContentY = tableWrapRef.current.scrollTop + headerHeight;
+
+      const rawStartY = mouseDownPosRef.current.clientY - rect.top + tableWrapRef.current.scrollTop;
+      const rawCurrentY = e.clientY - rect.top + tableWrapRef.current.scrollTop;
+
+      const startX = mouseDownPosRef.current.clientX - rect.left + tableWrapRef.current.scrollLeft;
+      const startY = Math.max(minContentY, rawStartY);
+      const currentX = e.clientX - rect.left + tableWrapRef.current.scrollLeft;
+      const currentY = Math.max(minContentY, rawCurrentY);
+
+      setSelectionBox({ startX, startY, currentX, currentY });
+
+      // Calculate bounding box in viewport coordinates for row intersection check
+      const headerBottom = headerElem ? headerElem.getBoundingClientRect().bottom : rect.top;
+      const boxLeft = Math.min(mouseDownPosRef.current.clientX, e.clientX);
+      const boxTop = Math.max(headerBottom, Math.min(mouseDownPosRef.current.clientY, e.clientY));
+      const boxRight = Math.max(mouseDownPosRef.current.clientX, e.clientX);
+      const boxBottom = Math.max(headerBottom, Math.max(mouseDownPosRef.current.clientY, e.clientY));
+
+      const rows = tableWrapRef.current.querySelectorAll<HTMLTableRowElement>('tr[data-entry-path]');
+      const intersectingPaths: string[] = [];
+
+      rows.forEach(row => {
+        const path = row.getAttribute('data-entry-path');
+        if (!path) return;
+        const rowRect = row.getBoundingClientRect();
+        // Check intersection
+        if (
+          rowRect.left < boxRight &&
+          rowRect.right > boxLeft &&
+          rowRect.top < boxBottom &&
+          rowRect.bottom > boxTop
+        ) {
+          intersectingPaths.push(path);
+        }
+      });
+
+      const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
+      if (isModifier) {
+        const combined = new Set([...initialSelectionRef.current, ...intersectingPaths]);
+        setSelected(Array.from(combined));
+      } else {
+        setSelected(intersectingPaths);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isMouseDownRef.current) {
+        isMouseDownRef.current = false;
+        mouseDownPosRef.current = null;
+        if (isBoxSelectingRef.current) {
+          setSelectionBox(null);
+          if (tableWrapRef.current) {
+            tableWrapRef.current.classList.remove('is-selecting');
+          }
+          // Defer clearing flag slightly so that any click event resulting from mouseup is ignored
+          setTimeout(() => {
+            isBoxSelectingRef.current = false;
+          }, 50);
+        }
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleTableWrapMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    // Only primary mouse button (0)
+    if (e.button !== 0) return;
+
+    // Ignore interactive targets (input, button, select, links)
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('input') ||
+      target.closest('button') ||
+      target.closest('select') ||
+      target.closest('a') ||
+      target.closest('.context-menu') ||
+      target.closest('.modal-panel') ||
+      target.closest('.up-row') ||
+      target.closest('.table-head')
+    ) {
+      return;
+    }
+
+    // If clicking directly on a row that is ALREADY selected, do not start selection box
+    // so dragging rows to desktop or another app works smoothly.
+    const fileRow = target.closest('.file-row') as HTMLElement | null;
+    if (fileRow) {
+      const rowPath = fileRow.getAttribute('data-entry-path');
+      if (rowPath && selected.includes(rowPath)) {
+        return;
+      }
+    }
+
+    isMouseDownRef.current = true;
+    mouseDownPosRef.current = { clientX: e.clientX, clientY: e.clientY, target: e.target };
+    initialSelectionRef.current = (e.shiftKey || e.ctrlKey || e.metaKey) ? [...selected] : [];
+    isBoxSelectingRef.current = false;
   };
 
   useEffect(() => {
@@ -848,6 +984,7 @@ export default function App() {
 
   const handleRowSelect = (path: string, _event: MouseEvent<HTMLTableRowElement>) => {
     setContextMenu(null);
+    if (isBoxSelectingRef.current) return;
     toggleSelected(path);
   };
 
@@ -1080,7 +1217,22 @@ export default function App() {
             </div>
           )}
 
-          <div className="table-wrap">
+          <div
+            ref={tableWrapRef}
+            className="table-wrap"
+            onMouseDown={handleTableWrapMouseDown}
+          >
+            {selectionBox && (
+              <div
+                className="selection-box"
+                style={{
+                  left: `${Math.min(selectionBox.startX, selectionBox.currentX)}px`,
+                  top: `${Math.min(selectionBox.startY, selectionBox.currentY)}px`,
+                  width: `${Math.abs(selectionBox.currentX - selectionBox.startX)}px`,
+                  height: `${Math.abs(selectionBox.currentY - selectionBox.startY)}px`,
+                }}
+              />
+            )}
             <table className="w-full text-left border-collapse">
               <thead className="table-head">
                 <tr>
@@ -1734,6 +1886,7 @@ function ArchiveItemRow({
   return (
     <tr
       className={`file-row ${selectedHere ? 'selected-row' : ''}`}
+      data-entry-path={node.path}
       draggable
       onDragStart={event => onDragStart(node.path, event)}
       onClick={event => onRowSelect(node.path, event)}

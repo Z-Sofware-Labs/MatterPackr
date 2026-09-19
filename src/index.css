@@ -244,9 +244,22 @@ button { user-select: none; }
 .up-row:hover {
   background: #17243a !important;
 }
-.table-wrap { min-height: 0; flex: 1; overflow: auto; }
-.table-head { position: sticky; top: 0; z-index: 2; background: #1b283d; color: #8090a9; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
-.table-head th { border-bottom: 1px solid #29384f; }
+.table-wrap { min-height: 0; flex: 1; overflow: auto; position: relative; }
+.table-wrap.is-selecting { user-select: none; }
+.selection-box {
+  position: absolute;
+  pointer-events: none;
+  z-index: 10;
+  border: 1px solid rgba(59, 130, 246, 0.85);
+  background-color: rgba(59, 130, 246, 0.22);
+  border-radius: 2px;
+}
+html:not(.dark) .selection-box {
+  border: 1px solid rgba(37, 99, 235, 0.8);
+  background-color: rgba(59, 130, 246, 0.2);
+}
+.table-head { position: sticky; top: 0; z-index: 20; background: #1b283d; color: #8090a9; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+.table-head th { background: inherit; border-bottom: 1px solid #29384f; }
 .table-head th:hover { background: #223149; color: #b9c5d6; }
 .file-row { background: #0f1929; cursor: grab; }
 .file-row:active { cursor: grabbing; }
