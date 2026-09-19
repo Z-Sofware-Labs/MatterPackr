@@ -1,0 +1,12 @@
+[Desktop Entry]
+Categories={{categories}};
+{{#if comment}}
+Comment={{comment}}
+{{/if}}
+Exec={{exec}} %U
+Icon={{icon}}
+Name={{name}}
+StartupWMClass=matterpackr
+Terminal=false
+Type=Application
+MimeType=application/zip;application/x-zip;application/x-7z-compressed;application/x-tar;application/gzip;application/x-gzip;application/x-bzip2;application/x-bzip;application/vnd.rar;application/x-rar;application/vnd.ms-cab-compressed;application/x-iso9660-image;application/x-cd-image;application/x-raw-disk-image;application/x-xz;application/x-xz-compressed-tar;application/zstd;application/x-zstd-compressed-tar;application/x-cpio;application/x-archive;

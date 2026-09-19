@@ -369,6 +369,9 @@ pub fn run() {
         )
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
+                if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!("../icons/128x128.png")) {
+                    let _ = window.set_icon(icon);
+                }
                 #[cfg(target_os = "linux")]
                 {
                     // Provide native window decorations (borders, resizing grips, shadows)
