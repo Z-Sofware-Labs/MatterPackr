@@ -15,21 +15,21 @@ pub struct AssociationItem {
 }
 
 pub const SUPPORTED_ASSOCIATIONS: &[AssociationItem] = &[
-    AssociationItem { ext: "zip", prog_id: "Shrinkr.zip", description: "ZIP Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "7z", prog_id: "Shrinkr.7z", description: "7-Zip Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "rar", prog_id: "Shrinkr.rar", description: "RAR Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "tar", prog_id: "Shrinkr.tar", description: "TAR Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "tgz", prog_id: "Shrinkr.tgz", description: "GZ Compressed TAR Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "tbz2", prog_id: "Shrinkr.tbz2", description: "BZip2 Compressed TAR Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "txz", prog_id: "Shrinkr.txz", description: "XZ Compressed TAR Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "gz", prog_id: "Shrinkr.gz", description: "GZip File", icon_name: "archive.ico" },
-    AssociationItem { ext: "bz2", prog_id: "Shrinkr.bz2", description: "BZip2 File", icon_name: "archive.ico" },
-    AssociationItem { ext: "iso", prog_id: "Shrinkr.iso", description: "ISO Disk Image", icon_name: "archive.ico" },
-    AssociationItem { ext: "img", prog_id: "Shrinkr.img", description: "Disk Image", icon_name: "archive.ico" },
-    AssociationItem { ext: "cab", prog_id: "Shrinkr.cab", description: "Cabinet Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "cpio", prog_id: "Shrinkr.cpio", description: "CPIO Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "ar", prog_id: "Shrinkr.ar", description: "UNIX Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "a", prog_id: "Shrinkr.a", description: "Static Library Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "zip", prog_id: "MatterPackr.zip", description: "ZIP Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "7z", prog_id: "MatterPackr.7z", description: "7-Zip Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "rar", prog_id: "MatterPackr.rar", description: "RAR Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "tar", prog_id: "MatterPackr.tar", description: "TAR Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "tgz", prog_id: "MatterPackr.tgz", description: "GZ Compressed TAR Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "tbz2", prog_id: "MatterPackr.tbz2", description: "BZip2 Compressed TAR Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "txz", prog_id: "MatterPackr.txz", description: "XZ Compressed TAR Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "gz", prog_id: "MatterPackr.gz", description: "GZip File", icon_name: "archive.ico" },
+    AssociationItem { ext: "bz2", prog_id: "MatterPackr.bz2", description: "BZip2 File", icon_name: "archive.ico" },
+    AssociationItem { ext: "iso", prog_id: "MatterPackr.iso", description: "ISO Disk Image", icon_name: "archive.ico" },
+    AssociationItem { ext: "img", prog_id: "MatterPackr.img", description: "Disk Image", icon_name: "archive.ico" },
+    AssociationItem { ext: "cab", prog_id: "MatterPackr.cab", description: "Cabinet Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "cpio", prog_id: "MatterPackr.cpio", description: "CPIO Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "ar", prog_id: "MatterPackr.ar", description: "UNIX Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "a", prog_id: "MatterPackr.a", description: "Static Library Archive", icon_name: "archive.ico" },
 ];
 
 #[cfg(windows)]
