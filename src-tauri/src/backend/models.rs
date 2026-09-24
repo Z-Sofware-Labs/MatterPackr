@@ -14,34 +14,70 @@ pub enum ConflictMode {
     Cancel,
 }
 
+use std::collections::HashSet;
+
+/// State tracker for resolving destination paths during extraction.
+/// Avoids hitting the filesystem repeatedly in a loop for each file collision
+/// by maintaining an in-memory set of known existing and newly allocated paths.
+#[derive(Debug, Default)]
+pub struct ConflictResolver {
+    known_paths: HashSet<PathBuf>,
+}
+
+impl ConflictResolver {
+    pub fn new() -> Self {
+        Self {
+            known_paths: HashSet::new(),
+        }
+    }
+
+    /// Resolve the final output path for a single file according to `mode`.
+    /// Returns `None` when `mode` is `Cancel` and a collision occurs.
+    pub fn resolve_path(&mut self, path: &Path, mode: &ConflictMode) -> Option<PathBuf> {
+        let is_occupied = |p: &Path, known: &HashSet<PathBuf>| -> bool {
+            known.contains(p) || p.exists()
+        };
+
+        if !is_occupied(path, &self.known_paths) {
+            self.known_paths.insert(path.to_path_buf());
+            return Some(path.to_path_buf());
+        }
+
+        match mode {
+            ConflictMode::Overwrite => {
+                self.known_paths.insert(path.to_path_buf());
+                Some(path.to_path_buf())
+            }
+            ConflictMode::Cancel => None,
+            ConflictMode::Rename => {
+                let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("file");
+                let ext = path.extension().and_then(|e| e.to_str());
+                let parent = path.parent().unwrap_or(Path::new("."));
+
+                for n in 1..=99999u32 {
+                    let new_name = match ext {
+                        Some(e) => format!("{} ({}).{}", stem, n, e),
+                        None => format!("{} ({})", stem, n),
+                    };
+                    let candidate = parent.join(&new_name);
+                    if !is_occupied(&candidate, &self.known_paths) {
+                        self.known_paths.insert(candidate.clone());
+                        return Some(candidate);
+                    }
+                }
+                // Extremely unlikely — fall back to original path
+                self.known_paths.insert(path.to_path_buf());
+                Some(path.to_path_buf())
+            }
+        }
+    }
+}
+
 /// Resolve the final output path for a single file according to `mode`.
 /// Returns `None` when `mode` is `Cancel` and the file already exists,
 /// signalling that the entire extraction should be aborted.
 pub fn resolve_output_path(path: &Path, mode: &ConflictMode) -> Option<PathBuf> {
-    if !path.exists() {
-        return Some(path.to_path_buf());
-    }
-    match mode {
-        ConflictMode::Overwrite => Some(path.to_path_buf()),
-        ConflictMode::Cancel => None,
-        ConflictMode::Rename => {
-            let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("file");
-            let ext = path.extension().and_then(|e| e.to_str());
-            let parent = path.parent().unwrap_or(Path::new("."));
-            for n in 1..=9999u32 {
-                let new_name = match ext {
-                    Some(e) => format!("{} ({}).{}", stem, n, e),
-                    None => format!("{} ({})", stem, n),
-                };
-                let candidate = parent.join(&new_name);
-                if !candidate.exists() {
-                    return Some(candidate);
-                }
-            }
-            // Extremely unlikely — fall back to overwrite
-            Some(path.to_path_buf())
-        }
-    }
+    ConflictResolver::new().resolve_path(path, mode)
 }
 
 

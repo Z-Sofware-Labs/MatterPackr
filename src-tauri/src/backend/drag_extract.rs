@@ -3,7 +3,7 @@ use super::models::format_from_path;
 use std::{
     collections::HashSet,
     fs::{self, File},
-    io,
+    io::{self, Read},
     path::{Path, PathBuf},
 };
 use flate2::read::GzDecoder;
@@ -171,21 +171,47 @@ fn extract_7z_selective(
     targets: &[String],
     password: Option<&str>,
 ) -> Result<(), io::Error> {
-    // Unpack 7z to temp staging, then copy matching files/folders preserving hierarchy
-    let stage = temp_workspace("drag-7z-temp")?;
-    let result = (|| {
-        match password {
-            Some(pwd) => sevenz_rust2::decompress_file_with_password(archive_path, &stage, pwd.into())
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
-            None => sevenz_rust2::decompress_file(archive_path, &stage)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
+    fs::create_dir_all(destination)?;
+    let norm_targets: Vec<String> = targets.iter().map(|s| normalize_path(s)).collect();
+
+    let extract_entry = |entry: &sevenz_rust2::ArchiveEntry, reader: &mut dyn Read, _dest_buf: &PathBuf| -> Result<bool, sevenz_rust2::Error> {
+        let entry_name = entry.name();
+        if !entry_matches(entry_name, &norm_targets) {
+            // Returning Ok(true) continues to next entry without reading data
+            return Ok(true);
         }
 
-        copy_matching_tree(&stage, &stage, destination, targets)?;
-        Ok(())
-    })();
-    let _ = fs::remove_dir_all(&stage);
-    result
+        let safe_name = normalize_path(entry_name);
+        let out_path = destination.join(&safe_name);
+
+        if entry.is_directory() {
+            let _ = fs::create_dir_all(&out_path);
+        } else {
+            if let Some(parent) = out_path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            if let Ok(mut out_file) = File::create(&out_path) {
+                let _ = io::copy(reader, &mut out_file);
+            }
+        }
+        Ok(true)
+    };
+
+    let res = match password {
+        Some(pwd) => sevenz_rust2::decompress_with_extract_fn_and_password(
+            File::open(archive_path)?,
+            destination,
+            pwd.into(),
+            extract_entry,
+        ),
+        None => sevenz_rust2::decompress_file_with_extract_fn(
+            archive_path,
+            destination,
+            extract_entry,
+        ),
+    };
+
+    res.map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
 }
 
 fn extract_rar_selective(

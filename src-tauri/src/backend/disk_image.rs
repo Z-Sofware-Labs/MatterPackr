@@ -1,7 +1,8 @@
-use super::models::{file_kind, resolve_output_path, ArchiveEntry, ConflictMode};
+use super::models::{file_kind, ArchiveEntry, ConflictMode, ConflictResolver};
 use hadris_optical::sync::OpenOpticalImage;
 use hadris_optical::OpenPolicy;
 use std::{
+    collections::HashSet,
     fs::{self, File},
     io::{self, BufReader, Write},
     path::Path,
@@ -11,6 +12,16 @@ use std::{
 fn is_reserved_or_special_entry(raw_name: &str) -> bool {
     let trimmed = raw_name.trim_matches(|c: char| c == '\0' || c == '\u{1}').trim();
     trimmed.is_empty() || trimmed == "." || trimmed == ".."
+}
+
+fn matches_any_target(rel_path: &str, exact_targets: &HashSet<String>, dir_prefixes: &[String]) -> bool {
+    let lower = rel_path.to_ascii_lowercase();
+    exact_targets.contains(&lower) || dir_prefixes.iter().any(|prefix| lower.starts_with(prefix))
+}
+
+fn matches_ancestor_of_any_target(rel_path: &str, dir_prefixes: &[String]) -> bool {
+    let lower_dir = format!("{}/", rel_path.to_ascii_lowercase());
+    dir_prefixes.iter().any(|prefix| prefix.starts_with(&lower_dir))
 }
 
 /// Recursively collect all entries from an open UDF volume
@@ -126,12 +137,13 @@ pub fn inspect_disk_image(path: &Path) -> Result<Vec<ArchiveEntry>, io::Error> {
     Ok(entries)
 }
 
-/// Recursively extract UDF directory to disk
+
 fn extract_udf_dir(
     udf: &hadris_optical::udf::sync::UdfVolume<hadris_io::sync::Borrowed<'_, BufReader<File>>>,
     dir: &hadris_optical::udf::sync::UdfDir,
     current_out: &Path,
     mode: &ConflictMode,
+    resolver: &mut ConflictResolver,
 ) -> Result<(), io::Error> {
     fs::create_dir_all(current_out)?;
 
@@ -144,12 +156,12 @@ fn extract_udf_dir(
         let target_path = current_out.join(name);
         if entry.is_dir() {
             if let Ok(subdir) = udf.read_directory(&entry.icb) {
-                extract_udf_dir(udf, &subdir, &target_path, mode)?;
+                extract_udf_dir(udf, &subdir, &target_path, mode, resolver)?;
             }
         } else {
-            let resolved = match resolve_output_path(&target_path, mode) {
+            let resolved = match resolver.resolve_path(&target_path, mode) {
                 Some(p) => p,
-                None => continue, // skip if mode is skip
+                None => continue, // skip if mode is skip or cancel
             };
             if let Some(parent) = resolved.parent() {
                 fs::create_dir_all(parent)?;
@@ -169,6 +181,7 @@ fn extract_iso_dir(
     dir: &hadris_optical::iso::sync::read::IsoDir<'_, hadris_io::sync::Borrowed<'_, BufReader<File>>>,
     current_out: &Path,
     mode: &ConflictMode,
+    resolver: &mut ConflictResolver,
 ) -> Result<(), io::Error> {
     fs::create_dir_all(current_out)?;
 
@@ -188,10 +201,10 @@ fn extract_iso_dir(
         if entry.is_directory() {
             if let Ok(dir_ref) = entry.as_dir_ref(iso) {
                 let sub_iso_dir = iso.open_dir(dir_ref);
-                extract_iso_dir(iso, &sub_iso_dir, &target_path, mode)?;
+                extract_iso_dir(iso, &sub_iso_dir, &target_path, mode, resolver)?;
             }
         } else {
-            let resolved = match resolve_output_path(&target_path, mode) {
+            let resolved = match resolver.resolve_path(&target_path, mode) {
                 Some(p) => p,
                 None => continue,
             };
@@ -215,6 +228,7 @@ pub fn extract_disk_image(
 ) -> Result<(), io::Error> {
     let file = File::open(image_path)?;
     let mut reader = BufReader::with_capacity(128 * 1024, file);
+    let mut resolver = ConflictResolver::new();
 
     let img = OpenOpticalImage::open(&mut reader, OpenPolicy::PreferUdf)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("Failed to parse optical image: {:?}", e)))?;
@@ -223,12 +237,12 @@ pub fn extract_disk_image(
         OpenOpticalImage::Udf(udf) => {
             let root = udf.root_dir()
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("UDF root dir error: {:?}", e)))?;
-            extract_udf_dir(&udf, &root, output_dir, mode)?;
+            extract_udf_dir(&udf, &root, output_dir, mode, &mut resolver)?;
         }
         OpenOpticalImage::Iso9660(iso) => {
             let root = iso.root_dir();
             let root_dir = root.iter(&iso);
-            extract_iso_dir(&iso, &root_dir, output_dir, mode)?;
+            extract_iso_dir(&iso, &root_dir, output_dir, mode, &mut resolver)?;
         }
         _ => return Err(io::Error::new(io::ErrorKind::Unsupported, "Unsupported optical image filesystem")),
     }
@@ -260,13 +274,14 @@ pub fn test_disk_image(image_path: &Path) -> Result<(), io::Error> {
     Ok(())
 }
 
-/// Helper for selective extraction in UDF
+/// Helper for selective extraction in UDF with single image traversal
 fn extract_selective_udf_recursive(
     udf: &hadris_optical::udf::sync::UdfVolume<hadris_io::sync::Borrowed<'_, BufReader<File>>>,
     dir: &hadris_optical::udf::sync::UdfDir,
     current_prefix: &str,
     destination: &Path,
-    target_clean: &str,
+    exact_targets: &HashSet<String>,
+    dir_prefixes: &[String],
 ) -> Result<(), io::Error> {
     for entry in dir.entries() {
         let name = entry.name();
@@ -280,12 +295,15 @@ fn extract_selective_udf_recursive(
             format!("{}/{}", current_prefix, name)
         };
 
-        if rel_path.eq_ignore_ascii_case(target_clean) || rel_path.to_ascii_lowercase().starts_with(&format!("{}/", target_clean.to_ascii_lowercase())) {
+        let is_match = matches_any_target(&rel_path, exact_targets, dir_prefixes);
+        let is_ancestor = entry.is_dir() && matches_ancestor_of_any_target(&rel_path, dir_prefixes);
+
+        if is_match {
             let out_dest = destination.join(&rel_path);
             if entry.is_dir() {
                 fs::create_dir_all(&out_dest)?;
                 if let Ok(subdir) = udf.read_directory(&entry.icb) {
-                    let _ = extract_selective_udf_recursive(udf, &subdir, &rel_path, destination, target_clean);
+                    let _ = extract_selective_udf_recursive(udf, &subdir, &rel_path, destination, exact_targets, dir_prefixes);
                 }
             } else {
                 if let Some(parent) = out_dest.parent() {
@@ -296,22 +314,23 @@ fn extract_selective_udf_recursive(
                     f.write_all(&bytes)?;
                 }
             }
-        } else if entry.is_dir() && target_clean.to_ascii_lowercase().starts_with(&format!("{}/", rel_path.to_ascii_lowercase())) {
+        } else if is_ancestor {
             if let Ok(subdir) = udf.read_directory(&entry.icb) {
-                let _ = extract_selective_udf_recursive(udf, &subdir, &rel_path, destination, target_clean);
+                let _ = extract_selective_udf_recursive(udf, &subdir, &rel_path, destination, exact_targets, dir_prefixes);
             }
         }
     }
     Ok(())
 }
 
-/// Helper for selective extraction in ISO 9660
+/// Helper for selective extraction in ISO 9660 with single image traversal
 fn extract_selective_iso_recursive(
     iso: &hadris_optical::iso::sync::IsoImage<hadris_io::sync::Borrowed<'_, BufReader<File>>>,
     dir: &hadris_optical::iso::sync::read::IsoDir<'_, hadris_io::sync::Borrowed<'_, BufReader<File>>>,
     current_prefix: &str,
     destination: &Path,
-    target_clean: &str,
+    exact_targets: &HashSet<String>,
+    dir_prefixes: &[String],
 ) -> Result<(), io::Error> {
     for entry in dir.entries() {
         let entry = match entry {
@@ -332,13 +351,16 @@ fn extract_selective_iso_recursive(
             format!("{}/{}", current_prefix, name)
         };
 
-        if rel_path.eq_ignore_ascii_case(target_clean) || rel_path.to_ascii_lowercase().starts_with(&format!("{}/", target_clean.to_ascii_lowercase())) {
+        let is_match = matches_any_target(&rel_path, exact_targets, dir_prefixes);
+        let is_ancestor = entry.is_directory() && matches_ancestor_of_any_target(&rel_path, dir_prefixes);
+
+        if is_match {
             let out_dest = destination.join(&rel_path);
             if entry.is_directory() {
                 fs::create_dir_all(&out_dest)?;
                 if let Ok(dir_ref) = entry.as_dir_ref(iso) {
                     let subdir = iso.open_dir(dir_ref);
-                    let _ = extract_selective_iso_recursive(iso, &subdir, &rel_path, destination, target_clean);
+                    let _ = extract_selective_iso_recursive(iso, &subdir, &rel_path, destination, exact_targets, dir_prefixes);
                 }
             } else {
                 if let Some(parent) = out_dest.parent() {
@@ -349,17 +371,17 @@ fn extract_selective_iso_recursive(
                     f.write_all(&bytes)?;
                 }
             }
-        } else if entry.is_directory() && target_clean.to_ascii_lowercase().starts_with(&format!("{}/", rel_path.to_ascii_lowercase())) {
+        } else if is_ancestor {
             if let Ok(dir_ref) = entry.as_dir_ref(iso) {
                 let subdir = iso.open_dir(dir_ref);
-                let _ = extract_selective_iso_recursive(iso, &subdir, &rel_path, destination, target_clean);
+                let _ = extract_selective_iso_recursive(iso, &subdir, &rel_path, destination, exact_targets, dir_prefixes);
             }
         }
     }
     Ok(())
 }
 
-/// Selectively extract specific files/folders from optical image completely in-process.
+/// Selectively extract specific files/folders from optical image in a single pass.
 pub fn extract_disk_image_selective(
     image_path: &Path,
     destination: &Path,
@@ -371,25 +393,33 @@ pub fn extract_disk_image_selective(
     let img = OpenOpticalImage::open(&mut reader, OpenPolicy::PreferUdf)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("Failed to parse optical image: {:?}", e)))?;
 
-    for target in targets {
-        let clean = target.replace('\\', "/").trim_matches('/').to_string();
-        if clean.is_empty() {
-            continue;
-        }
+    let mut exact_targets = HashSet::new();
+    let mut dir_prefixes = Vec::new();
 
-        match &img {
-            OpenOpticalImage::Udf(udf) => {
-                if let Ok(root) = udf.root_dir() {
-                    let _ = extract_selective_udf_recursive(udf, &root, "", destination, &clean);
-                }
-            }
-            OpenOpticalImage::Iso9660(iso) => {
-                let root = iso.root_dir();
-                let root_dir = root.iter(iso);
-                let _ = extract_selective_iso_recursive(iso, &root_dir, "", destination, &clean);
-            }
-            _ => {}
+    for target in targets {
+        let clean = target.replace('\\', "/").trim_matches('/').to_ascii_lowercase();
+        if !clean.is_empty() {
+            exact_targets.insert(clean.clone());
+            dir_prefixes.push(format!("{}/", clean));
         }
+    }
+
+    if exact_targets.is_empty() {
+        return Ok(());
+    }
+
+    match &img {
+        OpenOpticalImage::Udf(udf) => {
+            if let Ok(root) = udf.root_dir() {
+                let _ = extract_selective_udf_recursive(udf, &root, "", destination, &exact_targets, &dir_prefixes);
+            }
+        }
+        OpenOpticalImage::Iso9660(iso) => {
+            let root = iso.root_dir();
+            let root_dir = root.iter(iso);
+            let _ = extract_selective_iso_recursive(iso, &root_dir, "", destination, &exact_targets, &dir_prefixes);
+        }
+        _ => {}
     }
 
     Ok(())

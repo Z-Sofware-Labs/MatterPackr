@@ -1,5 +1,6 @@
-use super::models::{file_kind, resolve_output_path, ArchiveEntry, ConflictMode, EncryptionStatus};
+use super::models::{file_kind, ArchiveEntry, ConflictMode, ConflictResolver, EncryptionStatus};
 use std::{
+    collections::HashSet,
     fs::{self, File},
     io::{self, BufReader, Write},
     path::{Path, PathBuf},
@@ -115,6 +116,7 @@ pub fn extract_zip(path: &Path, destination: &Path, password: Option<&str>, mode
     let file = File::open(path)?;
     let reader = BufReader::with_capacity(128 * 1024, file);
     let mut archive = ZipArchive::new(reader).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    let mut conflict_resolver = ConflictResolver::new();
 
     for i in 0..archive.len() {
         let mut entry = match password {
@@ -133,7 +135,7 @@ pub fn extract_zip(path: &Path, destination: &Path, password: Option<&str>, mode
             if let Some(parent) = out.parent() {
                 fs::create_dir_all(parent)?;
             }
-            let resolved = resolve_output_path(&out, mode).ok_or_else(|| {
+            let resolved = conflict_resolver.resolve_path(&out, mode).ok_or_else(|| {
                 io::Error::new(io::ErrorKind::AlreadyExists, format!("File already exists: {}", out.display()))
             })?;
             let mut outfile = File::create(&resolved)?;
@@ -245,17 +247,23 @@ pub fn remove_from_zip(path: &Path, names: &[String]) -> Result<(), io::Error> {
     let mut writer = ZipWriter::new(output);
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
 
+    let exact_removals: HashSet<String> = names.iter().map(|n| n.trim_matches('/').to_string()).collect();
+    let dir_prefixes: Vec<String> = names.iter().map(|n| format!("{}/", n.trim_matches('/'))).collect();
+
     for i in 0..old.len() {
         let mut entry = old.by_index(i).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-        let name = entry.name().to_string();
-        if names.iter().any(|n| name == *n || name.starts_with(&format!("{}/", n.trim_end_matches('/')))) {
+        let raw_name = entry.name().to_string();
+        let trimmed_name = raw_name.trim_matches('/');
+
+        if exact_removals.contains(trimmed_name) || dir_prefixes.iter().any(|prefix| raw_name.starts_with(prefix)) {
             continue;
         }
+
         if entry.is_dir() {
-            writer.add_directory(name, options)
+            writer.add_directory(raw_name, options)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
         } else {
-            writer.start_file(name, options)
+            writer.start_file(raw_name, options)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
             io::copy(&mut entry, &mut writer)?;
         }

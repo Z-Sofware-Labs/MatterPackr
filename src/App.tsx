@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import matterpackrIcon from './assets/matterpackr-icon.png';
 import zSoftwareLabsIcon from './assets/z-software-labs-icon.svg';
@@ -23,7 +23,7 @@ import { attachConsole, error as logError, info as logInfo, warn as logWarn } fr
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   Archive, ChevronDown, ChevronRight, Download, Eye, FileClock, FilePlus, FileText, FolderOpen, FolderUp, Image, Info, LoaderCircle,
-  Minus, Moon, Package, Plus, Search, Settings, Shield, Square, Sun, Trash2, X, MoreHorizontal, RefreshCw, CheckCircle2, AlertCircle
+  Minus, Moon, Package, Plus, Search, Settings, Shield, Square, Sun, Trash2, X, MoreHorizontal, RefreshCw, CheckCircle2, AlertCircle, CheckSquare
 } from 'lucide-react';
 import { checkForAppUpdate, downloadAndInstallUpdate, type UpdateInfo } from './lib/updater';
 import type { ArchiveCapabilities, ArchiveEntry, ArchiveFormatInfo, ArchiveType, Compression, ConflictMode } from './lib/fileSystem';
@@ -52,31 +52,28 @@ const formatBytes = (bytes: number) => {
   return `${value.toFixed(value >= 10 ? 1 : 2)} ${units[i]}`;
 };
 
-const fileIcon = (name: string, kind: string, isDir: boolean) => {
-  if (isDir) return <FolderOpen size={18} className="text-yellow-500" />;
+const getFileIconSrc = (name: string): string | null => {
   const lower = name.toLowerCase();
-  const icon = lower.endsWith('.tar.gz') || lower.endsWith('.tgz') ? tgzIcon
-    : lower.endsWith('.tar.bz2') || lower.endsWith('.tbz2') ? tbz2Icon
-      : lower.endsWith('.tar.xz') || lower.endsWith('.txz') ? txzIcon
-        : lower.endsWith('.tar.zst') || lower.endsWith('.zst') ? archiveMasterIcon
-          : lower.endsWith('.zip') ? zipIcon
-            : lower.endsWith('.7z') ? sevenZipIcon
-              : lower.endsWith('.tar') ? tarIcon
-                : lower.endsWith('.gz') ? gzIcon
-                  : lower.endsWith('.bz2') ? bz2Icon
-                    : lower.endsWith('.rar') ? rarIcon
-                      : lower.endsWith('.cab') ? cabIcon
-                        : lower.endsWith('.iso') ? isoIcon
-                          : lower.endsWith('.img') ? imgIcon
-                            : lower.endsWith('.cpio') ? cpioIcon
-                              : lower.endsWith('.ar') || lower.endsWith('.a') ? arIcon
-                                : lower.endsWith('.bin') || lower.endsWith('.cue') || lower.endsWith('.mdf') || lower.endsWith('.mds') ? diskMasterIcon
-                                  : null;
-  if (icon) return <img src={icon} alt="" className="filetype-icon" />;
-  return kind === 'Image' ? <Image size={18} className="text-purple-500" /> : <FileText size={18} className="text-blue-500" />;
+  if (lower.endsWith('.tar.gz') || lower.endsWith('.tgz')) return tgzIcon;
+  if (lower.endsWith('.tar.bz2') || lower.endsWith('.tbz2')) return tbz2Icon;
+  if (lower.endsWith('.tar.xz') || lower.endsWith('.txz')) return txzIcon;
+  if (lower.endsWith('.tar.zst') || lower.endsWith('.zst')) return archiveMasterIcon;
+  if (lower.endsWith('.zip')) return zipIcon;
+  if (lower.endsWith('.7z')) return sevenZipIcon;
+  if (lower.endsWith('.tar')) return tarIcon;
+  if (lower.endsWith('.gz')) return gzIcon;
+  if (lower.endsWith('.bz2')) return bz2Icon;
+  if (lower.endsWith('.rar')) return rarIcon;
+  if (lower.endsWith('.cab')) return cabIcon;
+  if (lower.endsWith('.iso')) return isoIcon;
+  if (lower.endsWith('.img')) return imgIcon;
+  if (lower.endsWith('.cpio')) return cpioIcon;
+  if (lower.endsWith('.ar') || lower.endsWith('.a')) return arIcon;
+  if (lower.endsWith('.bin') || lower.endsWith('.cue') || lower.endsWith('.mdf') || lower.endsWith('.mds')) return diskMasterIcon;
+  return null;
 };
 
-const isMac = navigator.platform.toLowerCase().includes('mac');
+const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
 export const SUPPORTED_ASSOCIATIONS = [
   { ext: 'zip', name: 'ZIP Archive', extLabel: '.zip', icon: zipIcon },
@@ -95,7 +92,6 @@ export const SUPPORTED_ASSOCIATIONS = [
   { ext: 'ar', name: 'UNIX Archive', extLabel: '.ar', icon: arIcon },
 ];
 
-
 type TreeNode = {
   name: string;
   path: string;
@@ -104,11 +100,18 @@ type TreeNode = {
   children: TreeNode[];
 };
 
+type ArchiveTreeIndex = {
+  roots: TreeNode[];
+  byPath: Map<string, TreeNode>;
+  flatList: TreeNode[];
+};
+
 const normalizeArchivePath = (value: string) => value.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 
-function buildArchiveTree(entries: ArchiveEntry[]): TreeNode[] {
+function buildArchiveTreeAndIndex(entries: ArchiveEntry[]): ArchiveTreeIndex {
   const roots: TreeNode[] = [];
   const byPath = new Map<string, TreeNode>();
+  const flatList: TreeNode[] = [];
 
   const ensureDirectory = (parts: string[]) => {
     let parentChildren = roots;
@@ -121,6 +124,7 @@ function buildArchiveTree(entries: ArchiveEntry[]): TreeNode[] {
         node = { name: part, path: currentPath, isDir: true, children: [] };
         byPath.set(currentPath, node);
         parentChildren.push(node);
+        flatList.push(node);
       }
       parentChildren = node.children;
     }
@@ -140,34 +144,18 @@ function buildArchiveTree(entries: ArchiveEntry[]): TreeNode[] {
       node = { name, path, isDir: entry.isDir, entry, children: [] };
       byPath.set(path, node);
       children.push(node);
+      flatList.push(node);
     } else {
       node.isDir = entry.isDir || node.isDir;
       node.entry = entry;
     }
   }
 
-  return roots;
+  return { roots, byPath, flatList };
 }
 
-function findNode(nodes: TreeNode[], path: string): TreeNode | null {
-  for (const node of nodes) {
-    if (node.path === path) return node;
-    const child = findNode(node.children, path);
-    if (child) return child;
-  }
-  return null;
-}
-
-function nodeMatchesQuery(node: TreeNode, query: string): boolean {
-  if (!query) return true;
-  const needle = query.toLowerCase();
-  return node.name.toLowerCase().includes(needle)
-    || node.path.toLowerCase().includes(needle)
-    || node.children.some(child => nodeMatchesQuery(child, query));
-}
-
-function sortTree(nodes: TreeNode[], sortConfig: { key: SortKey; direction: 'asc' | 'desc' } | null): TreeNode[] {
-  const sorted = [...nodes].sort((a, b) => {
+function sortNodes(nodes: TreeNode[], sortConfig: { key: SortKey; direction: 'asc' | 'desc' } | null): TreeNode[] {
+  return [...nodes].sort((a, b) => {
     if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
     if (!sortConfig) return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
     const av = a.entry?.[sortConfig.key];
@@ -187,22 +175,6 @@ function sortTree(nodes: TreeNode[], sortConfig: { key: SortKey; direction: 'asc
     if (aValue === bValue) return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
     return (aValue < bValue ? -1 : 1) * (sortConfig.direction === 'asc' ? 1 : -1);
   });
-  return sorted.map(node => ({ ...node, children: sortTree(node.children, sortConfig) }));
-}
-
-function flattenMatchingNodes(nodes: TreeNode[], query: string): TreeNode[] {
-  const needle = query.toLowerCase();
-  const results: TreeNode[] = [];
-  function walk(items: TreeNode[]) {
-    for (const item of items) {
-      if (item.name.toLowerCase().includes(needle) || item.path.toLowerCase().includes(needle)) {
-        results.push(item);
-      }
-      walk(item.children);
-    }
-  }
-  walk(nodes);
-  return results;
 }
 
 export default function App() {
@@ -211,6 +183,24 @@ export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
+  const [showCheckboxes, setShowCheckboxes] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('matterpackr.showCheckboxes');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleShowCheckboxes = useCallback(() => {
+    setShowCheckboxes(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('matterpackr.showCheckboxes', JSON.stringify(next));
+      } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
   const [activeModal, setActiveModal] = useState<'new' | 'options' | 'about' | 'extract' | 'update' | null>(null);
   const [showLogs, setShowLogs] = useState(false);
@@ -345,15 +335,24 @@ export default function App() {
     } catch { /* logging must never interrupt an archive operation */ }
   };
 
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, 120);
+    return () => clearTimeout(handler);
+  }, [query]);
+
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+
   const createFormats = useMemo(() => formatCatalog.filter(format => format.canCreate), [formatCatalog]);
   const extractFormats = useMemo(() => formatCatalog.filter(format => format.canExtract && format.implemented), [formatCatalog]);
   const plannedExtractOnlyFormats = useMemo(() => formatCatalog.filter(format => !format.implemented && !format.canCreate && !format.canAdd && !format.canRemove), [formatCatalog]);
   const selectedCreateFormat = useMemo(() => formatCatalog.find(format => format.id === archiveType), [formatCatalog, archiveType]);
 
-  const archiveTree = useMemo(() => {
-    const tree = buildArchiveTree(files);
-    return sortTree(tree, sortConfig);
-  }, [files, sortConfig]);
+  const { roots: archiveTree, byPath: nodeByPath, flatList: allArchiveNodes } = useMemo(() => {
+    return buildArchiveTreeAndIndex(files);
+  }, [files]);
 
   const archiveFileName = useMemo(() => {
     if (!archivePath) return '';
@@ -367,18 +366,21 @@ export default function App() {
 
   const currentDirectoryNode = useMemo(() => {
     if (!currentPath) return null;
-    return findNode(archiveTree, currentPath);
-  }, [archiveTree, currentPath]);
+    return nodeByPath.get(currentPath) ?? null;
+  }, [nodeByPath, currentPath]);
 
   const currentItems = useMemo(() => {
-    if (query.trim()) {
-      return flattenMatchingNodes(archiveTree, query.trim());
+    let items: TreeNode[];
+    if (debouncedQuery) {
+      const needle = debouncedQuery.toLowerCase();
+      items = allArchiveNodes.filter(n => n.name.toLowerCase().includes(needle) || n.path.toLowerCase().includes(needle));
+    } else if (!currentPath) {
+      items = archiveTree;
+    } else {
+      items = currentDirectoryNode ? currentDirectoryNode.children : [];
     }
-    if (!currentPath) {
-      return archiveTree;
-    }
-    return currentDirectoryNode ? currentDirectoryNode.children : [];
-  }, [archiveTree, currentPath, currentDirectoryNode, query]);
+    return sortNodes(items, sortConfig);
+  }, [debouncedQuery, allArchiveNodes, currentPath, archiveTree, currentDirectoryNode, sortConfig]);
 
   const navigateUp = () => {
     if (!currentPath) return;
@@ -398,6 +400,45 @@ export default function App() {
     void handleView(node.path);
   };
 
+  const currentItemsRef = useRef(currentItems);
+  useEffect(() => {
+    currentItemsRef.current = currentItems;
+  }, [currentItems]);
+
+  const currentPathRef = useRef(currentPath);
+  useEffect(() => {
+    currentPathRef.current = currentPath;
+  }, [currentPath]);
+
+  const debouncedQueryRef = useRef(debouncedQuery);
+  useEffect(() => {
+    debouncedQueryRef.current = debouncedQuery;
+  }, [debouncedQuery]);
+
+  const ROW_HEIGHT = 36;
+  const rafSelectionRef = useRef<number | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(600);
+
+  const onTableScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  }, []);
+
+  useEffect(() => {
+    if (tableWrapRef.current) {
+      setViewportHeight(tableWrapRef.current.clientHeight || 600);
+      const resizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          if (entry.contentRect.height > 0) {
+            setViewportHeight(entry.contentRect.height);
+          }
+        }
+      });
+      resizeObserver.observe(tableWrapRef.current);
+      return () => resizeObserver.disconnect();
+    }
+  }, []);
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent | globalThis.MouseEvent) => {
       if (!isMouseDownRef.current || !mouseDownPosRef.current || !tableWrapRef.current) return;
@@ -414,56 +455,75 @@ export default function App() {
         }
       }
 
-      const rect = tableWrapRef.current.getBoundingClientRect();
-      const headerElem = tableWrapRef.current.querySelector<HTMLElement>('.table-head');
-      const headerHeight = headerElem ? headerElem.offsetHeight : 0;
-      const minContentY = tableWrapRef.current.scrollTop + headerHeight;
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+      const shiftKey = e.shiftKey;
+      const ctrlKey = e.ctrlKey;
+      const metaKey = e.metaKey;
 
-      const rawStartY = mouseDownPosRef.current.clientY - rect.top + tableWrapRef.current.scrollTop;
-      const rawCurrentY = e.clientY - rect.top + tableWrapRef.current.scrollTop;
+      if (rafSelectionRef.current !== null) {
+        cancelAnimationFrame(rafSelectionRef.current);
+      }
 
-      const startX = mouseDownPosRef.current.clientX - rect.left + tableWrapRef.current.scrollLeft;
-      const startY = Math.max(minContentY, rawStartY);
-      const currentX = e.clientX - rect.left + tableWrapRef.current.scrollLeft;
-      const currentY = Math.max(minContentY, rawCurrentY);
+      rafSelectionRef.current = requestAnimationFrame(() => {
+        rafSelectionRef.current = null;
+        if (!isMouseDownRef.current || !mouseDownPosRef.current || !tableWrapRef.current) return;
 
-      setSelectionBox({ startX, startY, currentX, currentY });
+        const wrap = tableWrapRef.current;
+        const rect = wrap.getBoundingClientRect();
+        const headerElem = wrap.querySelector<HTMLElement>('.table-head');
+        const headerHeight = headerElem ? headerElem.offsetHeight : 0;
+        const minContentY = wrap.scrollTop + headerHeight;
 
-      // Calculate bounding box in viewport coordinates for row intersection check
-      const headerBottom = headerElem ? headerElem.getBoundingClientRect().bottom : rect.top;
-      const boxLeft = Math.min(mouseDownPosRef.current.clientX, e.clientX);
-      const boxTop = Math.max(headerBottom, Math.min(mouseDownPosRef.current.clientY, e.clientY));
-      const boxRight = Math.max(mouseDownPosRef.current.clientX, e.clientX);
-      const boxBottom = Math.max(headerBottom, Math.max(mouseDownPosRef.current.clientY, e.clientY));
+        const rawStartY = mouseDownPosRef.current.clientY - rect.top + wrap.scrollTop;
+        const rawCurrentY = clientY - rect.top + wrap.scrollTop;
 
-      const rows = tableWrapRef.current.querySelectorAll<HTMLTableRowElement>('tr[data-entry-path]');
-      const intersectingPaths: string[] = [];
+        const startX = mouseDownPosRef.current.clientX - rect.left + wrap.scrollLeft;
+        const startY = Math.max(minContentY, rawStartY);
+        const currentX = clientX - rect.left + wrap.scrollLeft;
+        const currentY = Math.max(minContentY, rawCurrentY);
 
-      rows.forEach(row => {
-        const path = row.getAttribute('data-entry-path');
-        if (!path) return;
-        const rowRect = row.getBoundingClientRect();
-        // Check intersection
-        if (
-          rowRect.left < boxRight &&
-          rowRect.right > boxLeft &&
-          rowRect.top < boxBottom &&
-          rowRect.bottom > boxTop
-        ) {
-          intersectingPaths.push(path);
+        setSelectionBox({ startX, startY, currentX, currentY });
+
+        // Calculate affected rows mathematically using row height
+        const boxTopY = Math.min(startY, currentY) - headerHeight;
+        const boxBottomY = Math.max(startY, currentY) - headerHeight;
+        const items = currentItemsRef.current;
+
+        // If in a subfolder and not searching, the first row (ROW_HEIGHT) is the '..' parent folder row
+        const hasUpRow = Boolean(currentPathRef.current && !debouncedQueryRef.current);
+        const upRowOffset = hasUpRow ? ROW_HEIGHT : 0;
+
+        const adjustedTopY = Math.max(0, boxTopY - upRowOffset);
+        const adjustedBottomY = Math.max(0, boxBottomY - upRowOffset);
+
+        const intersectingPaths: string[] = [];
+        if (boxBottomY >= upRowOffset && items.length > 0) {
+          const startRowIdx = Math.max(0, Math.floor(adjustedTopY / ROW_HEIGHT));
+          const endRowIdx = Math.min(items.length - 1, Math.floor(adjustedBottomY / ROW_HEIGHT));
+
+          if (endRowIdx >= startRowIdx && startRowIdx < items.length) {
+            for (let i = startRowIdx; i <= endRowIdx; i++) {
+              intersectingPaths.push(items[i].path);
+            }
+          }
+        }
+
+        const isModifier = shiftKey || ctrlKey || metaKey;
+        if (isModifier) {
+          const combined = new Set([...initialSelectionRef.current, ...intersectingPaths]);
+          setSelected(Array.from(combined));
+        } else {
+          setSelected(intersectingPaths);
         }
       });
-
-      const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
-      if (isModifier) {
-        const combined = new Set([...initialSelectionRef.current, ...intersectingPaths]);
-        setSelected(Array.from(combined));
-      } else {
-        setSelected(intersectingPaths);
-      }
     };
 
     const handleMouseUp = () => {
+      if (rafSelectionRef.current !== null) {
+        cancelAnimationFrame(rafSelectionRef.current);
+        rafSelectionRef.current = null;
+      }
       if (isMouseDownRef.current) {
         isMouseDownRef.current = false;
         mouseDownPosRef.current = null;
@@ -472,7 +532,6 @@ export default function App() {
           if (tableWrapRef.current) {
             tableWrapRef.current.classList.remove('is-selecting');
           }
-          // Defer clearing flag slightly so that any click event resulting from mouseup is ignored
           setTimeout(() => {
             isBoxSelectingRef.current = false;
           }, 50);
@@ -483,16 +542,17 @@ export default function App() {
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     return () => {
+      if (rafSelectionRef.current !== null) {
+        cancelAnimationFrame(rafSelectionRef.current);
+      }
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, []);
 
   const handleTableWrapMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    // Only primary mouse button (0)
     if (e.button !== 0) return;
 
-    // Ignore interactive targets (input, button, select, links)
     const target = e.target as HTMLElement;
     if (
       target.closest('input') ||
@@ -507,12 +567,10 @@ export default function App() {
       return;
     }
 
-    // If clicking directly on a row that is ALREADY selected, do not start selection box
-    // so dragging rows to desktop or another app works smoothly.
     const fileRow = target.closest('.file-row') as HTMLElement | null;
     if (fileRow) {
       const rowPath = fileRow.getAttribute('data-entry-path');
-      if (rowPath && selected.includes(rowPath)) {
+      if (rowPath && selectedSet.has(rowPath)) {
         return;
       }
     }
@@ -541,7 +599,7 @@ export default function App() {
     archivePath,
     canAdd: !!capabilities?.canAdd,
     selected,
-    archiveTree,
+    nodeByPath,
     currentPath,
     compression,
     openPassword,
@@ -551,12 +609,12 @@ export default function App() {
       archivePath,
       canAdd: !!capabilities?.canAdd,
       selected,
-      archiveTree,
+      nodeByPath,
       currentPath,
       compression,
       openPassword,
     };
-  }, [archivePath, capabilities, selected, archiveTree, currentPath, compression, openPassword]);
+  }, [archivePath, capabilities, selected, nodeByPath, currentPath, compression, openPassword]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -592,11 +650,10 @@ export default function App() {
         const droppedPaths = payload.paths;
         if (!droppedPaths || droppedPaths.length === 0) return;
 
-        // Determine active target directory inside the archive
-        const { selected: sel, archiveTree: tree, currentPath: curPath, compression: comp, openPassword: pwd } = dropStateRef.current;
+        const { selected: sel, nodeByPath: byPath, currentPath: curPath, compression: comp, openPassword: pwd } = dropStateRef.current;
         let targetDir: string | undefined = curPath || undefined;
         if (sel.length === 1) {
-          const selectedNode = findNode(tree, sel[0]);
+          const selectedNode = byPath.get(sel[0]);
           if (selectedNode) {
             targetDir = selectedNode.isDir ? selectedNode.path : selectedNode.path.substring(0, selectedNode.path.lastIndexOf('/'));
           }
@@ -964,8 +1021,8 @@ export default function App() {
     ...node.children.flatMap(collectNodePaths),
   ];
 
-  const toggleSelected = (path: string) => setSelected(current => {
-    const node = findNode(archiveTree, path);
+  const toggleSelected = useCallback((path: string) => setSelected(current => {
+    const node = nodeByPath.get(path);
     if (!node) {
       return current.includes(path)
         ? current.filter(x => x !== path)
@@ -980,15 +1037,15 @@ export default function App() {
     }
 
     return [...current.filter(item => !paths.includes(item)), ...paths];
-  });
+  }), [nodeByPath]);
 
-  const handleRowSelect = (path: string, _event: MouseEvent<HTMLTableRowElement>) => {
+  const handleRowSelect = useCallback((path: string, _event: MouseEvent<HTMLTableRowElement>) => {
     setContextMenu(null);
     if (isBoxSelectingRef.current) return;
     toggleSelected(path);
-  };
+  }, [toggleSelected]);
 
-  const handleDragStart = async (draggedPath: string, event: React.DragEvent<HTMLTableRowElement>) => {
+  const handleDragStart = useCallback(async (draggedPath: string, event: React.DragEvent<HTMLTableRowElement>) => {
     if (!archivePath) return;
     event.preventDefault(); // Prevent default browser drag ghosting so native OS drag takes over
 
@@ -1031,12 +1088,12 @@ export default function App() {
         await appendLog('error', `Drag extraction failed: ${text}`);
       }
     }
-  };
+  }, [archivePath, selected, openPassword]);
 
-  const handleContextMenu = (path: string, event: MouseEvent<HTMLTableRowElement>) => {
+  const handleContextMenu = useCallback((path: string, event: MouseEvent<HTMLTableRowElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!selected.includes(path)) setSelected([path]);
+    if (!selectedSet.has(path)) setSelected([path]);
     const menuWidth = 190;
     const menuHeight = 170;
     setContextMenu({
@@ -1044,13 +1101,13 @@ export default function App() {
       y: Math.min(event.clientY, window.innerHeight - menuHeight - 8),
       path,
     });
-  };
+  }, [selectedSet]);
 
   const handleView = async (pathOverride?: string) => {
     setContextMenu(null);
     const path = pathOverride ?? (selected.length === 1 ? selected[0] : null);
     if (!path || !archivePath) return;
-    const node = findNode(archiveTree, path);
+    const node = nodeByPath.get(path);
     if (!node || !node.entry || node.entry.isDir) return;
     await appendLog('info', `View requested: ${node.path}`);
     try {
@@ -1155,7 +1212,7 @@ export default function App() {
               <ToolButton icon={<FolderOpen />} label="Open" onClick={handleOpen} />
               <ToolButton icon={<Plus />} label="Add" onClick={handleAdd} disabled={!archivePath || !!capabilities && !capabilities.canAdd} />
               <ToolButton icon={<Download />} label="Extract" onClick={handleExtract} disabled={!!archivePath && !!capabilities && !capabilities.canExtract} />
-              <ToolButton icon={<Eye />} label="View" onClick={() => void handleView()} disabled={!archivePath || selected.length !== 1 || !!findNode(archiveTree, selected[0])?.entry?.isDir || (!!capabilities && !capabilities.canView)} />
+              <ToolButton icon={<Eye />} label="View" onClick={() => void handleView()} disabled={!archivePath || selected.length !== 1 || !!nodeByPath.get(selected[0])?.entry?.isDir || (!!capabilities && !capabilities.canView)} />
               <ToolButton icon={<Package />} label="Check" onClick={async () => { if (!archivePath) { setMessage('No archive open'); return; } await run(async () => { await testArchive(archivePath); }, 'Archive check passed'); }} disabled={!archivePath || !!capabilities && !capabilities.canTest} />
               <ToolButton icon={<Trash2 />} label="Remove" disabled={!selected.length || !!capabilities && !capabilities.canRemove} onClick={handleDelete} />
             </div>
@@ -1220,6 +1277,7 @@ export default function App() {
           <div
             ref={tableWrapRef}
             className="table-wrap"
+            onScroll={onTableScroll}
             onMouseDown={handleTableWrapMouseDown}
           >
             {selectionBox && (
@@ -1236,7 +1294,7 @@ export default function App() {
             <table className="w-full text-left border-collapse">
               <thead className="table-head">
                 <tr>
-                  <th className="p-2 w-8"></th>
+                  {showCheckboxes && <th className="p-2 w-8"></th>}
                   {([['name', 'Name'], ['kind', 'Type'], ['modified', 'Modified'], ['size', 'Size'], ['compressedSize', 'Packed']] as [SortKey, string][]).map(([key, label]) => (
                     <th key={key} className="p-2 font-medium cursor-pointer" onClick={() => handleSort(key)}>{label}</th>
                   ))}
@@ -1251,11 +1309,14 @@ export default function App() {
                     onClick={() => { setContextMenu(null); setSelected([]); }}
                     title="Parent folder (Double-click or Backspace to go up)"
                   >
-                    <td className="p-2 text-center">
-                      <FolderUp size={16} className="text-blue-400 inline-block opacity-80" />
-                    </td>
+                    {showCheckboxes && (
+                      <td className="p-2 text-center">
+                        <FolderUp size={16} className="text-blue-400 inline-block opacity-80" />
+                      </td>
+                    )}
                     <td className="p-2 font-medium text-gray-800 dark:text-gray-200">
                       <span className="flex items-center gap-2">
+                        {!showCheckboxes && <FolderUp size={16} className="text-blue-400 inline-block opacity-80" />}
                         <span className="font-bold text-sm">..</span>
                       </span>
                     </td>
@@ -1266,19 +1327,47 @@ export default function App() {
                     <td className="p-2 text-gray-500 dark:text-gray-400">—</td>
                   </tr>
                 )}
-                {currentItems.map(node => (
-                  <ArchiveItemRow
-                    key={node.path}
-                    node={node}
-                    showFullPath={!!query.trim()}
-                    selected={selected}
-                    onToggleSelected={toggleSelected}
-                    onRowSelect={handleRowSelect}
-                    onDragStart={handleDragStart}
-                    onDoubleClick={handleItemDoubleClick}
-                    onContextMenu={handleContextMenu}
-                  />
-                ))}
+                {(() => {
+                  const totalCount = currentItems.length;
+                  const itemHeight = ROW_HEIGHT;
+                  const overscan = 15;
+                  const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
+                  const endIndex = Math.min(totalCount, Math.ceil((scrollTop + viewportHeight) / itemHeight) + overscan);
+
+                  const topSpacerHeight = startIndex * itemHeight;
+                  const bottomSpacerHeight = (totalCount - endIndex) * itemHeight;
+                  const visibleItems = currentItems.slice(startIndex, endIndex);
+                  const tableColSpan = showCheckboxes ? 7 : 6;
+
+                  return (
+                    <>
+                      {topSpacerHeight > 0 && (
+                        <tr style={{ height: `${topSpacerHeight}px` }} aria-hidden="true">
+                          <td colSpan={tableColSpan} style={{ padding: 0, border: 0 }} />
+                        </tr>
+                      )}
+                      {visibleItems.map(node => (
+                        <ArchiveItemRow
+                          key={node.path}
+                          node={node}
+                          showFullPath={!!query.trim()}
+                          showCheckbox={showCheckboxes}
+                          isSelected={selectedSet.has(node.path)}
+                          onToggleSelected={toggleSelected}
+                          onRowSelect={handleRowSelect}
+                          onDragStart={handleDragStart}
+                          onDoubleClick={handleItemDoubleClick}
+                          onContextMenu={handleContextMenu}
+                        />
+                      ))}
+                      {bottomSpacerHeight > 0 && (
+                        <tr style={{ height: `${bottomSpacerHeight}px` }} aria-hidden="true">
+                          <td colSpan={tableColSpan} style={{ padding: 0, border: 0 }} />
+                        </tr>
+                      )}
+                    </>
+                  );
+                })()}
               </tbody>
             </table>
             {!currentItems.length && !currentPath && <div className="empty-state">
@@ -1314,7 +1403,7 @@ export default function App() {
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onContextMenu={event => event.preventDefault()}
           >
-            <button onClick={() => void handleView()} disabled={selected.length !== 1 || !findNode(archiveTree, selected[0])?.entry || !!findNode(archiveTree, selected[0])?.entry?.isDir || (!!capabilities && !capabilities.canView)}>
+            <button onClick={() => void handleView()} disabled={selected.length !== 1 || !nodeByPath.get(selected[0])?.entry || !!nodeByPath.get(selected[0])?.entry?.isDir || (!!capabilities && !capabilities.canView)}>
               <Eye size={15} /> View
             </button>
             <button onClick={() => void handleContextExtract()} disabled={!archivePath || !capabilities?.canExtract}>
@@ -1326,6 +1415,9 @@ export default function App() {
             <div className="context-divider" />
             <button onClick={() => { setSelected(currentItems.map(node => node.path)); setContextMenu(null); }}>
               <MoreHorizontal size={15} /> Select all
+            </button>
+            <button onClick={() => { toggleShowCheckboxes(); setContextMenu(null); }}>
+              <CheckSquare size={15} /> {showCheckboxes ? 'Hide checkboxes' : 'Show checkboxes'}
             </button>
           </div>
         )}
@@ -1416,8 +1508,8 @@ export default function App() {
           <div className="bg-gray-900/90 text-white px-5 py-3 rounded-xl shadow-2xl border border-blue-500/40 flex items-center gap-3">
             <Plus size={22} className="text-blue-400 animate-pulse" />
             <span className="font-semibold text-sm">
-              {selected.length === 1 && findNode(archiveTree, selected[0])?.isDir
-                ? `Drop to add files to /${findNode(archiveTree, selected[0])?.path}`
+              {selected.length === 1 && nodeByPath.get(selected[0])?.isDir
+                ? `Drop to add files to /${nodeByPath.get(selected[0])?.path}`
                 : currentPath ? `Drop to add files to /${currentPath}` : 'Drop to add files to archive root'}
             </span>
           </div>
@@ -1503,12 +1595,12 @@ export default function App() {
         </div>
       </Modal>}
 
-      {activeModal === 'options' && <Modal title="Options" maxWidth="max-w-lg" close={() => setActiveModal(null)}>
-        <div className="space-y-4">
+      {activeModal === 'options' && <Modal title="Options" maxWidth="max-w-md" padding="p-4 sm:p-5" close={() => setActiveModal(null)}>
+        <div className="space-y-3">
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">File Associations</h3>
-              <div className="flex gap-2">
+            <div className="flex items-center justify-between mb-0.5">
+              <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-700 dark:text-gray-300">File Associations</h3>
+              <div className="flex items-center gap-1.5 text-[11px]">
                 <button
                   type="button"
                   onClick={() => {
@@ -1516,11 +1608,11 @@ export default function App() {
                     SUPPORTED_ASSOCIATIONS.forEach(a => { all[a.ext] = true; });
                     setFileAssociations(all);
                   }}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Select All
                 </button>
-                <span className="text-gray-300 dark:text-gray-600">|</span>
+                <span className="text-gray-300 dark:text-gray-600">·</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -1528,28 +1620,28 @@ export default function App() {
                     SUPPORTED_ASSOCIATIONS.forEach(a => { none[a.ext] = false; });
                     setFileAssociations(none);
                   }}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Deselect All
                 </button>
               </div>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              Configure your system file manager to open supported archive and disk image formats with MatterPackr:
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2 leading-tight">
+              Select formats to open by default in MatterPackr:
             </p>
 
-            <div className="associations-container grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1 p-2 rounded-lg">
+            <div className="associations-container grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1 p-1.5 rounded-lg">
               {SUPPORTED_ASSOCIATIONS.map(item => (
-                <label key={item.ext} className="associations-item flex items-center gap-2 text-xs p-2 rounded-lg cursor-pointer transition-colors">
+                <label key={item.ext} className="associations-item flex items-center gap-1.5 text-xs py-1 px-2 rounded-md cursor-pointer transition-colors">
                   <input
                     type="checkbox"
-                    className="rounded text-blue-600 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600"
+                    className="rounded text-blue-600 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 scale-90"
                     checked={!!fileAssociations[item.ext]}
                     onChange={e => setFileAssociations(prev => ({ ...prev, [item.ext]: e.target.checked }))}
                   />
-                  <div className="flex items-baseline gap-1.5 truncate">
-                    <span className="ext-name font-semibold">{item.extLabel}</span>
-                    <span className="desc-name text-[11px] truncate">({item.name})</span>
+                  <div className="flex items-baseline gap-1 truncate">
+                    <span className="ext-name font-semibold text-[11px]">{item.extLabel}</span>
+                    <span className="desc-name text-[10px] truncate opacity-80">({item.name})</span>
                   </div>
                 </label>
               ))}
@@ -1557,28 +1649,44 @@ export default function App() {
           </div>
 
           {assocStatus && (
-            <div className={`p-2.5 rounded-lg text-xs flex items-center gap-2 ${assocStatus.type === 'success'
+            <div className={`p-2 rounded-lg text-xs flex items-center gap-2 ${assocStatus.type === 'success'
               ? 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300 border border-green-200 dark:border-green-800'
               : assocStatus.type === 'error'
                 ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800'
                 : 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
               }`}>
-              <Shield size={14} className="shrink-0" />
-              <span>{assocStatus.message}</span>
+              <Shield size={13} className="shrink-0" />
+              <span className="text-[11px]">{assocStatus.message}</span>
             </div>
           )}
 
-          <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex flex-col gap-2">
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700/80">
+            <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-700 dark:text-gray-300 mb-1">View & Selection</h3>
+            <label className="flex items-center gap-2.5 text-xs py-1.5 px-2 rounded-lg cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+              <input
+                type="checkbox"
+                className="rounded text-blue-600 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600"
+                checked={showCheckboxes}
+                onChange={toggleShowCheckboxes}
+              />
+              <div className="flex flex-col">
+                <span className="font-medium text-gray-800 dark:text-gray-200 text-xs">Show selection checkboxes</span>
+                <span className="text-[10px] text-gray-500 dark:text-gray-400">Display checkbox column in the file list for click-to-check selection.</span>
+              </div>
+            </label>
+          </div>
+
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700/80 flex flex-col gap-1.5">
             <button
               onClick={handleApplyAssociations}
               disabled={savingAssoc || busy}
-              className="w-full flex items-center justify-center gap-2 p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-xs transition-colors shadow-sm disabled:opacity-50"
             >
-              <Shield size={16} />
+              <Shield size={14} />
               <span>{savingAssoc ? 'Applying File Associations...' : 'Apply File Associations'}</span>
             </button>
-            <p className="text-[11px] text-center text-gray-500 dark:text-gray-400">
-              Administrative elevation or privileges may be required to apply system-wide changes.
+            <p className="text-[10px] text-center text-gray-500 dark:text-gray-400 leading-tight">
+              Administrative elevation may be required to apply system-wide changes.
             </p>
           </div>
         </div>
@@ -1858,10 +1966,11 @@ export default function App() {
 }
 
 
-function ArchiveItemRow({
+const ArchiveItemRow = memo(function ArchiveItemRow({
   node,
   showFullPath,
-  selected,
+  showCheckbox = true,
+  isSelected,
   onToggleSelected,
   onRowSelect,
   onDragStart,
@@ -1870,7 +1979,8 @@ function ArchiveItemRow({
 }: {
   node: TreeNode;
   showFullPath?: boolean;
-  selected: string[];
+  showCheckbox?: boolean;
+  isSelected: boolean;
   onToggleSelected: (path: string) => void;
   onRowSelect: (path: string, event: MouseEvent<HTMLTableRowElement>) => void;
   onDragStart: (path: string, event: React.DragEvent<HTMLTableRowElement>) => void;
@@ -1881,30 +1991,38 @@ function ArchiveItemRow({
   const size = entry?.size ?? 0;
   const packed = entry?.compressedSize ?? 0;
   const ratio = size ? Math.round((1 - packed / size) * 100) : 0;
-  const selectedHere = selected.includes(node.path);
+  const iconSrc = useMemo(() => getFileIconSrc(node.name), [node.name]);
+
+  const renderIcon = () => {
+    if (node.isDir) return <FolderOpen size={18} className="text-yellow-500" />;
+    if (iconSrc) return <img src={iconSrc} alt="" className="filetype-icon" />;
+    return entry?.kind === 'Image' ? <Image size={18} className="text-purple-500" /> : <FileText size={18} className="text-blue-500" />;
+  };
 
   return (
     <tr
-      className={`file-row ${selectedHere ? 'selected-row' : ''}`}
+      className={`file-row ${isSelected ? 'selected-row' : ''}`}
       data-entry-path={node.path}
-      draggable
+      draggable={isSelected}
       onDragStart={event => onDragStart(node.path, event)}
       onClick={event => onRowSelect(node.path, event)}
       onDoubleClick={() => onDoubleClick(node)}
       onContextMenu={event => onContextMenu(node.path, event)}
     >
-      <td className="p-2 text-center">
-        <input
-          type="checkbox"
-          checked={selectedHere}
-          onChange={() => onToggleSelected(node.path)}
-          onClick={event => event.stopPropagation()}
-          aria-label={`Select ${node.path}`}
-        />
-      </td>
+      {showCheckbox && (
+        <td className="p-2 text-center">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelected(node.path)}
+            onClick={event => event.stopPropagation()}
+            aria-label={`Select ${node.path}`}
+          />
+        </td>
+      )}
       <td className="p-2 font-medium text-gray-800 dark:text-gray-200">
         <span className="flex items-center gap-2">
-          <span className="file-tree-icon">{fileIcon(node.name, entry?.kind ?? 'Folder', node.isDir)}</span>
+          <span className="file-tree-icon">{renderIcon()}</span>
           <span className="truncate max-w-[420px]" title={node.path}>
             {showFullPath ? node.path : node.name}
           </span>
@@ -1917,20 +2035,34 @@ function ArchiveItemRow({
       <td className="p-2 text-gray-600 dark:text-gray-400">{node.isDir ? '—' : `${ratio}%`}</td>
     </tr>
   );
-}
+});
 
 function ToolButton({ icon, label, onClick, disabled }: { icon: ReactNode; label: string; onClick: () => void; disabled?: boolean }) {
   return <button disabled={disabled} onClick={onClick} className="tool-button" title={label}>{icon}<span>{label}</span></button>;
 }
 
-function Modal({ title, close, children, maxWidth = 'max-w-md', customHeader }: { title: string; close: () => void; children: ReactNode; maxWidth?: string; customHeader?: boolean }) {
+function Modal({
+  title,
+  close,
+  children,
+  maxWidth = 'max-w-md',
+  padding = 'p-6',
+  customHeader,
+}: {
+  title: string;
+  close: () => void;
+  children: ReactNode;
+  maxWidth?: string;
+  padding?: string;
+  customHeader?: boolean;
+}) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className={`modal-panel rounded-xl shadow-lg w-full ${maxWidth} p-6 relative`}>
+      <div className={`modal-panel rounded-xl shadow-lg w-full ${maxWidth} ${padding} relative`}>
         <button onClick={close} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 z-10">
           <X size={18} />
         </button>
-        {!customHeader && <h2 className="modal-title text-lg font-semibold mb-6 border-b pb-2">{title}</h2>}
+        {!customHeader && <h2 className="modal-title text-lg font-semibold mb-4 border-b pb-2">{title}</h2>}
         {children}
       </div>
     </div>

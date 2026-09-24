@@ -1,4 +1,4 @@
-use super::models::{file_kind, resolve_output_path, ArchiveEntry, ConflictMode};
+use super::models::{file_kind, resolve_output_path, ArchiveEntry, ConflictMode, ConflictResolver};
 use std::{
     fs::{self, File},
     io::{self, Read, Write},
@@ -36,18 +36,23 @@ fn copy_tree(src: &Path, dst: &Path) -> Result<(), io::Error> {
     Ok(())
 }
 
-fn copy_tree_with_conflict(src: &Path, dst: &Path, mode: &ConflictMode) -> Result<(), io::Error> {
+fn copy_tree_with_conflict(
+    src: &Path,
+    dst: &Path,
+    mode: &ConflictMode,
+    resolver: &mut ConflictResolver,
+) -> Result<(), io::Error> {
     if src.is_dir() {
         fs::create_dir_all(dst)?;
         for entry in fs::read_dir(src)? {
             let entry = entry?;
-            copy_tree_with_conflict(&entry.path(), &dst.join(entry.file_name()), mode)?;
+            copy_tree_with_conflict(&entry.path(), &dst.join(entry.file_name()), mode, resolver)?;
         }
     } else {
         if let Some(parent) = dst.parent() {
             fs::create_dir_all(parent)?;
         }
-        let resolved = resolve_output_path(dst, mode).ok_or_else(|| {
+        let resolved = resolver.resolve_path(dst, mode).ok_or_else(|| {
             io::Error::new(io::ErrorKind::AlreadyExists, format!("File already exists: {}", dst.display()))
         })?;
         fs::copy(src, &resolved)?;
@@ -225,6 +230,28 @@ pub fn inspect_via_libarchive(path: &Path) -> Result<Vec<ArchiveEntry>, io::Erro
 
 pub fn extract_via_libarchive(path: &Path, destination: &Path, mode: &ConflictMode) -> Result<(), io::Error> {
     fs::create_dir_all(destination)?;
+
+    // In Overwrite mode, extract directly into destination without staging
+    if matches!(mode, ConflictMode::Overwrite) {
+        let output = tar_cmd()
+            .arg("-xf")
+            .arg(path)
+            .arg("-C")
+            .arg(destination)
+            .output()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to run libarchive extraction: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("libarchive extraction error: {}", stderr.trim()),
+            ));
+        }
+        return Ok(());
+    }
+
+    let mut conflict_resolver = ConflictResolver::new();
     let stage = temp_workspace("extract-tar")?;
     let result = (|| {
         let output = tar_cmd()
@@ -242,7 +269,7 @@ pub fn extract_via_libarchive(path: &Path, destination: &Path, mode: &ConflictMo
                 format!("libarchive extraction error: {}", stderr.trim()),
             ));
         }
-        copy_tree_with_conflict(&stage, destination, mode)
+        copy_tree_with_conflict(&stage, destination, mode, &mut conflict_resolver)
     })();
     let _ = fs::remove_dir_all(&stage);
     result

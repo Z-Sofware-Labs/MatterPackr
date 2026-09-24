@@ -1,10 +1,11 @@
-use super::models::{file_kind, resolve_output_path, ArchiveEntry, ConflictMode, EncryptionStatus};
+use super::models::{file_kind, ArchiveEntry, ConflictMode, ConflictResolver, EncryptionStatus};
 use sevenz_rust2::{
     encoder_options::{AesEncoderOptions, Lzma2Options},
-    Archive as SevenZipArchive, ArchiveWriter as SevenZipWriter,
+    Archive as SevenZipArchive, ArchiveReader as SevenZipReader, ArchiveWriter as SevenZipWriter,
+    Password,
 };
 use std::{
-    fs,
+    fs::{self, File},
     io,
     path::{Path, PathBuf},
 };
@@ -36,18 +37,23 @@ fn copy_tree(src: &Path, dst: &Path) -> Result<(), io::Error> {
     Ok(())
 }
 
-fn copy_tree_with_conflict(src: &Path, dst: &Path, mode: &ConflictMode) -> Result<(), io::Error> {
+fn copy_tree_with_conflict(
+    src: &Path,
+    dst: &Path,
+    mode: &ConflictMode,
+    resolver: &mut ConflictResolver,
+) -> Result<(), io::Error> {
     if src.is_dir() {
         fs::create_dir_all(dst)?;
         for entry in fs::read_dir(src)? {
             let entry = entry?;
-            copy_tree_with_conflict(&entry.path(), &dst.join(entry.file_name()), mode)?;
+            copy_tree_with_conflict(&entry.path(), &dst.join(entry.file_name()), mode, resolver)?;
         }
     } else {
         if let Some(parent) = dst.parent() {
             fs::create_dir_all(parent)?;
         }
-        let resolved = resolve_output_path(dst, mode).ok_or_else(|| {
+        let resolved = resolver.resolve_path(dst, mode).ok_or_else(|| {
             io::Error::new(io::ErrorKind::AlreadyExists, format!("File already exists: {}", dst.display()))
         })?;
         fs::copy(src, &resolved)?;
@@ -125,6 +131,18 @@ pub fn inspect_7z(path: &Path) -> Result<Vec<ArchiveEntry>, io::Error> {
 
 pub fn extract_7z(path: &Path, output: &Path, password: Option<&str>, mode: &ConflictMode) -> Result<(), io::Error> {
     fs::create_dir_all(output)?;
+    let mut conflict_resolver = ConflictResolver::new();
+
+    // In Overwrite mode, extract directly into destination without staging
+    if matches!(mode, ConflictMode::Overwrite) {
+        let res = match password {
+            Some(pwd) => sevenz_rust2::decompress_file_with_password(path, output, pwd.into()),
+            None => sevenz_rust2::decompress_file(path, output),
+        };
+        return res.map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()));
+    }
+
+    // Otherwise stage and resolve conflicts efficiently
     let stage = temp_workspace("extract-7z")?;
     let result = (|| {
         match password {
@@ -133,7 +151,7 @@ pub fn extract_7z(path: &Path, output: &Path, password: Option<&str>, mode: &Con
             None => sevenz_rust2::decompress_file(path, &stage)
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
         }
-        copy_tree_with_conflict(&stage, output, mode)
+        copy_tree_with_conflict(&stage, output, mode, &mut conflict_resolver)
     })();
     let _ = fs::remove_dir_all(&stage);
     result
@@ -228,9 +246,38 @@ pub fn remove_from_7z(archive_path: &Path, names: &[String], password: Option<&s
     result
 }
 
+/// Inspect lightweight metadata/header to detect 7z encryption WITHOUT fully decompressing archive
 pub fn check_7z_encryption(path: &Path, password: Option<&str>) -> Result<EncryptionStatus, io::Error> {
-    let test_without_pwd = test_7z(path);
-    if test_without_pwd.is_ok() {
+    let file = File::open(path)?;
+    let pwd_struct = password.map(Password::from).unwrap_or_else(Password::empty);
+    let mut reader = match SevenZipReader::new(file, pwd_struct) {
+        Ok(r) => r,
+        Err(e) => {
+            let msg = e.to_string();
+            // If the header itself is encrypted, opening without password fails with password required/bad password
+            return Ok(EncryptionStatus {
+                is_encrypted: true,
+                password_valid: false,
+                error_message: Some(msg),
+            });
+        }
+    };
+
+    let mut is_encrypted = false;
+    for block in reader.archive().blocks.iter() {
+        for coder in block.coders.iter() {
+            // 7z AES encryption coder method ID is [0x06, 0xF1, 0x07, 0x01]
+            if coder.encoder_method_id() == [0x06, 0xF1, 0x07, 0x01].as_slice() {
+                is_encrypted = true;
+                break;
+            }
+        }
+        if is_encrypted {
+            break;
+        }
+    }
+
+    if !is_encrypted {
         return Ok(EncryptionStatus {
             is_encrypted: false,
             password_valid: true,
@@ -238,7 +285,7 @@ pub fn check_7z_encryption(path: &Path, password: Option<&str>) -> Result<Encryp
         });
     }
 
-    let pwd = match password {
+    let _pwd = match password {
         Some(p) if !p.is_empty() => p,
         _ => {
             return Ok(EncryptionStatus {
@@ -249,20 +296,45 @@ pub fn check_7z_encryption(path: &Path, password: Option<&str>) -> Result<Encryp
         }
     };
 
-    let stage = temp_workspace("check-7z")?;
-    let res = sevenz_rust2::decompress_file_with_password(path, &stage, pwd.into());
-    let _ = fs::remove_dir_all(&stage);
-    match res {
-        Ok(_) => Ok(EncryptionStatus {
-            is_encrypted: true,
-            password_valid: true,
-            error_message: None,
-        }),
-        Err(e) => Ok(EncryptionStatus {
+    // To verify the password for stream-encrypted 7z archives without decompressing the whole archive:
+    // Read just the first file with stream data using for_each_entries and stop immediately.
+    let mut verified = false;
+    let mut err_msg = None;
+
+    let res = reader.for_each_entries(|_entry, stream| {
+        let mut sample = [0u8; 64];
+        match stream.read(&mut sample) {
+            Ok(_) => {
+                verified = true;
+                Ok(false) // Stop reading after testing the first stream
+            }
+            Err(e) => {
+                err_msg = Some(e.to_string());
+                Ok(false)
+            }
+        }
+    });
+
+    if let Err(e) = res {
+        return Ok(EncryptionStatus {
             is_encrypted: true,
             password_valid: false,
             error_message: Some(format!("Invalid password: {}", e)),
-        }),
+        });
+    }
+
+    if verified && err_msg.is_none() {
+        Ok(EncryptionStatus {
+            is_encrypted: true,
+            password_valid: true,
+            error_message: None,
+        })
+    } else {
+        Ok(EncryptionStatus {
+            is_encrypted: true,
+            password_valid: false,
+            error_message: err_msg.or_else(|| Some("Invalid password".into())),
+        })
     }
 }
 

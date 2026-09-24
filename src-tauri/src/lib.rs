@@ -38,17 +38,6 @@ pub struct AppState {
     view_workspaces: Mutex<Vec<PathBuf>>,
 }
 
-fn temp_workspace(prefix: &str) -> Result<PathBuf, AppError> {
-    let mut path = std::env::temp_dir();
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    path.push(format!("matterpackr-{}-{}-{}", prefix, std::process::id(), stamp));
-    fs::create_dir_all(&path)?;
-    Ok(path)
-}
-
 fn safe_entry_path(entry: &str) -> Result<PathBuf, AppError> {
     let normalized = entry.replace('\\', "/");
     let path = Path::new(&normalized);
@@ -221,16 +210,14 @@ fn view_archive_entry(
     let archive = PathBuf::from(&archive_path);
     let _requested = safe_entry_path(&entry_path)?;
     info!("View requested: {} inside {}", entry_path, archive_path);
-    let workspace = temp_workspace("view")?;
-    info!("Created temporary View workspace: {}", workspace.display());
+
+    let (extracted_workspace, extracted) = backend::drag_extract::prepare_drag_extraction(
+        &archive,
+        &[entry_path.clone()],
+        password.as_deref(),
+    )?;
 
     let result = (|| {
-        let (_temp_holder, extracted) = backend::drag_extract::prepare_drag_extraction(
-            &archive,
-            &[entry_path.clone()],
-            password.as_deref(),
-        )?;
-
         let target = match extracted.first() {
             Some(p) => p.clone(),
             None => {
@@ -257,13 +244,13 @@ fn view_archive_entry(
 
     match result {
         Ok(()) => {
-            state.view_workspaces.lock().unwrap().push(workspace);
+            state.view_workspaces.lock().unwrap().push(extracted_workspace);
             info!("Temporary View workspace retained until MatterPackr exits");
             Ok(())
         }
         Err(error) => {
             error!("View failed for {}: {}", entry_path, error);
-            let _ = fs::remove_dir_all(&workspace);
+            let _ = fs::remove_dir_all(&extracted_workspace);
             Err(error)
         }
     }

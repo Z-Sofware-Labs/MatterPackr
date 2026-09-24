@@ -25,7 +25,7 @@ use std::{
 };
 
 pub use associations::{apply_associations_direct, get_registered_associations, trigger_elevated_associations, SUPPORTED_ASSOCIATIONS};
-pub use models::{capabilities_for_path, format_catalog, resolve_output_path, ArchiveCapabilities, ArchiveFormatInfo, ConflictMode, EncryptionStatus};
+pub use models::{capabilities_for_path, format_catalog, resolve_output_path, ArchiveCapabilities, ArchiveFormatInfo, ConflictMode, ConflictResolver, EncryptionStatus};
 
 pub fn check_encryption(path: &Path, password: Option<&str>) -> Result<EncryptionStatus, io::Error> {
     let format = format_from_path(path);
