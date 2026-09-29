@@ -142,6 +142,20 @@ export async function extractArchive(
   });
 }
 
+export async function extractArchiveEntries(
+  archivePath: string,
+  entryPaths: string[],
+  outputDir: string,
+  password?: string,
+): Promise<void> {
+  return invoke('extract_archive_entries', {
+    archivePath,
+    entryPaths,
+    outputDir,
+    password: password || null,
+  });
+}
+
 export async function removeEntries(archivePath: string, names: string[], compression: Compression, password?: string): Promise<ArchiveEntry[]> {
   return invoke('remove_entries', { archivePath, names, compression, password: password || null });
 }

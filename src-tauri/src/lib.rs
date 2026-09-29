@@ -144,6 +144,32 @@ fn extract_image(
 }
 
 #[tauri::command]
+fn extract_archive_entries(
+    archive_path: String,
+    entry_paths: Vec<String>,
+    output_dir: String,
+    password: Option<String>,
+) -> Result<(), AppError> {
+    info!(
+        "Extracting {} selected entries from {} to {}",
+        entry_paths.len(),
+        archive_path,
+        output_dir
+    );
+    let dest = backend::prepare_extraction_destination(
+        Path::new(&archive_path),
+        Path::new(&output_dir),
+    )?;
+    backend::drag_extract::extract_entries(
+        Path::new(&archive_path),
+        &entry_paths,
+        &dest,
+        password.as_deref(),
+    )
+    .map_err(AppError::from)
+}
+
+#[tauri::command]
 fn prepare_extraction_destination(archive_path: String, output_dir: String) -> Result<String, AppError> {
     let prepared = backend::prepare_extraction_destination(
         Path::new(&archive_path),
@@ -381,6 +407,7 @@ pub fn run() {
             add_files,
             extract_archive,
             extract_image,
+            extract_archive_entries,
             check_conflicts,
             prepare_extraction_destination,
             check_archive_encryption,

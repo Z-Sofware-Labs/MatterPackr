@@ -30,7 +30,7 @@ import type { ArchiveCapabilities, ArchiveEntry, ArchiveFormatInfo, ArchiveType,
 import { startDrag } from '@crabnebula/tauri-plugin-drag';
 import {
   addFiles, applyFileAssociations, browseForArchivePath, checkArchiveEncryption, checkConflicts, checkIsLinux, chooseArchive, chooseArchiveOrImage, chooseExtractionDirectory,
-  chooseInputFiles, createArchive, ensureExtractionDestination, extractArchive, extractImage, getCapabilities, getCliOpenPath, getFileAssociations, getFormatCatalog, openArchive, openExternalUrl, prepareDragExtraction, removeEntries, testArchive, viewArchiveEntry
+  chooseInputFiles, createArchive, ensureExtractionDestination, extractArchive, extractArchiveEntries, extractImage, getCapabilities, getCliOpenPath, getFileAssociations, getFormatCatalog, openArchive, openExternalUrl, prepareDragExtraction, removeEntries, testArchive, viewArchiveEntry
 } from './lib/fileSystem';
 
 type SortKey = keyof ArchiveEntry;
@@ -822,12 +822,41 @@ export default function App() {
       source = await chooseArchiveOrImage();
       if (!source) return;
     }
-    const parentDir = source.includes('\\') ? source.substring(0, source.lastIndexOf('\\')) : source.includes('/') ? source.substring(0, source.lastIndexOf('/')) : '';
 
+    const parentDir = source.includes('\\') ? source.substring(0, source.lastIndexOf('\\')) : source.includes('/') ? source.substring(0, source.lastIndexOf('/')) : '';
     const dir = await chooseExtractionDirectory(parentDir || undefined);
-    if (!dir || !dir.trim()) {
+    if (!dir || !dir.trim()) return;
+
+    // If the user has entries selected, extract only those entries.
+    if (selected.length > 0) {
+      const trimmedDir = dir.trim();
+      setBusy(true);
+      setMessage('Extracting selected entries…');
+      await appendLog('info', `Extracting ${selected.length} selected entry/entries from ${source.split(/[\\/]/).pop()} to ${trimmedDir}`);
+      try {
+        let preparedDir: string;
+        try {
+          preparedDir = await ensureExtractionDestination(source, trimmedDir);
+        } catch (error) {
+          const text = String(error);
+          setMessage(text);
+          await appendLog('error', `Invalid extraction destination: ${text}`);
+          setBusy(false);
+          return;
+        }
+        await extractArchiveEntries(source, selected, preparedDir, openPassword);
+        setMessage(`Extracted ${selected.length} item(s)`);
+        await appendLog('info', `Extracted ${selected.length} item(s) to ${preparedDir}`);
+      } catch (error) {
+        const text = String(error);
+        setMessage(text);
+        await appendLog('error', text);
+      } finally {
+        setBusy(false);
+      }
       return;
     }
+
     await startExtraction(source, dir.trim());
   };
 

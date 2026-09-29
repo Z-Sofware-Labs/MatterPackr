@@ -39,6 +39,79 @@ fn entry_matches(entry_name: &str, requested_prefixes: &[String]) -> bool {
     false
 }
 
+/// Extracts only the selected entries from an archive into `destination`.
+///
+/// Files are placed **directly** in `destination` (flat — no parent dirs from the archive).
+/// Folders are placed as `destination/<folder_name>/...` preserving their internal hierarchy.
+///
+/// Used when the user presses the Extract button with one or more entries selected.
+pub fn extract_entries(
+    archive_path: &Path,
+    entry_paths: &[String],
+    destination: &Path,
+    password: Option<&str>,
+) -> Result<(), io::Error> {
+    fs::create_dir_all(destination)?;
+    let format = format_from_path(archive_path);
+
+    let norm_targets: Vec<String> = entry_paths.iter().map(|s| normalize_path(s)).collect();
+    if norm_targets.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "No items selected for extraction"));
+    }
+
+    // Extract into a temporary staging area using the existing selective helpers,
+    // which preserve archive-internal paths (e.g. "a/b/c.txt" → stage/a/b/c.txt).
+    let stage = temp_workspace("extract")?;
+    let result = (|| {
+        match format.as_str() {
+            "zip" => extract_zip_selective(archive_path, &stage, &norm_targets, password)?,
+            "7z" => extract_7z_selective(archive_path, &stage, &norm_targets, password)?,
+            "rar" => extract_rar_selective(archive_path, &stage, &norm_targets, password)?,
+            "gz" | "bz2" => extract_raw_compressed_selective(archive_path, &stage, &format)?,
+            "iso" | "img" => super::disk_image::extract_disk_image_selective(archive_path, &stage, &norm_targets)?,
+            "tar" | "tar.gz" | "tar.bz2" | "tar.xz" | "tar.zst" | "cab" | "cpio" | "ar" => {
+                extract_libarchive_selective(archive_path, &stage, &norm_targets)?
+            }
+            _ => return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                format!("Selective extraction is not supported for .{} archives", format),
+            )),
+        }
+
+        // Reorganize: copy each selected item from the stage into destination using only
+        // its last path component so files land flat and folders land by their name.
+        reorganize_to_destination(&stage, destination, &norm_targets)
+    })();
+
+    let _ = fs::remove_dir_all(&stage);
+    result
+}
+
+/// Moves selected items from `stage` (where they were extracted at their full archive path)
+/// into `destination` using only the last path component of each target:
+///   - File target  `a/b/c.txt`   → `destination/c.txt`
+///   - Folder target `a/b/photos` → `destination/photos/<contents>`
+fn reorganize_to_destination(stage: &Path, destination: &Path, targets: &[String]) -> Result<(), io::Error> {
+    for target in targets {
+        let src = stage.join(target);
+        if !src.exists() {
+            continue;
+        }
+        let last = target.split('/').next_back().unwrap_or(target.as_str());
+        let dst = destination.join(last);
+        if src.is_dir() {
+            copy_tree(&src, &dst)?;
+        } else {
+            if let Some(parent) = dst.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::copy(&src, &dst)?;
+        }
+    }
+    Ok(())
+}
+
+
 /// Prepares files and directories for drag-and-drop extraction by extracting only
 /// the selected entries (and recursively preserving folder hierarchies for directory entries).
 /// Returns the absolute filesystem paths inside `target_dir` that should be dragged out to the OS.
