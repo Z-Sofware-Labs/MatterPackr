@@ -319,6 +319,7 @@ export default function App() {
         void run(async () => refresh(initialPath), `Opened ${initialPath.split(/[\\/]/).pop()}`);
       }
     }).catch(() => { });
+
     checkIsLinux().then(linux => {
       setIsLinux(linux);
     }).catch(() => { });

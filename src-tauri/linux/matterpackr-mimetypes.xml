@@ -12,6 +12,12 @@
   <mime-type type="application/x-tar">
     <icon name="matterpackr-tar"/>
   </mime-type>
+  <mime-type type="application/x-compressed-tar">
+    <icon name="matterpackr-gz"/>
+  </mime-type>
+  <mime-type type="application/x-bzip-compressed-tar">
+    <icon name="matterpackr-bz2"/>
+  </mime-type>
   <mime-type type="application/gzip">
     <icon name="matterpackr-gz"/>
   </mime-type>

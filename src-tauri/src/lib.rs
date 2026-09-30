@@ -82,7 +82,37 @@ fn is_linux() -> bool {
 fn get_cli_open_path() -> Option<String> {
     std::env::args()
         .skip(1)
-        .find(|arg| !arg.starts_with('-') && Path::new(arg).exists())
+        .find_map(|arg| {
+            if arg.starts_with('-') {
+                return None;
+            }
+            // File managers using %U pass a file:// URI instead of a plain path.
+            // Decode it to a filesystem path before checking existence.
+            let path_str = if let Some(rest) = arg.strip_prefix("file://") {
+                // Percent-decode the URI path component (e.g. %20 → space)
+                let decoded = rest.replace("%20", " ")
+                    .replace("%21", "!")
+                    .replace("%23", "#")
+                    .replace("%24", "$")
+                    .replace("%25", "%")
+                    .replace("%26", "&")
+                    .replace("%27", "'")
+                    .replace("%28", "(")
+                    .replace("%29", ")")
+                    .replace("%2B", "+")
+                    .replace("%2C", ",")
+                    .replace("%3B", ";")
+                    .replace("%3D", "=")
+                    .replace("%40", "@")
+                    .replace("%5B", "[")
+                    .replace("%5D", "]");
+                decoded
+            } else {
+                arg
+            };
+            let p = Path::new(&path_str);
+            if p.exists() { Some(path_str) } else { None }
+        })
 }
 
 #[tauri::command]
