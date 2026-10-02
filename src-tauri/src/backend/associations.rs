@@ -5,6 +5,8 @@ use std::{
 #[cfg(windows)]
 use std::process::Command;
 #[cfg(windows)]
+use std::os::windows::process::CommandExt;
+#[cfg(windows)]
 use log::info;
 
 pub struct AssociationItem {
@@ -15,21 +17,21 @@ pub struct AssociationItem {
 }
 
 pub const SUPPORTED_ASSOCIATIONS: &[AssociationItem] = &[
-    AssociationItem { ext: "zip", prog_id: "MatterPackr.zip", description: "ZIP Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "7z", prog_id: "MatterPackr.7z", description: "7-Zip Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "rar", prog_id: "MatterPackr.rar", description: "RAR Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "tar", prog_id: "MatterPackr.tar", description: "TAR Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "tgz", prog_id: "MatterPackr.tgz", description: "GZ Compressed TAR Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "tbz2", prog_id: "MatterPackr.tbz2", description: "BZip2 Compressed TAR Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "txz", prog_id: "MatterPackr.txz", description: "XZ Compressed TAR Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "gz", prog_id: "MatterPackr.gz", description: "GZip File", icon_name: "archive.ico" },
-    AssociationItem { ext: "bz2", prog_id: "MatterPackr.bz2", description: "BZip2 File", icon_name: "archive.ico" },
-    AssociationItem { ext: "iso", prog_id: "MatterPackr.iso", description: "ISO Disk Image", icon_name: "archive.ico" },
-    AssociationItem { ext: "img", prog_id: "MatterPackr.img", description: "Disk Image", icon_name: "archive.ico" },
-    AssociationItem { ext: "cab", prog_id: "MatterPackr.cab", description: "Cabinet Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "cpio", prog_id: "MatterPackr.cpio", description: "CPIO Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "ar", prog_id: "MatterPackr.ar", description: "UNIX Archive", icon_name: "archive.ico" },
-    AssociationItem { ext: "a", prog_id: "MatterPackr.a", description: "Static Library Archive", icon_name: "archive.ico" },
+    AssociationItem { ext: "zip", prog_id: "MatterPackr.zip", description: "ZIP Archive", icon_name: "zip.ico" },
+    AssociationItem { ext: "7z", prog_id: "MatterPackr.7z", description: "7-Zip Archive", icon_name: "7z.ico" },
+    AssociationItem { ext: "rar", prog_id: "MatterPackr.rar", description: "RAR Archive", icon_name: "rar.ico" },
+    AssociationItem { ext: "tar", prog_id: "MatterPackr.tar", description: "TAR Archive", icon_name: "tar.ico" },
+    AssociationItem { ext: "tgz", prog_id: "MatterPackr.tgz", description: "GZ Compressed TAR Archive", icon_name: "tgz.ico" },
+    AssociationItem { ext: "tbz2", prog_id: "MatterPackr.tbz2", description: "BZip2 Compressed TAR Archive", icon_name: "tbz2.ico" },
+    AssociationItem { ext: "txz", prog_id: "MatterPackr.txz", description: "XZ Compressed TAR Archive", icon_name: "txz.ico" },
+    AssociationItem { ext: "gz", prog_id: "MatterPackr.gz", description: "GZip File", icon_name: "gz.ico" },
+    AssociationItem { ext: "bz2", prog_id: "MatterPackr.bz2", description: "BZip2 File", icon_name: "bz2.ico" },
+    AssociationItem { ext: "iso", prog_id: "MatterPackr.iso", description: "ISO Disk Image", icon_name: "iso.ico" },
+    AssociationItem { ext: "img", prog_id: "MatterPackr.img", description: "Disk Image", icon_name: "img.ico" },
+    AssociationItem { ext: "cab", prog_id: "MatterPackr.cab", description: "Cabinet Archive", icon_name: "cab.ico" },
+    AssociationItem { ext: "cpio", prog_id: "MatterPackr.cpio", description: "CPIO Archive", icon_name: "cpio.ico" },
+    AssociationItem { ext: "ar", prog_id: "MatterPackr.ar", description: "UNIX Archive", icon_name: "ar.ico" },
+    AssociationItem { ext: "a", prog_id: "MatterPackr.a", description: "Static Library Archive", icon_name: "ar.ico" },
 ];
 
 #[cfg(windows)]
@@ -141,6 +143,65 @@ pub fn get_registered_associations() -> Vec<String> {
     }
 }
 
+#[cfg(windows)]
+fn get_embedded_icon(icon_name: &str) -> Option<&'static [u8]> {
+    match icon_name {
+        "zip.ico" => Some(include_bytes!("../../icons/filetypes/zip.ico")),
+        "7z.ico" => Some(include_bytes!("../../icons/filetypes/7z.ico")),
+        "rar.ico" => Some(include_bytes!("../../icons/filetypes/rar.ico")),
+        "tar.ico" => Some(include_bytes!("../../icons/filetypes/tar.ico")),
+        "tgz.ico" => Some(include_bytes!("../../icons/filetypes/tgz.ico")),
+        "tbz2.ico" => Some(include_bytes!("../../icons/filetypes/tbz2.ico")),
+        "txz.ico" => Some(include_bytes!("../../icons/filetypes/txz.ico")),
+        "gz.ico" => Some(include_bytes!("../../icons/filetypes/gz.ico")),
+        "bz2.ico" => Some(include_bytes!("../../icons/filetypes/bz2.ico")),
+        "iso.ico" => Some(include_bytes!("../../icons/filetypes/iso.ico")),
+        "img.ico" => Some(include_bytes!("../../icons/filetypes/img.ico")),
+        "cab.ico" => Some(include_bytes!("../../icons/filetypes/cab.ico")),
+        "cpio.ico" => Some(include_bytes!("../../icons/filetypes/cpio.ico")),
+        "ar.ico" => Some(include_bytes!("../../icons/filetypes/ar.ico")),
+        "archive.ico" => Some(include_bytes!("../../icons/filetypes/archive.ico")),
+        _ => None,
+    }
+}
+
+#[cfg(windows)]
+fn ensure_extracted_icon(exe_dir: &Path, icon_name: &str) -> Option<std::path::PathBuf> {
+    // 1. Extract embedded icon to AppData so it ALWAYS exists and stays up-to-date
+    if let Some(bytes) = get_embedded_icon(icon_name) {
+        if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+            let target_dir = Path::new(&local_appdata).join("MatterPackr").join("icons").join("filetypes");
+            if std::fs::create_dir_all(&target_dir).is_ok() {
+                let target_file = target_dir.join(icon_name);
+                let should_write = match std::fs::metadata(&target_file) {
+                    Ok(meta) => meta.len() != bytes.len() as u64,
+                    Err(_) => true,
+                };
+                if should_write {
+                    let _ = std::fs::write(&target_file, bytes);
+                }
+                if target_file.exists() {
+                    return Some(target_file);
+                }
+            }
+        }
+    }
+
+    // 2. Check next to exe as fallback
+    let candidates = [
+        exe_dir.join("icons").join("filetypes").join(icon_name),
+        exe_dir.join("resources").join("icons").join("filetypes").join(icon_name),
+        exe_dir.join(icon_name),
+    ];
+    for p in &candidates {
+        if p.exists() {
+            return Some(p.clone());
+        }
+    }
+
+    None
+}
+
 pub fn apply_associations_direct(exe_path: &Path, selected_exts: &[String]) -> Result<(), io::Error> {
     #[cfg(windows)]
     {
@@ -148,44 +209,65 @@ pub fn apply_associations_direct(exe_path: &Path, selected_exts: &[String]) -> R
         let exe_dir = exe_path.parent().unwrap_or(Path::new(""));
         info!("Applying file associations directly for {} items", selected_exts.len());
 
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
         for item in SUPPORTED_ASSOCIATIONS {
             let ext_key = format!("HKCR\\.{}", item.ext);
             let prog_key = format!("HKCR\\{}", item.prog_id);
             let icon_key = format!("HKCR\\{}\\DefaultIcon", item.prog_id);
             let cmd_key = format!("HKCR\\{}\\shell\\open\\command", item.prog_id);
+            let open_with_key = format!("HKCR\\.{}\\OpenWithProgids", item.ext);
 
             let is_selected = selected_exts.iter().any(|e| e.trim_start_matches('.').eq_ignore_ascii_case(item.ext));
 
             if is_selected {
                 // Determine icon path
-                let direct_icon = exe_dir.join("icons").join("filetypes").join(item.icon_name);
-                let resource_icon = exe_dir.join("resources").join("icons").join("filetypes").join(item.icon_name);
-                let fallback_icon = exe_dir.join(item.icon_name);
-
-                let icon_val = if direct_icon.exists() {
-                    format!("\"{}\"", direct_icon.to_string_lossy())
-                } else if resource_icon.exists() {
-                    format!("\"{}\"", resource_icon.to_string_lossy())
-                } else if fallback_icon.exists() {
-                    format!("\"{}\"", fallback_icon.to_string_lossy())
+                let icon_val = if let Some(icon_path) = ensure_extracted_icon(exe_dir, item.icon_name) {
+                    format!("\"{}\"", icon_path.to_string_lossy())
                 } else {
                     format!("\"{}\",0", exe_str)
                 };
 
-                // Register association
-                let _ = Command::new("reg").args(["add", &ext_key, "/ve", "/d", item.prog_id, "/f"]).status();
-                let _ = Command::new("reg").args(["add", &prog_key, "/ve", "/d", item.description, "/f"]).status();
-                let _ = Command::new("reg").args(["add", &icon_key, "/ve", "/d", &icon_val, "/f"]).status();
-                let _ = Command::new("reg").args(["add", &cmd_key, "/ve", "/d", &format!("\"{}\" \"%1\"", exe_str), "/f"]).status();
+                // Register association in HKCR
+                let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["add", &ext_key, "/ve", "/d", item.prog_id, "/f"]).status();
+                let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["add", &open_with_key, "/v", item.prog_id, "/t", "REG_NONE", "/f"]).status();
+                let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["add", &prog_key, "/ve", "/d", item.description, "/f"]).status();
+                let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["add", &icon_key, "/ve", "/d", &icon_val, "/f"]).status();
+                let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["add", &cmd_key, "/ve", "/d", &format!("\"{}\" \"%1\"", exe_str), "/f"]).status();
+
+                // Also register in HKCU\Software\Classes for current user priority
+                let hkcu_ext = format!("HKCU\\Software\\Classes\\.{}", item.ext);
+                let hkcu_open_with = format!("HKCU\\Software\\Classes\\.{}\\OpenWithProgids", item.ext);
+                let hkcu_prog = format!("HKCU\\Software\\Classes\\{}", item.prog_id);
+                let hkcu_icon = format!("HKCU\\Software\\Classes\\{}\\DefaultIcon", item.prog_id);
+                let hkcu_cmd = format!("HKCU\\Software\\Classes\\{}\\shell\\open\\command", item.prog_id);
+
+                let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["add", &hkcu_ext, "/ve", "/d", item.prog_id, "/f"]).status();
+                let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["add", &hkcu_open_with, "/v", item.prog_id, "/t", "REG_NONE", "/f"]).status();
+                let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["add", &hkcu_prog, "/ve", "/d", item.description, "/f"]).status();
+                let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["add", &hkcu_icon, "/ve", "/d", &icon_val, "/f"]).status();
+                let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["add", &hkcu_cmd, "/ve", "/d", &format!("\"{}\" \"%1\"", exe_str), "/f"]).status();
             } else {
                 // If it was associated to MatterPackr, remove the association
-                let check = Command::new("reg").args(["query", &ext_key, "/ve"]).output();
+                let check = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["query", &ext_key, "/ve"]).output();
                 if let Ok(out) = check {
                     if out.status.success() {
                         let text = String::from_utf8_lossy(&out.stdout);
                         if text.contains(item.prog_id) {
-                            let _ = Command::new("reg").args(["delete", &ext_key, "/ve", "/f"]).status();
-                            let _ = Command::new("reg").args(["delete", &prog_key, "/f"]).status();
+                            let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["delete", &ext_key, "/ve", "/f"]).status();
+                            let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["delete", &prog_key, "/f"]).status();
+                        }
+                    }
+                }
+                let hkcu_ext = format!("HKCU\\Software\\Classes\\.{}", item.ext);
+                let hkcu_prog = format!("HKCU\\Software\\Classes\\{}", item.prog_id);
+                let hkcu_check = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["query", &hkcu_ext, "/ve"]).output();
+                if let Ok(out) = hkcu_check {
+                    if out.status.success() {
+                        let text = String::from_utf8_lossy(&out.stdout);
+                        if text.contains(item.prog_id) {
+                            let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["delete", &hkcu_ext, "/ve", "/f"]).status();
+                            let _ = Command::new("reg").creation_flags(CREATE_NO_WINDOW).args(["delete", &hkcu_prog, "/f"]).status();
                         }
                     }
                 }
@@ -219,8 +301,10 @@ pub fn trigger_elevated_associations(selected_exts: &[String]) -> Result<(), Str
             arg_list.replace('\'', "''")
         );
 
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
         let output = Command::new("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-Command", &ps_command])
+            .creation_flags(CREATE_NO_WINDOW)
+            .args(["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", &ps_command])
             .output()
             .map_err(|e| format!("Failed to execute elevation command: {}", e))?;
 

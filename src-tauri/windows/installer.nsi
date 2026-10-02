@@ -32,8 +32,8 @@ ${StrLoc}
 
 !define MANUFACTURER "Z Software Labs"
 !define PRODUCTNAME "MatterPackr"
-!define VERSION "1.1.2"
-!define VERSIONWITHBUILD "1.1.2.0"
+!define VERSION "2.1.0"
+!define VERSIONWITHBUILD "2.1.0.0"
 !define HOMEPAGE ""
 !define INSTALLMODE "both"
 !define LICENSE ""
@@ -648,6 +648,7 @@ Section Install
   File "${MAINBINARYSRCPATH}"
 
   ; Copy resources
+  ; (Resources such as filetype icons are installed via NSIS hooks)
 
   ; Copy external binaries
 

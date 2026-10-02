@@ -51,6 +51,37 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
+      - name: Generate per-format .icns files (macOS only)
+        if: matrix.platform == 'macos-latest'
+        working-directory: src-tauri
+        run: |
+          # Map of output-icns-name -> source SVG in icons/linux/
+          declare -A ICON_MAP=(
+            ["zip"]="matterpackr-zip"
+            ["7z"]="matterpackr-7z"
+            ["tar"]="matterpackr-tar"
+            ["gz"]="matterpackr-gz"
+            ["rar"]="matterpackr-rar"
+            ["disk"]="matterpackr-iso"
+          )
+          for NAME in "${!ICON_MAP[@]}"; do
+            SVG="icons/linux/${ICON_MAP[$NAME]}.svg"
+            ICONSET="icons/${NAME}.iconset"
+            ICNS="icons/${NAME}.icns"
+            mkdir -p "$ICONSET"
+            for SIZE in 16 32 64 128 256 512 1024; do
+              sips -z $SIZE $SIZE "$SVG" --out "${ICONSET}/icon_${SIZE}x${SIZE}.png" --setProperty format png > /dev/null 2>&1 || true
+            done
+            # Add @2x variants
+            for SIZE in 16 32 64 128 256 512; do
+              DOUBLE=$((SIZE * 2))
+              cp "${ICONSET}/icon_${DOUBLE}x${DOUBLE}.png" "${ICONSET}/icon_${SIZE}x${SIZE}@2x.png" 2>/dev/null || true
+            done
+            iconutil -c icns "$ICONSET" -o "$ICNS"
+            rm -rf "$ICONSET"
+            echo "Generated $ICNS"
+          done
+
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         env:

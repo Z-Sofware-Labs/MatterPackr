@@ -2,22 +2,22 @@ import { useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import matterpackrIcon from './assets/matterpackr-icon.png';
 import zSoftwareLabsIcon from './assets/z-software-labs-icon.svg';
-import zipIcon from './assets/filetypes/zip.svg';
-import sevenZipIcon from './assets/filetypes/7z.svg';
-import tarIcon from './assets/filetypes/tar.svg';
-import tgzIcon from './assets/filetypes/tgz.svg';
-import tbz2Icon from './assets/filetypes/tbz2.svg';
-import txzIcon from './assets/filetypes/txz.svg';
-import gzIcon from './assets/filetypes/gz.svg';
-import bz2Icon from './assets/filetypes/bz2.svg';
-import rarIcon from './assets/filetypes/rar.svg';
-import cabIcon from './assets/filetypes/cab.svg';
-import isoIcon from './assets/filetypes/iso.svg';
-import imgIcon from './assets/filetypes/img.svg';
-import cpioIcon from './assets/filetypes/cpio.svg';
-import arIcon from './assets/filetypes/ar.svg';
-import diskMasterIcon from './assets/filetypes/disk-master.svg';
-import archiveMasterIcon from './assets/filetypes/archive-master.svg';
+import zipIcon from './assets/filetypes/zip.png';
+import sevenZipIcon from './assets/filetypes/7z.png';
+import tarIcon from './assets/filetypes/tar.png';
+import tgzIcon from './assets/filetypes/tgz.png';
+import tbz2Icon from './assets/filetypes/tbz2.png';
+import txzIcon from './assets/filetypes/txz.png';
+import gzIcon from './assets/filetypes/gz.png';
+import bz2Icon from './assets/filetypes/bz2.png';
+import rarIcon from './assets/filetypes/rar.png';
+import cabIcon from './assets/filetypes/cab.png';
+import isoIcon from './assets/filetypes/iso.png';
+import imgIcon from './assets/filetypes/img.png';
+import cpioIcon from './assets/filetypes/cpio.png';
+import arIcon from './assets/filetypes/ar.png';
+import diskMasterIcon from './assets/filetypes/iso.png';
+import archiveMasterIcon from './assets/filetypes/tarzst.png';
 import { version as appVersion } from '../package.json';
 import { attachConsole, error as logError, info as logInfo, warn as logWarn } from '@tauri-apps/plugin-log';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -929,9 +929,12 @@ export default function App() {
     await executeExtractionAfterAuth(pending.source, pending.dir, pwd, false);
   };
 
+  const [initialFileAssociations, setInitialFileAssociations] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     if (activeModal === 'options') {
       setAssocStatus(null);
+      setInitialFileAssociations({ ...fileAssociations });
       getFileAssociations()
         .then(registered => {
           if (registered && registered.length > 0) {
@@ -940,6 +943,7 @@ export default function App() {
               next[item.ext] = registered.includes(item.ext);
             });
             setFileAssociations(next);
+            setInitialFileAssociations(next);
             localStorage.setItem('matterpackr.fileAssociations', JSON.stringify(next));
           }
         })
@@ -947,16 +951,20 @@ export default function App() {
     }
   }, [activeModal]);
 
-  const handleApplyAssociations = async () => {
+  const handleApplyAssociations = async (closeOnSuccess = false) => {
     setSavingAssoc(true);
     setAssocStatus(null);
     try {
       const selected = SUPPORTED_ASSOCIATIONS.filter(item => !!fileAssociations[item.ext]).map(item => item.ext);
       await applyFileAssociations(selected);
       localStorage.setItem('matterpackr.fileAssociations', JSON.stringify(fileAssociations));
+      setInitialFileAssociations({ ...fileAssociations });
       await appendLog('info', `File associations updated: ${selected.join(', ') || 'none'}`);
-      setMessage('File associations applied successfully');
-      setActiveModal(null);
+      setAssocStatus({ message: 'File associations saved and applied successfully.', type: 'success' });
+      if (closeOnSuccess) {
+        setMessage('File associations applied successfully');
+        setActiveModal(null);
+      }
     } catch (err: any) {
       const errorMsg = typeof err === 'string' ? err : err?.message || 'Failed to update file associations';
       setAssocStatus({ message: errorMsg, type: 'error' });
@@ -964,6 +972,12 @@ export default function App() {
     } finally {
       setSavingAssoc(false);
     }
+  };
+
+  const handleCancelOptions = () => {
+    setFileAssociations({ ...initialFileAssociations });
+    setAssocStatus(null);
+    setActiveModal(null);
   };
 
   const handleCheckForUpdates = async (openDialog = false) => {
@@ -1625,7 +1639,7 @@ export default function App() {
         </div>
       </Modal>}
 
-      {activeModal === 'options' && <Modal title="Options" maxWidth="max-w-md" padding="p-4 sm:p-5" close={() => setActiveModal(null)}>
+      {activeModal === 'options' && <Modal title="Options" maxWidth="max-w-md" padding="p-4 sm:p-5" close={handleCancelOptions}>
         <div className="space-y-3">
           <div>
             <div className="flex items-center justify-between mb-0.5">
@@ -1706,17 +1720,37 @@ export default function App() {
             </label>
           </div>
 
-          <div className="pt-2 border-t border-gray-200 dark:border-gray-700/80 flex flex-col gap-1.5">
-            <button
-              onClick={handleApplyAssociations}
-              disabled={savingAssoc || busy}
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-xs transition-colors shadow-sm disabled:opacity-50"
-            >
-              <Shield size={14} />
-              <span>{savingAssoc ? 'Applying File Associations...' : 'Apply File Associations'}</span>
-            </button>
-            <p className="text-[10px] text-center text-gray-500 dark:text-gray-400 leading-tight">
-              Administrative elevation may be required to apply system-wide changes.
+          <div className="pt-3 border-t border-gray-200 dark:border-gray-700/80 flex flex-col gap-2">
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelOptions}
+                disabled={savingAssoc || busy}
+                className="px-3.5 py-1.5 border border-gray-300 dark:border-gray-600 hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-200 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleApplyAssociations(false)}
+                disabled={savingAssoc || busy}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                <Shield size={12} className="text-blue-500" />
+                <span>{savingAssoc ? 'Applying...' : 'Apply'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleApplyAssociations(true)}
+                disabled={savingAssoc || busy}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
+              >
+                <Shield size={12} />
+                <span>{savingAssoc ? 'Saving...' : 'OK'}</span>
+              </button>
+            </div>
+            <p className="text-[10px] text-right text-gray-400 dark:text-gray-500 leading-tight">
+              Administrative elevation is invoked if needed to register file associations.
             </p>
           </div>
         </div>
@@ -1825,10 +1859,10 @@ export default function App() {
             {!checkingUpdate && updateStatus && (
               <div className="space-y-3">
                 <div className={`p-3 rounded-lg text-xs flex items-start gap-2.5 ${updateStatus.type === 'available'
-                    ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200 border border-blue-200 dark:border-blue-800'
-                    : updateStatus.type === 'latest'
-                      ? 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300 border border-green-200 dark:border-green-800'
-                      : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800'
+                  ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200 border border-blue-200 dark:border-blue-800'
+                  : updateStatus.type === 'latest'
+                    ? 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300 border border-green-200 dark:border-green-800'
+                    : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800'
                   }`}>
                   {updateStatus.type === 'available' ? (
                     <RefreshCw size={16} className="shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />

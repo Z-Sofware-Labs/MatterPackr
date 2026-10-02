@@ -1,6 +1,7 @@
 [package]
 name = "matterpackr"
-version = "2.0.2"
+version = "2.1.0"
+default-run = "matterpackr"
 
 edition = "2021"
 authors = ["Z Software Labs"]
@@ -38,6 +39,8 @@ unrar = "0.5.8"
 tauri-plugin-drag = "2.1.1"
 hadris-optical = { version = "2.4.0", default-features = false, features = ["std", "read", "open", "iso", "udf", "sync"] }
 hadris-io = { version = "2.4.0", features = ["std", "sync"] }
+resvg = "0.45.1"
+image = "0.25.5"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [
@@ -46,9 +49,9 @@ windows-sys = { version = "0.59", features = [
     "Win32_UI_Shell",
 ] }
 
-[dev-dependencies]
-resvg = "0.45.1"
-image = "0.25.5"
+[[bin]]
+name = "generate-icons"
+path = "src/bin/generate_icons.rs"
 
 [profile.release]
 panic = "abort"

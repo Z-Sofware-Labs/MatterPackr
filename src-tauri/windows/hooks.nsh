@@ -128,22 +128,43 @@ FunctionEnd
 
 ; Macro to register a specific file extension with dedicated icon
 !macro RegisterExtension Ext ProgId Desc IconName
+  ; HKCR
   WriteRegStr HKCR ".${Ext}" "" "${ProgId}"
+  WriteRegNone HKCR ".${Ext}\OpenWithProgids" "${ProgId}"
   WriteRegStr HKCR "${ProgId}" "" "${Desc}"
   ${If} ${FileExists} "$INSTDIR\icons\filetypes\${IconName}"
     WriteRegStr HKCR "${ProgId}\DefaultIcon" "" '"$INSTDIR\icons\filetypes\${IconName}"'
   ${ElseIf} ${FileExists} "$INSTDIR\resources\icons\filetypes\${IconName}"
     WriteRegStr HKCR "${ProgId}\DefaultIcon" "" '"$INSTDIR\resources\icons\filetypes\${IconName}"'
+  ${ElseIf} ${FileExists} "$LOCALAPPDATA\MatterPackr\icons\filetypes\${IconName}"
+    WriteRegStr HKCR "${ProgId}\DefaultIcon" "" '"$LOCALAPPDATA\MatterPackr\icons\filetypes\${IconName}"'
   ${Else}
     WriteRegStr HKCR "${ProgId}\DefaultIcon" "" '"$INSTDIR\${MAINBINARYNAME}.exe",0'
   ${EndIf}
   WriteRegStr HKCR "${ProgId}\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
+
+  ; HKCU\Software\Classes
+  WriteRegStr HKCU "Software\Classes\.${Ext}" "" "${ProgId}"
+  WriteRegNone HKCU "Software\Classes\.${Ext}\OpenWithProgids" "${ProgId}"
+  WriteRegStr HKCU "Software\Classes\${ProgId}" "" "${Desc}"
+  ${If} ${FileExists} "$INSTDIR\icons\filetypes\${IconName}"
+    WriteRegStr HKCU "Software\Classes\${ProgId}\DefaultIcon" "" '"$INSTDIR\icons\filetypes\${IconName}"'
+  ${ElseIf} ${FileExists} "$INSTDIR\resources\icons\filetypes\${IconName}"
+    WriteRegStr HKCU "Software\Classes\${ProgId}\DefaultIcon" "" '"$INSTDIR\resources\icons\filetypes\${IconName}"'
+  ${ElseIf} ${FileExists} "$LOCALAPPDATA\MatterPackr\icons\filetypes\${IconName}"
+    WriteRegStr HKCU "Software\Classes\${ProgId}\DefaultIcon" "" '"$LOCALAPPDATA\MatterPackr\icons\filetypes\${IconName}"'
+  ${Else}
+    WriteRegStr HKCU "Software\Classes\${ProgId}\DefaultIcon" "" '"$INSTDIR\${MAINBINARYNAME}.exe",0'
+  ${EndIf}
+  WriteRegStr HKCU "Software\Classes\${ProgId}\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
 !macroend
 
 ; Macro to unregister a specific file extension
 !macro UnregisterExtension Ext ProgId
   DeleteRegKey HKCR ".${Ext}"
   DeleteRegKey HKCR "${ProgId}"
+  DeleteRegKey HKCU "Software\Classes\.${Ext}"
+  DeleteRegKey HKCU "Software\Classes\${ProgId}"
 !macroend
 
 ; Post-install hook: copies filetype icons and registers chosen associations in Windows Registry
@@ -155,43 +176,46 @@ FunctionEnd
   SetOutPath $INSTDIR
 
   ${If} $StateZip == ${BST_CHECKED}
-    !insertmacro RegisterExtension "zip" "MatterPackr.zip" "ZIP Archive" "archive.ico"
+    !insertmacro RegisterExtension "zip" "MatterPackr.zip" "ZIP Archive" "zip.ico"
   ${EndIf}
 
   ${If} $State7z == ${BST_CHECKED}
-    !insertmacro RegisterExtension "7z" "MatterPackr.7z" "7-Zip Archive" "archive.ico"
+    !insertmacro RegisterExtension "7z" "MatterPackr.7z" "7-Zip Archive" "7z.ico"
   ${EndIf}
 
   ${If} $StateRar == ${BST_CHECKED}
-    !insertmacro RegisterExtension "rar" "MatterPackr.rar" "RAR Archive" "archive.ico"
+    !insertmacro RegisterExtension "rar" "MatterPackr.rar" "RAR Archive" "rar.ico"
   ${EndIf}
 
   ${If} $StateTar == ${BST_CHECKED}
-    !insertmacro RegisterExtension "tar" "MatterPackr.tar" "TAR Archive" "archive.ico"
-    !insertmacro RegisterExtension "tar.gz" "MatterPackr.targz" "GZ Compressed TAR Archive" "archive.ico"
-    !insertmacro RegisterExtension "tgz" "MatterPackr.tgz" "GZ Compressed TAR Archive" "archive.ico"
-    !insertmacro RegisterExtension "tar.bz2" "MatterPackr.tarbz2" "BZip2 Compressed TAR Archive" "archive.ico"
-    !insertmacro RegisterExtension "tbz2" "MatterPackr.tbz2" "BZip2 Compressed TAR Archive" "archive.ico"
-    !insertmacro RegisterExtension "tar.xz" "MatterPackr.tarxz" "XZ Compressed TAR Archive" "archive.ico"
-    !insertmacro RegisterExtension "txz" "MatterPackr.txz" "XZ Compressed TAR Archive" "archive.ico"
+    !insertmacro RegisterExtension "tar" "MatterPackr.tar" "TAR Archive" "tar.ico"
+    ; Windows resolves .tar.gz and .tar.bz2 by their last extension (.gz / .bz2),
+    ; so we must register those single extensions here too.
+    !insertmacro RegisterExtension "gz" "MatterPackr.gz" "GZ Compressed TAR Archive" "tgz.ico"
+    !insertmacro RegisterExtension "bz2" "MatterPackr.bz2" "BZip2 Compressed TAR Archive" "tbz2.ico"
+    !insertmacro RegisterExtension "tgz" "MatterPackr.tgz" "GZ Compressed TAR Archive" "tgz.ico"
+    !insertmacro RegisterExtension "tbz2" "MatterPackr.tbz2" "BZip2 Compressed TAR Archive" "tbz2.ico"
+    !insertmacro RegisterExtension "tar.xz" "MatterPackr.tarxz" "XZ Compressed TAR Archive" "txz.ico"
+    !insertmacro RegisterExtension "txz" "MatterPackr.txz" "XZ Compressed TAR Archive" "txz.ico"
     !insertmacro RegisterExtension "tar.zst" "MatterPackr.tarzst" "Zstandard TAR Archive" "archive.ico"
   ${EndIf}
 
   ${If} $StateGz == ${BST_CHECKED}
-    !insertmacro RegisterExtension "gz" "MatterPackr.gz" "GZip File" "archive.ico"
-    !insertmacro RegisterExtension "bz2" "MatterPackr.bz2" "BZip2 File" "archive.ico"
+    ; Overwrite .gz/.bz2 with plain-compression icons if user wants standalone GZip associations.
+    !insertmacro RegisterExtension "gz" "MatterPackr.gz" "GZip File" "gz.ico"
+    !insertmacro RegisterExtension "bz2" "MatterPackr.bz2" "BZip2 File" "bz2.ico"
   ${EndIf}
 
   ${If} $StateIso == ${BST_CHECKED}
-    !insertmacro RegisterExtension "iso" "MatterPackr.iso" "ISO Disk Image" "archive.ico"
-    !insertmacro RegisterExtension "img" "MatterPackr.img" "Disk Image" "archive.ico"
+    !insertmacro RegisterExtension "iso" "MatterPackr.iso" "ISO Disk Image" "iso.ico"
+    !insertmacro RegisterExtension "img" "MatterPackr.img" "Disk Image" "img.ico"
   ${EndIf}
 
   ${If} $StateOther == ${BST_CHECKED}
-    !insertmacro RegisterExtension "cab" "MatterPackr.cab" "Cabinet Archive" "archive.ico"
-    !insertmacro RegisterExtension "cpio" "MatterPackr.cpio" "CPIO Archive" "archive.ico"
-    !insertmacro RegisterExtension "ar" "MatterPackr.ar" "UNIX Archive" "archive.ico"
-    !insertmacro RegisterExtension "a" "MatterPackr.a" "Static Library Archive" "archive.ico"
+    !insertmacro RegisterExtension "cab" "MatterPackr.cab" "Cabinet Archive" "cab.ico"
+    !insertmacro RegisterExtension "cpio" "MatterPackr.cpio" "CPIO Archive" "cpio.ico"
+    !insertmacro RegisterExtension "ar" "MatterPackr.ar" "UNIX Archive" "ar.ico"
+    !insertmacro RegisterExtension "a" "MatterPackr.a" "Static Library Archive" "ar.ico"
   ${EndIf}
 
   ; Notify Windows Explorer that file associations have updated
@@ -204,9 +228,7 @@ FunctionEnd
   !insertmacro UnregisterExtension "7z" "MatterPackr.7z"
   !insertmacro UnregisterExtension "rar" "MatterPackr.rar"
   !insertmacro UnregisterExtension "tar" "MatterPackr.tar"
-  !insertmacro UnregisterExtension "tar.gz" "MatterPackr.targz"
   !insertmacro UnregisterExtension "tgz" "MatterPackr.tgz"
-  !insertmacro UnregisterExtension "tar.bz2" "MatterPackr.tarbz2"
   !insertmacro UnregisterExtension "tbz2" "MatterPackr.tbz2"
   !insertmacro UnregisterExtension "tar.xz" "MatterPackr.tarxz"
   !insertmacro UnregisterExtension "txz" "MatterPackr.txz"
