@@ -59,9 +59,9 @@ jobs:
       - name: Setup macOS OpenGL / AGL Compatibility
         if: matrix.os == 'macos-latest'
         run: |
-          # Xcode 15+ removed AGL.framework from SDK. Create a stub AGL.framework in build directory
+          # Xcode 15+ removed AGL.framework from SDK. Compile a valid stub Mach-O dylib for AGL
           mkdir -p native-qt/build/Frameworks/AGL.framework
-          touch native-qt/build/Frameworks/AGL.framework/AGL
+          echo "void stub_agl(void) {}" | clang -x c - -shared -arch arm64 -install_name "@rpath/AGL.framework/AGL" -o native-qt/build/Frameworks/AGL.framework/AGL
 
       - name: Configure CMake
         run: |

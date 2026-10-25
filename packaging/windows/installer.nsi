@@ -12,7 +12,9 @@ ManifestDPIAwareness PerMonitorV2
 SetCompressor /SOLID "lzma"
 
 !define PRODUCT_NAME "MatterPackr"
-!define PRODUCT_VERSION "3.0.0"
+!ifndef PRODUCT_VERSION
+  !define PRODUCT_VERSION "3.0.0"
+!endif
 !define PRODUCT_PUBLISHER "Z Software Labs"
 !define PRODUCT_WEB_SITE "https://github.com/Z-Sofware-Labs/MatterPackr"
 !define MAIN_EXE_NAME "MatterPackr.exe"
