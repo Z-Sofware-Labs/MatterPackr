@@ -1,0 +1,6 @@
+{
+  "name": "MatterPackr - Native Qt 6 Multi-Threaded Archiver",
+  "description": "Full native Qt 6 / C++20 desktop archive manager architecture with QTableView virtual grid, rubber-band marquee selection, QThreadPool multi-threading, and hardware AES-256 encryption.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

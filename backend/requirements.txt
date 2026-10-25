@@ -1,0 +1,8 @@
+# MatterPackr 2.0 Backend Dependencies
+libarchive-c>=5.1
+rarfile>=4.2
+py7zr>=0.21.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.6.0
+python-multipart>=0.0.9
