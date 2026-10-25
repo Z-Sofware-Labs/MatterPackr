@@ -234,10 +234,9 @@ void UpdateManager::onDownloadFinished() {
 
 void UpdateManager::launchInstallerAndExit(const QString &installerPath) {
 #if defined(Q_OS_WIN)
-    // On Windows: Elevate privileges using ShellExecuteW "runas" with silent or passive flags
+    // On Windows: Elevate privileges using ShellExecuteW "runas" with silent flags (/S)
     // to perform a seamless unattended upgrade and immediately exit current instance
     std::wstring pathW = QDir::toNativeSeparators(installerPath).toStdWString();
-    // /S for silent unattended upgrade
     std::wstring paramsW = L"/S";
 
     HINSTANCE result = ShellExecuteW(
@@ -256,11 +255,109 @@ void UpdateManager::launchInstallerAndExit(const QString &installerPath) {
         QProcess::startDetached(installerPath, QStringList());
         qApp->quit();
     }
-#else
-    // On macOS / Linux: open downloaded archive or prompt user
-    QDesktopServices::openUrl(QUrl::fromLocalFile(installerPath));
-    QMessageBox::information(m_parent, tr("Update Downloaded"),
-                             tr("The update package has been downloaded to:\n%1\nPlease install it to complete the update.")
-                             .arg(installerPath));
+
+#elif defined(Q_OS_MACOS)
+    // On macOS: Extract new .app bundle, elevate via osascript administrator privileges,
+    // swap the bundle in-place, relaunch new version, and exit immediately.
+    QString appPath = qApp->applicationDirPath();
+    // In macOS bundles, applicationDirPath is inside MatterPackr.app/Contents/MacOS
+    QDir dir(appPath);
+    dir.cdUp();
+    dir.cdUp();
+    QString targetBundle = dir.absolutePath(); // Path to current MatterPackr.app
+
+    QString tempExtractDir = QDir::temp().filePath("matterpackr_update_" + QString::number(QDateTime::currentMSecsSinceEpoch()));
+    QDir().mkpath(tempExtractDir);
+
+    // Unzip update bundle
+    QProcess unzipProc;
+    unzipProc.start("/usr/bin/ditto", QStringList() << "-x" << "-k" << installerPath << tempExtractDir);
+    unzipProc.waitForFinished(60000);
+
+    QString newBundlePath = tempExtractDir + "/MatterPackr.app";
+    if (!QDir(newBundlePath).exists()) {
+        // Look inside root of extracted dir
+        QDir extracted(tempExtractDir);
+        for (const QString &entry : extracted.entryList(QStringList() << "*.app", QDir::Dirs)) {
+            newBundlePath = extracted.filePath(entry);
+            break;
+        }
+    }
+
+    if (!QDir(newBundlePath).exists()) {
+        QMessageBox::critical(m_parent, tr("Update Error"), tr("Unable to locate updated application bundle."));
+        return;
+    }
+
+    // Write a standalone updater shell script to execute atomically
+    QString scriptPath = tempExtractDir + "/update.sh";
+    QFile script(scriptPath);
+    if (script.open(QIODevice::WriteOnly)) {
+        QTextStream out(&script);
+        out << "#!/bin/bash\n";
+        out << "sleep 1\n";
+        out << "rm -rf \"" << targetBundle << "\"\n";
+        out << "mv \"" << newBundlePath << "\" \"" << targetBundle << "\"\n";
+        out << "open \"" << targetBundle << "\"\n";
+        script.close();
+        script.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner | QFile::ReadGroup | QFile::ExeGroup);
+    }
+
+    // Elevate with Administrator privileges if necessary
+    QString appleScript = QString("do shell script \"/bin/bash '%1'\" with administrator privileges").arg(scriptPath);
+    QProcess::startDetached("osascript", QStringList() << "-e" << appleScript);
+
+    qApp->quit();
+
+#elif defined(Q_OS_LINUX)
+    // On Linux: Check if installed via package or standalone binary.
+    // Use pkexec (PolicyKit standard GUI prompt) to elevate and install automatically.
+    QString currentExe = qApp->applicationFilePath();
+    QString tempDir = QFileInfo(installerPath).absolutePath();
+
+    if (installerPath.endsWith(".deb", Qt::CaseInsensitive)) {
+        // Native deb package upgrade via pkexec apt-get
+        QString cmd = QString("apt-get install -y --reinstall '%1' && '%2' &").arg(installerPath, currentExe);
+        QProcess::startDetached("pkexec", QStringList() << "sh" << "-c" << cmd);
+        qApp->quit();
+    } else {
+        // Extracted tar.gz binary swap
+        QProcess tarProc;
+        tarProc.start("tar", QStringList() << "-xzf" << installerPath << "-C" << tempDir);
+        tarProc.waitForFinished(30000);
+
+        QString extractedExe = tempDir + "/MatterPackr/MatterPackr";
+        if (!QFile::exists(extractedExe)) {
+            extractedExe = tempDir + "/MatterPackr";
+        }
+
+        if (QFile::exists(extractedExe)) {
+            QString scriptPath = tempDir + "/apply_update.sh";
+            QFile script(scriptPath);
+            if (script.open(QIODevice::WriteOnly)) {
+                QTextStream out(&script);
+                out << "#!/bin/sh\n";
+                out << "sleep 1\n";
+                out << "cp -f \"" << extractedExe << "\" \"" << currentExe << "\"\n";
+                out << "chmod +x \"" << currentExe << "\"\n";
+                out << "\"" << currentExe << "\" &\n";
+                script.close();
+                script.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+            }
+
+            // Run with pkexec if target directory is not writable, else normal sh
+            if (QFileInfo(currentExe).isWritable()) {
+                QProcess::startDetached("sh", QStringList() << scriptPath);
+            } else {
+                QProcess::startDetached("pkexec", QStringList() << "sh" << scriptPath);
+            }
+            qApp->quit();
+        } else {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(installerPath));
+            QMessageBox::information(m_parent, tr("Update Downloaded"),
+                                     tr("The update package has been downloaded to:\n%1")
+                                     .arg(installerPath));
+        }
+    }
 #endif
 }
