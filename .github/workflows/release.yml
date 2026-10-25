@@ -146,11 +146,11 @@ jobs:
         run: |
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             WIN_FILE="artifacts/MatterPackr-v3.0.0-windows-x64-Setup.exe"
-            npx @tauri-apps/cli signer sign -f "$WIN_FILE"
+            npx @tauri-apps/cli signer sign --app-version 3.0.0 "$WIN_FILE"
             WIN_SIG=$(cat "${WIN_FILE}.sig")
 
             LINUX_FILE="artifacts/MatterPackr-v3.0.0-linux-x86_64.tar.gz"
-            npx @tauri-apps/cli signer sign -f "$LINUX_FILE"
+            npx @tauri-apps/cli signer sign --app-version 3.0.0 "$LINUX_FILE"
             LINUX_SIG=$(cat "${LINUX_FILE}.sig")
 
             PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
