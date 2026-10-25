@@ -6,92 +6,94 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  release:
-    permissions:
-      contents: write
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
-            args: '--target universal-apple-darwin'
-          - platform: 'ubuntu-22.04'
-            args: '--bundles deb,rpm'
-          - platform: 'windows-latest'
-            args: ''
+          - os: ubuntu-22.04
+            artifact-name: MatterPackr-v3.0.0-linux-x86_64.tar.gz
+          - os: macos-latest
+            artifact-name: MatterPackr-v3.0.0-macos-universal.zip
+          - os: windows-latest
+            artifact-name: MatterPackr-v3.0.0-windows-x64.zip
 
-    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
+      - name: Install Qt 6 (jurplel/install-qt-action)
+        uses: jurplel/install-qt-action@v4
         with:
-          node-version: lts/*
+          version: '6.6.2'
+          arch: ${{ matrix.os == 'windows-latest' && 'win64_msvc2019_64' || '' }}
+          modules: 'qtbase'
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Ninja
+        uses: ashutoshvarma/setup-ninja@master
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          version: 1.11.1
 
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+      - name: Setup MSVC (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Linux Build Dependencies
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libssl-dev \
-            rpm
+          sudo apt-get install -y build-essential libgl1-mesa-dev libxkbcommon-dev libx11-xcb1 libglu1-mesa-dev
 
-      - name: Install frontend dependencies
-        run: npm install
-
-      - name: Generate per-format .icns files (macOS only)
-        if: matrix.platform == 'macos-latest'
-        working-directory: src-tauri
+      - name: Configure CMake
         run: |
-          # Map of output-icns-name -> source SVG in icons/linux/
-          declare -A ICON_MAP=(
-            ["zip"]="matterpackr-zip"
-            ["7z"]="matterpackr-7z"
-            ["tar"]="matterpackr-tar"
-            ["gz"]="matterpackr-gz"
-            ["rar"]="matterpackr-rar"
-            ["disk"]="matterpackr-iso"
-          )
-          for NAME in "${!ICON_MAP[@]}"; do
-            SVG="icons/linux/${ICON_MAP[$NAME]}.svg"
-            ICONSET="icons/${NAME}.iconset"
-            ICNS="icons/${NAME}.icns"
-            mkdir -p "$ICONSET"
-            for SIZE in 16 32 64 128 256 512 1024; do
-              sips -z $SIZE $SIZE "$SVG" --out "${ICONSET}/icon_${SIZE}x${SIZE}.png" --setProperty format png > /dev/null 2>&1 || true
-            done
-            # Add @2x variants
-            for SIZE in 16 32 64 128 256 512; do
-              DOUBLE=$((SIZE * 2))
-              cp "${ICONSET}/icon_${DOUBLE}x${DOUBLE}.png" "${ICONSET}/icon_${SIZE}x${SIZE}@2x.png" 2>/dev/null || true
-            done
-            iconutil -c icns "$ICONSET" -o "$ICNS"
-            rm -rf "$ICONSET"
-            echo "Generated $ICNS"
-          done
+          cmake -B native-qt/build -S native-qt -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build Tauri App
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Build MatterPackr
+        run: |
+          cmake --build native-qt/build --config Release --parallel
+
+      # Package Windows
+      - name: Package Windows Binary
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/MatterPackr
+          Copy-Item native-qt/build/MatterPackr.exe dist/MatterPackr/
+          windeployqt --release --no-translations --compiler-runtime dist/MatterPackr/MatterPackr.exe
+          Compress-Archive -Path dist/MatterPackr/* -DestinationPath ${{ matrix.artifact-name }}
+
+      # Package macOS
+      - name: Package macOS App Bundle
+        if: matrix.os == 'macos-latest'
+        run: |
+          macdeployqt native-qt/build/MatterPackr.app -always-overwrite
+          ditto -c -k --keepParent native-qt/build/MatterPackr.app ${{ matrix.artifact-name }}
+
+      # Package Linux
+      - name: Package Linux Binary
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          mkdir -p dist/MatterPackr
+          cp native-qt/build/MatterPackr dist/MatterPackr/
+          tar -czvf ${{ matrix.artifact-name }} -C dist MatterPackr
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'MatterPackr ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: false
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-name }}
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ matrix.artifact-name }}
+          generate_release_notes: true
+          draft: false
           prerelease: false
-          args: ${{ matrix.args }}
