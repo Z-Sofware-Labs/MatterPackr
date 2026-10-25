@@ -134,34 +134,24 @@ jobs:
           name: MatterPackr-v3.0.0-linux-x86_64.tar.gz
           path: artifacts
 
-      - name: Install Minisign
-        run: |
-          curl -sL "https://github.com/jedisct1/minisign/releases/download/0.11/minisign-0.11-linux.tar.gz" -o minisign.tar.gz
-          tar -xzf minisign.tar.gz
-          sudo cp minisign-linux/x86_64/minisign /usr/local/bin/
-          minisign -v
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
 
       - name: Sign Releases & Generate latest.json
         env:
-          SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          KEY_PASS: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          if [ -n "$SIGNING_KEY" ]; then
-            # Write key ensuring exact multiline structure (untrusted comment + base64 key)
-            printf "%s\n" "$SIGNING_KEY" > tauri.key
-            chmod 600 tauri.key
-
-            # Sign Windows Setup (.exe)
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             WIN_FILE="artifacts/MatterPackr-v3.0.0-windows-x64-Setup.exe"
-            echo "$KEY_PASS" | minisign -s tauri.key -S -m "$WIN_FILE" -t "timestamp:$(date +%s)" -x "${WIN_FILE}.sig"
-            WIN_SIG=$(base64 -w 0 < "${WIN_FILE}.sig")
+            npx @tauri-apps/cli signer sign -f "$WIN_FILE"
+            WIN_SIG=$(cat "${WIN_FILE}.sig")
 
-            # Sign Linux (.tar.gz)
             LINUX_FILE="artifacts/MatterPackr-v3.0.0-linux-x86_64.tar.gz"
-            echo "$KEY_PASS" | minisign -s tauri.key -S -m "$LINUX_FILE" -t "timestamp:$(date +%s)" -x "${LINUX_FILE}.sig"
-            LINUX_SIG=$(base64 -w 0 < "${LINUX_FILE}.sig")
-
-            rm -f tauri.key
+            npx @tauri-apps/cli signer sign -f "$LINUX_FILE"
+            LINUX_SIG=$(cat "${LINUX_FILE}.sig")
 
             PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
