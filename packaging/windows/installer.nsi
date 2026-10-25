@@ -27,13 +27,7 @@ SetCompressor /SOLID "lzma"
 Name "${PRODUCT_NAME}"
 OutFile "${OUTFILE}"
 
-!include "MUI2.nsh"
-!include "MultiUser.nsh"
-!include "FileFunc.nsh"
-!include "LogicLib.nsh"
-!include "nsDialogs.nsh"
-
-; MultiUser Configuration
+; MultiUser Configuration (Must be defined BEFORE including MultiUser.nsh)
 !define MULTIUSER_EXECUTIONLEVEL Highest
 !define MULTIUSER_MUI
 !define MULTIUSER_INSTALLMODE_COMMANDLINE
@@ -41,6 +35,12 @@ OutFile "${OUTFILE}"
 !define MULTIUSER_INSTALLMODE_INSTDIR "${PRODUCT_NAME}"
 !define MULTIUSER_INSTALLMODE_INSTDIR_REGISTRY_KEY "${UNINST_KEY}"
 !define MULTIUSER_INSTALLMODE_INSTDIR_REGISTRY_VALUENAME "InstallLocation"
+
+!include "MUI2.nsh"
+!include "MultiUser.nsh"
+!include "FileFunc.nsh"
+!include "LogicLib.nsh"
+!include "nsDialogs.nsh"
 
 ; UI Configuration
 !define MUI_ICON "app.ico"
