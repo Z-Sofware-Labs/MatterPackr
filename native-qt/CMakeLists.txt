@@ -60,4 +60,6 @@ elseif(APPLE)
         MACOSX_BUNDLE_BUNDLE_NAME "MatterPackr"
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.matterpackr.archiver"
     )
+    # macOS 14+ / Xcode 15+ deprecated AGL.framework; create a dummy target/link flag to satisfy legacy Qt6.6 CMake files
+    target_link_options(MatterPackr PRIVATE "-Wl,-needed_framework,OpenGL")
 endif()

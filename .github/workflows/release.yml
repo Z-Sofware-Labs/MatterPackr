@@ -39,7 +39,14 @@ jobs:
         with:
           version: 1.11.1
 
-      - name: Setup MSVC (Windows)
+      - name: Setup MSVC & NSIS (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          echo "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Setup MSVC Environment (Windows)
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
 
@@ -49,9 +56,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential libgl1-mesa-dev libxkbcommon-dev libx11-xcb1 libglu1-mesa-dev
 
+      - name: Setup macOS OpenGL / AGL Compatibility
+        if: matrix.os == 'macos-latest'
+        run: |
+          # Xcode 15+ removed AGL.framework from SDK. Create a stub AGL.framework in build directory
+          mkdir -p native-qt/build/Frameworks/AGL.framework
+          touch native-qt/build/Frameworks/AGL.framework/AGL
+
       - name: Configure CMake
         run: |
-          cmake -B native-qt/build -S native-qt -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+          cmake -B native-qt/build -S native-qt -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_FRAMEWORK_PATH="$PWD/native-qt/build/Frameworks"
 
       - name: Build MatterPackr
         run: |

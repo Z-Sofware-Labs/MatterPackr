@@ -114,16 +114,16 @@ void MainWindow::createMenus() {
         updateStatusBarStats();
     });
     fileMenu->addSeparator();
-    fileMenu->addAction(tr("E&xit"), qApp, &QApplication::quit, QKeySequence::Quit);
+    fileMenu->addAction(tr("E&xit"), QKeySequence::Quit, qApp, &QApplication::quit);
 
     // Actions
     auto *actionsMenu = menuBar->addMenu(tr("&Actions"));
-    actionsMenu->addAction(tr("&Add Files..."), this, &MainWindow::onAddFiles, QKeySequence(Qt::Key_Insert));
-    actionsMenu->addAction(tr("&Extract Selected..."), this, &MainWindow::onExtractFiles, QKeySequence(Qt::Key_F4));
+    actionsMenu->addAction(tr("&Add Files..."), QKeySequence(Qt::Key_Insert), this, &MainWindow::onAddFiles);
+    actionsMenu->addAction(tr("&Extract Selected..."), QKeySequence(Qt::Key_F4), this, &MainWindow::onExtractFiles);
     actionsMenu->addAction(tr("&Encrypt Archive..."), this, &MainWindow::onEncryptArchive);
-    actionsMenu->addAction(tr("&Test Integrity"), this, &MainWindow::onTestArchive, QKeySequence(Qt::Key_F7));
-    actionsMenu->addAction(tr("&View File"), this, &MainWindow::onViewFile, QKeySequence(Qt::Key_F3));
-    actionsMenu->addAction(tr("&Delete Selected"), this, &MainWindow::onDeleteFiles, QKeySequence::Delete);
+    actionsMenu->addAction(tr("&Test Integrity"), QKeySequence(Qt::Key_F7), this, &MainWindow::onTestArchive);
+    actionsMenu->addAction(tr("&View File"), QKeySequence(Qt::Key_F3), this, &MainWindow::onViewFile);
+    actionsMenu->addAction(tr("&Delete Selected"), QKeySequence::Delete, this, &MainWindow::onDeleteFiles);
 
     // Tools
     auto *toolsMenu = menuBar->addMenu(tr("&Tools"));
