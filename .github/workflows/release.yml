@@ -112,3 +112,87 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+
+  sign-and-publish-updater:
+    name: Sign & Publish Updater Manifest for Legacy Versions
+    needs: build
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Windows Setup Installer
+        uses: actions/download-artifact@v4
+        with:
+          name: MatterPackr-v3.0.0-windows-x64-Setup.exe
+          path: artifacts
+
+      - name: Download Linux Archive
+        uses: actions/download-artifact@v4
+        with:
+          name: MatterPackr-v3.0.0-linux-x86_64.tar.gz
+          path: artifacts
+
+      - name: Install Minisign
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y minisign
+
+      - name: Sign Releases & Generate latest.json
+        env:
+          SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          KEY_PASS: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$SIGNING_KEY" ]; then
+            echo "$SIGNING_KEY" > tauri.key
+            
+            # Sign Windows Setup (.exe)
+            WIN_FILE="artifacts/MatterPackr-v3.0.0-windows-x64-Setup.exe"
+            minisign -s tauri.key -S -m "$WIN_FILE" -t "timestamp:$(date +%s)" -x "${WIN_FILE}.sig" -p <(echo "$KEY_PASS")
+            WIN_SIG=$(base64 -w 0 < "${WIN_FILE}.sig")
+
+            # Sign Linux (.tar.gz)
+            LINUX_FILE="artifacts/MatterPackr-v3.0.0-linux-x86_64.tar.gz"
+            minisign -s tauri.key -S -m "$LINUX_FILE" -t "timestamp:$(date +%s)" -x "${LINUX_FILE}.sig" -p <(echo "$KEY_PASS")
+            LINUX_SIG=$(base64 -w 0 < "${LINUX_FILE}.sig")
+
+            rm -f tauri.key
+
+            PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+            cat <<EOF > latest.json
+            {
+              "version": "3.0.0",
+              "notes": "MatterPackr 3.0.0 - Native Qt 6 Rewrite with multi-threaded compression & AES-256.",
+              "pub_date": "$PUB_DATE",
+              "platforms": {
+                "windows-x86_64": {
+                  "signature": "$WIN_SIG",
+                  "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe"
+                },
+                "windows-x86_64-nsis": {
+                  "signature": "$WIN_SIG",
+                  "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe"
+                },
+                "windows-x86_64-msi": {
+                  "signature": "$WIN_SIG",
+                  "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe"
+                },
+                "linux-x86_64": {
+                  "signature": "$LINUX_SIG",
+                  "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-linux-x86_64.tar.gz"
+                }
+              }
+            }
+            EOF
+
+            echo "Generated latest.json successfully."
+          fi
+
+      - name: Upload Signatures and latest.json to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.sig
+            latest.json

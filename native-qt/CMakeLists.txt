@@ -13,6 +13,7 @@ find_package(Qt6 6.2 REQUIRED COMPONENTS
     Gui
     Widgets
     Concurrent
+    Network
 )
 
 # Optional system libarchive / zlib if available
@@ -24,6 +25,7 @@ set(SOURCES
     src/ArchiveModel.cpp
     src/CompressionEngine.cpp
     src/OptionsDialog.cpp
+    src/UpdateManager.cpp
 )
 
 set(HEADERS
@@ -31,6 +33,7 @@ set(HEADERS
     src/ArchiveModel.h
     src/CompressionEngine.h
     src/OptionsDialog.h
+    src/UpdateManager.h
 )
 
 add_executable(MatterPackr
@@ -43,6 +46,7 @@ target_link_libraries(MatterPackr PRIVATE
     Qt6::Gui
     Qt6::Widgets
     Qt6::Concurrent
+    Qt6::Network
 )
 
 if(ZLIB_FOUND)

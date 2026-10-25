@@ -31,6 +31,7 @@ private slots:
     void onDeleteFiles();
     void onOptions();
     void onAbout();
+    void onCheckForUpdates();
     void onSelectionChanged();
     void onTableDoubleClicked(const QModelIndex &index);
 
@@ -61,4 +62,5 @@ private:
     QLabel *m_lblThreads = nullptr;
 
     CompressionEngine *m_engine = nullptr;
+    class UpdateManager *m_updateManager = nullptr;
 };

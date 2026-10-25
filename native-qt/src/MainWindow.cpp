@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "OptionsDialog.h"
+#include "UpdateManager.h"
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QInputDialog>
@@ -131,6 +132,8 @@ void MainWindow::createMenus() {
 
     // Help
     auto *helpMenu = menuBar->addMenu(tr("&Help"));
+    helpMenu->addAction(tr("&Check for Updates..."), this, &MainWindow::onCheckForUpdates);
+    helpMenu->addSeparator();
     helpMenu->addAction(tr("About &MatterPackr..."), this, &MainWindow::onAbout);
     helpMenu->addAction(tr("About &Qt..."), qApp, &QApplication::aboutQt);
 }
@@ -374,3 +377,11 @@ void MainWindow::onTableDoubleClicked(const QModelIndex &index) {
     if (!index.isValid()) return;
     onViewFile();
 }
+
+void MainWindow::onCheckForUpdates() {
+    if (!m_updateManager) {
+        m_updateManager = new UpdateManager(this);
+    }
+    m_updateManager->checkForUpdates();
+}
+
