@@ -105,8 +105,8 @@ void MainWindow::createMenus() {
 
     // File
     auto *fileMenu = menuBar->addMenu(tr("&File"));
-    fileMenu->addAction(tr("&New Archive..."), this, &MainWindow::onNewArchive, QKeySequence::New);
-    fileMenu->addAction(tr("&Open Archive..."), this, &MainWindow::onOpenArchive, QKeySequence::Open);
+    fileMenu->addAction(tr("&New Archive..."), QKeySequence::New, this, &MainWindow::onNewArchive);
+    fileMenu->addAction(tr("&Open Archive..."), QKeySequence::Open, this, &MainWindow::onOpenArchive);
     fileMenu->addSeparator();
     fileMenu->addAction(tr("&Close Archive"), this, [this]() {
         m_model->clear();

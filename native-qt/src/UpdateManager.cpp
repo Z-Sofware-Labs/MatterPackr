@@ -168,7 +168,7 @@ void UpdateManager::promptAndUpdate(const QString &latestVersion, const QString 
 
     QFile::remove(m_downloadTargetFile);
 
-    QNetworkRequest request(QUrl(downloadUrl));
+    QNetworkRequest request(QUrl{downloadUrl});
     request.setHeader(QNetworkRequest::UserAgentHeader, "MatterPackr-Qt6-Client");
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
 
