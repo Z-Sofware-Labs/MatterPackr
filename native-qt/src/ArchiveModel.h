@@ -60,7 +60,8 @@ public:
     qint64 totalPackedSize() const;
     int overallCompressionRatio() const;
 
+    static QString formatBytes(qint64 bytes);
+
 private:
     QVector<ArchiveItem> m_items;
-    static QString formatBytes(qint64 bytes);
 };
