@@ -33,7 +33,6 @@ jobs:
         with:
           version: '6.6.2'
           arch: ${{ matrix.os == 'windows-latest' && 'win64_msvc2019_64' || '' }}
-          modules: 'qtbase'
 
       - name: Setup Ninja
         uses: ashutoshvarma/setup-ninja@master
