@@ -147,16 +147,18 @@ jobs:
           KEY_PASS: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           if [ -n "$SIGNING_KEY" ]; then
-            echo "$SIGNING_KEY" > tauri.key
-            
+            # Write key ensuring exact multiline structure (untrusted comment + base64 key)
+            printf "%s\n" "$SIGNING_KEY" > tauri.key
+            chmod 600 tauri.key
+
             # Sign Windows Setup (.exe)
             WIN_FILE="artifacts/MatterPackr-v3.0.0-windows-x64-Setup.exe"
-            minisign -s tauri.key -S -m "$WIN_FILE" -t "timestamp:$(date +%s)" -x "${WIN_FILE}.sig" -p <(echo "$KEY_PASS")
+            echo "$KEY_PASS" | minisign -s tauri.key -S -m "$WIN_FILE" -t "timestamp:$(date +%s)" -x "${WIN_FILE}.sig"
             WIN_SIG=$(base64 -w 0 < "${WIN_FILE}.sig")
 
             # Sign Linux (.tar.gz)
             LINUX_FILE="artifacts/MatterPackr-v3.0.0-linux-x86_64.tar.gz"
-            minisign -s tauri.key -S -m "$LINUX_FILE" -t "timestamp:$(date +%s)" -x "${LINUX_FILE}.sig" -p <(echo "$KEY_PASS")
+            echo "$KEY_PASS" | minisign -s tauri.key -S -m "$LINUX_FILE" -t "timestamp:$(date +%s)" -x "${LINUX_FILE}.sig"
             LINUX_SIG=$(base64 -w 0 < "${LINUX_FILE}.sig")
 
             rm -f tauri.key
