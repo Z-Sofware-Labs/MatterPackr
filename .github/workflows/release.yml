@@ -22,7 +22,7 @@ jobs:
           - os: macos-latest
             artifact-name: MatterPackr-v3.0.0-macos-universal.zip
           - os: windows-latest
-            artifact-name: MatterPackr-v3.0.0-windows-x64.zip
+            artifact-name: MatterPackr-v3.0.0-windows-x64-Setup.exe
 
     steps:
       - name: Checkout repository
@@ -57,15 +57,17 @@ jobs:
         run: |
           cmake --build native-qt/build --config Release --parallel
 
-      # Package Windows
-      - name: Package Windows Binary
+      # Package Windows (.exe Setup Installer via NSIS)
+      - name: Package Windows Installer (.exe)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist/MatterPackr
-          Copy-Item native-qt/build/MatterPackr.exe dist/MatterPackr/
-          windeployqt --release --no-translations --compiler-runtime dist/MatterPackr/MatterPackr.exe
-          Compress-Archive -Path dist/MatterPackr/* -DestinationPath ${{ matrix.artifact-name }}
+          New-Item -ItemType Directory -Force -Path packaging/windows/dist
+          Copy-Item native-qt/build/MatterPackr.exe packaging/windows/dist/
+          windeployqt --release --no-translations --compiler-runtime packaging/windows/dist/MatterPackr.exe
+          cd packaging/windows
+          makensis /DPRODUCT_VERSION=3.0.0 "/DOUTFILE=$PWD/../../${{ matrix.artifact-name }}" installer.nsi
+          cd ../..
 
       # Package macOS
       - name: Package macOS App Bundle
