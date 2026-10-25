@@ -163,31 +163,36 @@ jobs:
 
             PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-            cat <<EOF > latest.json
-            {
-              "version": "3.0.0",
-              "notes": "MatterPackr 3.0.0 - Native Qt 6 Rewrite with multi-threaded compression & AES-256.",
-              "pub_date": "$PUB_DATE",
-              "platforms": {
-                "windows-x86_64": {
-                  "signature": "$WIN_SIG",
-                  "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe"
-                },
-                "windows-x86_64-nsis": {
-                  "signature": "$WIN_SIG",
-                  "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe"
-                },
-                "windows-x86_64-msi": {
-                  "signature": "$WIN_SIG",
-                  "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe"
-                },
-                "linux-x86_64": {
-                  "signature": "$LINUX_SIG",
-                  "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-linux-x86_64.tar.gz"
-                }
-              }
-            }
-            EOF
+            cat << 'EOF' > latest.json.template
+{
+  "version": "3.0.0",
+  "notes": "MatterPackr 3.0.0 - Native Qt 6 Rewrite with multi-threaded compression & AES-256.",
+  "pub_date": "__PUB_DATE__",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "__WIN_SIG__",
+      "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe"
+    },
+    "windows-x86_64-nsis": {
+      "signature": "__WIN_SIG__",
+      "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe"
+    },
+    "windows-x86_64-msi": {
+      "signature": "__WIN_SIG__",
+      "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe"
+    },
+    "linux-x86_64": {
+      "signature": "__LINUX_SIG__",
+      "url": "https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-linux-x86_64.tar.gz"
+    }
+  }
+}
+EOF
+
+            sed -e "s|__PUB_DATE__|$PUB_DATE|g" \
+                -e "s|__WIN_SIG__|$WIN_SIG|g" \
+                -e "s|__LINUX_SIG__|$LINUX_SIG|g" latest.json.template > latest.json
+            rm -f latest.json.template
 
             echo "Generated latest.json successfully."
           fi
