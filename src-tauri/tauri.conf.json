@@ -1,0 +1,315 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MatterPackr",
+  "version": "2.1.1",
+  "identifier": "com.shrinkr.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "MatterPackr",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 820,
+        "minHeight": 560,
+        "resizable": true,
+        "decorations": false,
+        "fullscreen": false,
+        "backgroundColor": "#0b1220",
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "publisher": "Z Software Labs",
+    "copyright": "Copyright © 2026 Z Software Labs",
+    "shortDescription": "A minimalist desktop file archiver",
+    "longDescription": "MatterPackr is a minimalist desktop archive manager focused on fast, simple ZIP workflows.",
+    "category": "Utility",
+    "icon": [
+      "icons/32x32.png",
+      "icons/64x64.png",
+      "icons/128x128.png",
+      "icons/256x256.png",
+      "icons/1024x1024.png",
+      "icons/512x512.png",
+      "icons/icon.ico",
+      "icons/icon.icns"
+    ],
+    "resources": [
+      "icons/filetypes/*",
+      "icons/archive.icns",
+      "icons/*.icns"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "zip"
+        ],
+        "mimeType": "application/zip",
+        "name": "ZIP archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "7z"
+        ],
+        "mimeType": "application/x-7z-compressed",
+        "name": "7-Zip archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "tar"
+        ],
+        "mimeType": "application/x-tar",
+        "name": "TAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "tar.gz",
+          "tgz"
+        ],
+        "mimeType": "application/gzip",
+        "name": "GZip TAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "tar.bz2",
+          "tbz2"
+        ],
+        "mimeType": "application/x-bzip2",
+        "name": "BZip2 TAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "gz"
+        ],
+        "mimeType": "application/gzip",
+        "name": "GZip file",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "bz2"
+        ],
+        "mimeType": "application/x-bzip2",
+        "name": "BZip2 file",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "rar"
+        ],
+        "mimeType": "application/vnd.rar",
+        "name": "RAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "cab"
+        ],
+        "mimeType": "application/vnd.ms-cab-compressed",
+        "name": "CAB archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "iso"
+        ],
+        "mimeType": "application/x-iso9660-image",
+        "name": "ISO disk image",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "img"
+        ],
+        "mimeType": "application/octet-stream",
+        "name": "Disk image",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "tar.xz",
+          "txz"
+        ],
+        "mimeType": "application/x-xz",
+        "name": "XZ TAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "tar.zst"
+        ],
+        "mimeType": "application/zstd",
+        "name": "Zstandard TAR archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "cpio"
+        ],
+        "mimeType": "application/x-cpio",
+        "name": "CPIO archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "ar",
+          "a"
+        ],
+        "mimeType": "application/x-archive",
+        "name": "UNIX Archiver archive",
+        "role": "Viewer",
+        "rank": "Alternate"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "both",
+        "template": "windows/installer.nsi",
+        "installerHooks": "./windows/hooks.nsh",
+        "languages": [
+          "English"
+        ],
+        "displayLanguageSelector": false
+      }
+    },
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/matterpackr.desktop",
+        "files": {
+          "/usr/share/mime/packages/matterpackr.xml": "linux/matterpackr-mimetypes.xml",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-zip.svg": "icons/linux/matterpackr-zip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-7z.svg": "icons/linux/matterpackr-7z.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-tar.svg": "icons/linux/matterpackr-tar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-gz.svg": "icons/linux/matterpackr-gz.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-bz2.svg": "icons/linux/matterpackr-bz2.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-rar.svg": "icons/linux/matterpackr-rar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-cab.svg": "icons/linux/matterpackr-cab.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-iso.svg": "icons/linux/matterpackr-iso.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-img.svg": "icons/linux/matterpackr-img.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-xz.svg": "icons/linux/matterpackr-xz.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-txz.svg": "icons/linux/matterpackr-txz.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-zstd.svg": "icons/linux/matterpackr-zstd.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-cpio.svg": "icons/linux/matterpackr-cpio.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-ar.svg": "icons/linux/matterpackr-ar.svg",
+          "/usr/share/icons/hicolor/32x32/apps/matterpackr.png": "icons/32x32.png",
+          "/usr/share/icons/hicolor/64x64/apps/matterpackr.png": "icons/64x64.png",
+          "/usr/share/icons/hicolor/128x128/apps/matterpackr.png": "icons/128x128.png",
+          "/usr/share/icons/hicolor/256x256/apps/matterpackr.png": "icons/256x256.png",
+          "/usr/share/icons/hicolor/512x512/apps/matterpackr.png": "icons/512x512.png",
+          "/usr/share/icons/hicolor/scalable/apps/matterpackr.svg": "icons/matterpackr-icon.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-zip.svg": "icons/linux/application-zip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-zip.svg": "icons/linux/application-x-zip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-7z-compressed.svg": "icons/linux/application-x-7z-compressed.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-tar.svg": "icons/linux/application-x-tar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-gzip.svg": "icons/linux/application-gzip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-gzip.svg": "icons/linux/application-x-gzip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-bzip2.svg": "icons/linux/application-x-bzip2.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-bzip.svg": "icons/linux/application-x-bzip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-vnd.rar.svg": "icons/linux/application-vnd.rar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-rar.svg": "icons/linux/application-x-rar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-vnd.ms-cab-compressed.svg": "icons/linux/application-vnd.ms-cab-compressed.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-iso9660-image.svg": "icons/linux/application-x-iso9660-image.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-cd-image.svg": "icons/linux/application-x-cd-image.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-raw-disk-image.svg": "icons/linux/application-x-raw-disk-image.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-xz.svg": "icons/linux/application-x-xz.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-xz-compressed-tar.svg": "icons/linux/application-x-xz-compressed-tar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-zstd.svg": "icons/linux/application-zstd.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-zstd-compressed-tar.svg": "icons/linux/application-x-zstd-compressed-tar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-cpio.svg": "icons/linux/application-x-cpio.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-archive.svg": "icons/linux/application-x-archive.svg"
+        },
+        "postInstallScript": "scripts/postinstall.sh",
+        "postRemoveScript": "scripts/postremove.sh"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/matterpackr.desktop",
+        "files": {
+          "/usr/share/mime/packages/matterpackr.xml": "linux/matterpackr-mimetypes.xml",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-zip.svg": "icons/linux/matterpackr-zip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-7z.svg": "icons/linux/matterpackr-7z.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-tar.svg": "icons/linux/matterpackr-tar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-gz.svg": "icons/linux/matterpackr-gz.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-bz2.svg": "icons/linux/matterpackr-bz2.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-rar.svg": "icons/linux/matterpackr-rar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-cab.svg": "icons/linux/matterpackr-cab.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-iso.svg": "icons/linux/matterpackr-iso.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-img.svg": "icons/linux/matterpackr-img.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-xz.svg": "icons/linux/matterpackr-xz.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-txz.svg": "icons/linux/matterpackr-txz.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-zstd.svg": "icons/linux/matterpackr-zstd.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-cpio.svg": "icons/linux/matterpackr-cpio.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/matterpackr-ar.svg": "icons/linux/matterpackr-ar.svg",
+          "/usr/share/icons/hicolor/32x32/apps/matterpackr.png": "icons/32x32.png",
+          "/usr/share/icons/hicolor/64x64/apps/matterpackr.png": "icons/64x64.png",
+          "/usr/share/icons/hicolor/128x128/apps/matterpackr.png": "icons/128x128.png",
+          "/usr/share/icons/hicolor/256x256/apps/matterpackr.png": "icons/256x256.png",
+          "/usr/share/icons/hicolor/512x512/apps/matterpackr.png": "icons/512x512.png",
+          "/usr/share/icons/hicolor/scalable/apps/matterpackr.svg": "icons/matterpackr-icon.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-zip.svg": "icons/linux/application-zip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-zip.svg": "icons/linux/application-x-zip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-7z-compressed.svg": "icons/linux/application-x-7z-compressed.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-tar.svg": "icons/linux/application-x-tar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-gzip.svg": "icons/linux/application-gzip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-gzip.svg": "icons/linux/application-x-gzip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-bzip2.svg": "icons/linux/application-x-bzip2.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-bzip.svg": "icons/linux/application-x-bzip.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-vnd.rar.svg": "icons/linux/application-vnd.rar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-rar.svg": "icons/linux/application-x-rar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-vnd.ms-cab-compressed.svg": "icons/linux/application-vnd.ms-cab-compressed.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-iso9660-image.svg": "icons/linux/application-x-iso9660-image.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-cd-image.svg": "icons/linux/application-x-cd-image.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-raw-disk-image.svg": "icons/linux/application-x-raw-disk-image.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-xz.svg": "icons/linux/application-x-xz.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-xz-compressed-tar.svg": "icons/linux/application-x-xz-compressed-tar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-zstd.svg": "icons/linux/application-zstd.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-zstd-compressed-tar.svg": "icons/linux/application-x-zstd-compressed-tar.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-cpio.svg": "icons/linux/application-x-cpio.svg",
+          "/usr/share/icons/hicolor/scalable/mimetypes/application-x-archive.svg": "icons/linux/application-x-archive.svg"
+        },
+        "postInstallScript": "scripts/postinstall.sh",
+        "postRemoveScript": "scripts/postremove.sh"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENCQzNCODlGMUY1MUEzREUKUldUZW8xRWZuN2pEeS91NTRUSGc5UDZjbWVVY29BRzIyY3RZNHkyaFRWeVhlUjhrMnMzeHNpZnkK",
+      "endpoints": [
+        "https://github.com/Z-Sofware-Labs/MatterPackr/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

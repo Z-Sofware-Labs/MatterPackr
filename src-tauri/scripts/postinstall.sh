@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+if which gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t -q /usr/share/icons/hicolor || true
+fi
+
+if which update-mime-database >/dev/null 2>&1; then
+    update-mime-database /usr/share/mime || true
+fi
