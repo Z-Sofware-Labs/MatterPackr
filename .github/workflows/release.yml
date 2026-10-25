@@ -163,24 +163,7 @@ jobs:
 
             PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-            python3 -c "
-import json, sys
-data = {
-    'version': '3.0.0',
-    'notes': 'MatterPackr 3.0.0 - Native Qt 6 Rewrite with multi-threaded compression & AES-256.',
-    'pub_date': sys.argv[1],
-    'platforms': {
-        'windows-x86_64': {'signature': sys.argv[2], 'url': 'https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe'},
-        'windows-x86_64-nsis': {'signature': sys.argv[2], 'url': 'https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe'},
-        'windows-x86_64-msi': {'signature': sys.argv[2], 'url': 'https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-windows-x64-Setup.exe'},
-        'linux-x86_64': {'signature': sys.argv[3], 'url': 'https://github.com/Z-Sofware-Labs/MatterPackr/releases/download/v3.0.0/MatterPackr-v3.0.0-linux-x86_64.tar.gz'}
-    }
-}
-with open('latest.json', 'w') as f:
-    json.dump(data, f, indent=2)
-" "$PUB_DATE" "$WIN_SIG" "$LINUX_SIG"
-
-            echo "Generated latest.json successfully."
+            python3 packaging/generate_manifest.py "$PUB_DATE" "$WIN_SIG" "$LINUX_SIG"
           fi
 
       - name: Upload Signatures and latest.json to GitHub Release
