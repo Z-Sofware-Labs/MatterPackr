@@ -136,8 +136,10 @@ jobs:
 
       - name: Install Minisign
         run: |
-          sudo apt-get update
-          sudo apt-get install -y minisign
+          curl -sL "https://github.com/jedisct1/minisign/releases/download/0.11/minisign-0.11-linux.tar.gz" -o minisign.tar.gz
+          tar -xzf minisign.tar.gz
+          sudo cp minisign-linux/x86_64/minisign /usr/local/bin/
+          minisign -v
 
       - name: Sign Releases & Generate latest.json
         env:
