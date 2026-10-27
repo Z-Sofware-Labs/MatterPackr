@@ -12,6 +12,8 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTextStream>
+#include <QPainter>
+#include <QStyleOption>
 #include <QVBoxLayout>
 
 #ifdef Q_OS_WIN
@@ -20,11 +22,13 @@
 #endif
 #include <shlobj.h>
 #include <windows.h>
+#include <dwmapi.h>
 #elif defined(Q_OS_MACOS) || defined(Q_OS_MAC)
 #include <CoreServices/CoreServices.h>
 #endif
 
 OptionsDialog::OptionsDialog(QWidget *parent) : QDialog(parent) {
+  setObjectName("OptionsDialog");
   setWindowTitle(tr("Options"));
   setWindowIcon(QIcon(":/app.png"));
   setModal(true);
@@ -35,6 +39,119 @@ OptionsDialog::OptionsDialog(QWidget *parent) : QDialog(parent) {
   setupUi();
   loadSettings();
   updateAssociationCount();
+}
+
+bool OptionsDialog::isDarkModeActive() const {
+  QString theme = themeMode();
+  if (theme == "device") {
+#ifdef Q_OS_WIN
+    QSettings winTheme("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                       QSettings::NativeFormat);
+    bool lightTheme = winTheme.value("AppsUseLightTheme", 0).toInt() != 0;
+    return !lightTheme;
+#else
+    return true;
+#endif
+  }
+  return theme != "light";
+}
+
+void OptionsDialog::applyThemeStyles() {
+  bool isDark = isDarkModeActive();
+
+  QPalette pal = palette();
+  if (isDark) {
+    pal.setColor(QPalette::Window, QColor(0x18, 0x19, 0x20));
+    pal.setColor(QPalette::Base, QColor(0x16, 0x17, 0x1c));
+    pal.setColor(QPalette::WindowText, QColor(0xe5, 0xe7, 0xeb));
+    setStyleSheet("QDialog#OptionsDialog, OptionsDialog { background-color: #181920; color: #e5e7eb; }");
+  } else {
+    // Soft, pleasant modern light slate background matching style-light.qss
+    pal.setColor(QPalette::Window, QColor(0xf8, 0xfa, 0xfc));
+    pal.setColor(QPalette::Base, QColor(0xff, 0xff, 0xff));
+    pal.setColor(QPalette::WindowText, QColor(0x1e, 0x29, 0x3b));
+    setStyleSheet("QDialog#OptionsDialog, OptionsDialog { background-color: #f8fafc; color: #1e293b; }");
+  }
+  setPalette(pal);
+
+  if (m_lblCount) {
+    m_lblCount->setStyleSheet(isDark ? "color: #9ca3af; font-size: 11px; font-weight: 500;"
+                                     : "color: #475569; font-size: 11px; font-weight: 600;");
+  }
+
+  if (m_btnSelectRW) {
+    m_btnSelectRW->setStyleSheet(isDark ? "padding: 3px 10px; font-size: 10px; min-height: 20px; color: #34d399;"
+                                        : "padding: 3px 10px; font-size: 10px; min-height: 20px; color: #059669; font-weight: 600;");
+  }
+
+  if (m_btnSelectRO) {
+    m_btnSelectRO->setStyleSheet(isDark ? "padding: 3px 10px; font-size: 10px; min-height: 20px; color: #fbbf24;"
+                                        : "padding: 3px 10px; font-size: 10px; min-height: 20px; color: #d97706; font-weight: 600;");
+  }
+
+  if (m_btnClear) {
+    m_btnClear->setStyleSheet(isDark ? "padding: 3px 10px; font-size: 10px; min-height: 20px; color: #ef4444;"
+                                     : "padding: 3px 10px; font-size: 10px; min-height: 20px; color: #dc2626; font-weight: 600;");
+  }
+
+  if (m_lblNote) {
+    m_lblNote->setStyleSheet(isDark ? "color: #9ca3af; font-size: 10px;"
+                                    : "color: #64748b; font-size: 10px;");
+  }
+
+  if (m_lblChkDesc) {
+    m_lblChkDesc->setStyleSheet(isDark ? "color: #9ca3af; font-size: 10.5px; margin-left: 24px;"
+                                       : "color: #64748b; font-size: 10.5px; margin-left: 24px;");
+  }
+
+#ifdef Q_OS_WIN
+  HWND hwnd = reinterpret_cast<HWND>(winId());
+  if (hwnd) {
+    BOOL dm = isDark ? TRUE : FALSE;
+    if (FAILED(DwmSetWindowAttribute(hwnd, 20, &dm, sizeof(dm)))) {
+      DwmSetWindowAttribute(hwnd, 19, &dm, sizeof(dm));
+    }
+    COLORREF captionColor = isDark ? RGB(0x18, 0x19, 0x20) : RGB(0xf8, 0xfa, 0xfc);
+    DwmSetWindowAttribute(hwnd, 35, &captionColor, sizeof(captionColor));
+    COLORREF textColor = isDark ? RGB(0xe5, 0xe7, 0xeb) : RGB(0x1e, 0x29, 0x3b);
+    DwmSetWindowAttribute(hwnd, 36, &textColor, sizeof(textColor));
+  }
+#endif
+  update();
+}
+
+bool OptionsDialog::nativeEvent(const QByteArray &eventType, void *message, qintptr *result) {
+#ifdef Q_OS_WIN
+  if (eventType == "windows_generic_MSG") {
+    MSG *msg = static_cast<MSG *>(message);
+    if (msg->message == WM_ERASEBKGND) {
+      HDC hdc = reinterpret_cast<HDC>(msg->wParam);
+      RECT rc;
+      GetClientRect(msg->hwnd, &rc);
+      bool isDark = isDarkModeActive();
+      HBRUSH bgBrush = isDark ? CreateSolidBrush(RGB(0x18, 0x19, 0x20))
+                              : CreateSolidBrush(RGB(0xf8, 0xfa, 0xfc));
+      FillRect(hdc, &rc, bgBrush);
+      DeleteObject(bgBrush);
+      *result = 1;
+      return true;
+    }
+  }
+#endif
+  return QDialog::nativeEvent(eventType, message, result);
+}
+
+void OptionsDialog::paintEvent(QPaintEvent *event) {
+  QStyleOption opt;
+  opt.initFrom(this);
+  QPainter p(this);
+  style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
+  QDialog::paintEvent(event);
+}
+
+void OptionsDialog::showEvent(QShowEvent *event) {
+  QDialog::showEvent(event);
+  applyThemeStyles();
 }
 
 void OptionsDialog::initFileTypes() {
@@ -100,25 +217,19 @@ void OptionsDialog::setupUi() {
           &OptionsDialog::onSelectAll);
   headerBar->addWidget(btnSelectAll);
 
-  auto *btnSelectRW = new QPushButton(tr("+ R/W"), tabFormats);
-  btnSelectRW->setStyleSheet(
-      "padding: 3px 10px; font-size: 10px; min-height: 20px; color: #34d399;");
-  connect(btnSelectRW, &QPushButton::clicked, this,
+  m_btnSelectRW = new QPushButton(tr("+ R/W"), tabFormats);
+  connect(m_btnSelectRW, &QPushButton::clicked, this,
           &OptionsDialog::onSelectReadWrite);
-  headerBar->addWidget(btnSelectRW);
+  headerBar->addWidget(m_btnSelectRW);
 
-  auto *btnSelectRO = new QPushButton(tr("+ R/O"), tabFormats);
-  btnSelectRO->setStyleSheet(
-      "padding: 3px 10px; font-size: 10px; min-height: 20px; color: #fbbf24;");
-  connect(btnSelectRO, &QPushButton::clicked, this,
+  m_btnSelectRO = new QPushButton(tr("+ R/O"), tabFormats);
+  connect(m_btnSelectRO, &QPushButton::clicked, this,
           &OptionsDialog::onSelectReadOnly);
-  headerBar->addWidget(btnSelectRO);
+  headerBar->addWidget(m_btnSelectRO);
 
-  auto *btnClear = new QPushButton(tr("Clear"), tabFormats);
-  btnClear->setStyleSheet(
-      "padding: 3px 10px; font-size: 10px; min-height: 20px; color: #ef4444;");
-  connect(btnClear, &QPushButton::clicked, this, &OptionsDialog::onClearAll);
-  headerBar->addWidget(btnClear);
+  m_btnClear = new QPushButton(tr("Clear"), tabFormats);
+  connect(m_btnClear, &QPushButton::clicked, this, &OptionsDialog::onClearAll);
+  headerBar->addWidget(m_btnClear);
 
   layoutFormats->addLayout(headerBar);
 
@@ -132,11 +243,18 @@ void OptionsDialog::setupUi() {
   gridRW->setHorizontalSpacing(16);
   gridRW->setVerticalSpacing(6);
 
+  // Static cache for format icons to avoid repeated resource decompression on dialog open
+  static QHash<QString, QIcon> s_fmtIconCache;
+
   int rwIndex = 0;
   for (int i = 0; i < m_fileTypes.size(); ++i) {
     if (m_fileTypes[i].category == "read_write") {
       auto *chk = new QCheckBox(grpRW);
-      chk->setIcon(QIcon(m_fileTypes[i].iconPath));
+      QIcon &ico = s_fmtIconCache[m_fileTypes[i].iconPath];
+      if (ico.isNull()) {
+        ico = QIcon(m_fileTypes[i].iconPath);
+      }
+      chk->setIcon(ico);
       chk->setIconSize(QSize(18, 18));
       chk->setText(QString("%1   %2")
                        .arg(m_fileTypes[i].ext, -10)
@@ -165,7 +283,11 @@ void OptionsDialog::setupUi() {
   for (int i = 0; i < m_fileTypes.size(); ++i) {
     if (m_fileTypes[i].category == "read_only") {
       auto *chk = new QCheckBox(grpRO);
-      chk->setIcon(QIcon(m_fileTypes[i].iconPath));
+      QIcon &ico = s_fmtIconCache[m_fileTypes[i].iconPath];
+      if (ico.isNull()) {
+        ico = QIcon(m_fileTypes[i].iconPath);
+      }
+      chk->setIcon(ico);
       chk->setIconSize(QSize(18, 18));
       chk->setText(QString("%1   %2")
                        .arg(m_fileTypes[i].ext, -10)
@@ -187,11 +309,10 @@ void OptionsDialog::setupUi() {
   lblShield->setPixmap(QIcon(":/shield.svg").pixmap(15, 15));
   footnoteLayout->addWidget(lblShield);
 
-  auto *lblNote = new QLabel(tr("Modifying system associations will request OS "
+  m_lblNote = new QLabel(tr("Modifying system associations will request OS "
                                 "elevated privileges on Apply."),
                              tabFormats);
-  lblNote->setStyleSheet("color: #9ca3af; font-size: 10px;");
-  footnoteLayout->addWidget(lblNote);
+  footnoteLayout->addWidget(m_lblNote);
   footnoteLayout->addStretch();
   layoutFormats->addLayout(footnoteLayout);
 
@@ -220,12 +341,10 @@ void OptionsDialog::setupUi() {
   m_chkShowCheckboxes->setCursor(Qt::PointingHandCursor);
   layoutView->addWidget(m_chkShowCheckboxes);
 
-  auto *lblChkDesc = new QLabel(tr("Enables checkbox columns for touch and "
+  m_lblChkDesc = new QLabel(tr("Enables checkbox columns for touch and "
                                    "single-click multi-file batch operations."),
                                 grpView);
-  lblChkDesc->setStyleSheet(
-      "color: #9ca3af; font-size: 10.5px; margin-left: 24px;");
-  layoutView->addWidget(lblChkDesc);
+  layoutView->addWidget(m_lblChkDesc);
   layoutAppearance->addWidget(grpView);
 
   // Interface Theme
@@ -249,6 +368,9 @@ void OptionsDialog::setupUi() {
   m_themeGroup->addButton(m_radDeviceTheme, 0);
   m_themeGroup->addButton(m_radLightTheme, 1);
   m_themeGroup->addButton(m_radDarkTheme, 2);
+
+  connect(m_themeGroup, &QButtonGroup::buttonClicked, this,
+          [this](QAbstractButton *) { applyThemeStyles(); });
 
   layoutTheme->addWidget(m_radDeviceTheme);
   layoutTheme->addWidget(m_radLightTheme);
@@ -312,6 +434,8 @@ void OptionsDialog::loadSettings() {
   } else {
     m_radDarkTheme->setChecked(true);
   }
+
+  applyThemeStyles();
 }
 
 void OptionsDialog::saveSettings() {

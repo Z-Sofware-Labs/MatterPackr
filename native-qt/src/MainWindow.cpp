@@ -5,6 +5,7 @@
 #include "FavoritesDialog.h"
 #include "UpdateManager.h"
 #include <QApplication>
+#include <QStyleFactory>
 #include <QCloseEvent>
 #include <QDateTime>
 #include <QDesktopServices>
@@ -21,6 +22,8 @@
 #include <QSettings>
 #include <QThread>
 #include <QVBoxLayout>
+#include <QPainter>
+#include <QStyleOption>
 #include <QToolButton>
 #include <QMenu>
 #include <QWidgetAction>
@@ -38,6 +41,7 @@
 #endif
 #include <windows.h>
 #include <shellapi.h>
+#include <dwmapi.h>
 #endif
 
 MainWindow::MainWindow(QWidget *parent)
@@ -73,6 +77,12 @@ MainWindow::MainWindow(QWidget *parent)
 
   updateEmptyStateVisibility();
   updateStatusBarStats();
+
+  m_optionsDlg = new OptionsDialog(this);
+  connect(m_optionsDlg, &OptionsDialog::settingsApplied, this, [this]() {
+    m_model->setShowCheckboxes(m_optionsDlg->showCheckboxes());
+    applyTheme(m_optionsDlg->themeMode());
+  });
 
   if (qApp) {
     qApp->installEventFilter(this);
@@ -225,7 +235,11 @@ void MainWindow::createCentralGrid() {
   m_tableView->setShowGrid(false);
   m_tableView->setAlternatingRowColors(true);
 
-  // Compact row height & hide vertical header
+  // Performance optimizations: fixed row height and disabled word wrap enable O(1) table geometry
+  m_tableView->setWordWrap(false);
+
+  // Compact row height & hide vertical header with fixed O(1) row sizing
+  m_tableView->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
   m_tableView->verticalHeader()->setDefaultSectionSize(22);
   m_tableView->verticalHeader()->setVisible(false);
 
@@ -286,6 +300,20 @@ void MainWindow::createCentralGrid() {
             updateViewModeUI();
             updateStatusBarStats();
           });
+}
+
+void MainWindow::showEvent(QShowEvent *event) {
+  QMainWindow::showEvent(event);
+  QSettings settings("MatterPackr", "MatterPackr");
+  applyTheme(settings.value("themeMode", "dark").toString());
+}
+
+void MainWindow::paintEvent(QPaintEvent *event) {
+  QStyleOption opt;
+  opt.initFrom(this);
+  QPainter p(this);
+  style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
+  QMainWindow::paintEvent(event);
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event) {
@@ -586,6 +614,26 @@ QIcon MainWindow::getArchiveTypeIcon(const QString &filePath) const {
   if (filePath.isEmpty()) {
     return QIcon(":/app.png");
   }
+
+  static QHash<QString, QIcon> s_mainIconCache;
+
+  QString ext;
+  QString lowerPath = filePath.toLower();
+  if (lowerPath.endsWith(".tar.gz") || lowerPath.endsWith(".tgz")) ext = "tgz";
+  else if (lowerPath.endsWith(".tar.bz2") || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tbz")) ext = "tbz2";
+  else if (lowerPath.endsWith(".tar.xz") || lowerPath.endsWith(".txz")) ext = "txz";
+  else {
+    int dotIdx = filePath.lastIndexOf('.');
+    if (dotIdx != -1) {
+      ext = filePath.mid(dotIdx + 1).toLower();
+    }
+  }
+
+  auto it = s_mainIconCache.constFind(ext);
+  if (it != s_mainIconCache.constEnd()) {
+    return it.value();
+  }
+
   auto getCustomIcon = [](const QString &baseName) -> QIcon {
     QIcon icon(QString(":/filetypes/%1.png").arg(baseName));
     if (icon.isNull()) {
@@ -594,25 +642,26 @@ QIcon MainWindow::getArchiveTypeIcon(const QString &filePath) const {
     return icon;
   };
 
-  QString lowerPath = filePath.toLower();
-  if (lowerPath.endsWith(".tar.gz") || lowerPath.endsWith(".tgz")) return getCustomIcon("tgz");
-  if (lowerPath.endsWith(".tar.bz2") || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tbz")) return getCustomIcon("tbz2");
-  if (lowerPath.endsWith(".tar.xz") || lowerPath.endsWith(".txz")) return getCustomIcon("txz");
+  QIcon result;
+  if (ext == "zip" || ext == "zipx") result = getCustomIcon("zip");
+  else if (ext == "7z") result = getCustomIcon("7z");
+  else if (ext == "rar") result = getCustomIcon("rar");
+  else if (ext == "tar") result = getCustomIcon("tar");
+  else if (ext == "tgz") result = getCustomIcon("tgz");
+  else if (ext == "tbz2") result = getCustomIcon("tbz2");
+  else if (ext == "txz") result = getCustomIcon("txz");
+  else if (ext == "gz" || ext == "gzip") result = getCustomIcon("gz");
+  else if (ext == "bz2" || ext == "bzip2") result = getCustomIcon("bz2");
+  else if (ext == "xz") result = getCustomIcon("txz");
+  else if (ext == "iso") result = getCustomIcon("iso");
+  else if (ext == "img" || ext == "bin") result = getCustomIcon("img");
+  else if (ext == "cab") result = getCustomIcon("cab");
+  else if (ext == "cpio") result = getCustomIcon("cpio");
+  else if (ext == "ar" || ext == "a") result = getCustomIcon("ar");
+  else result = getCustomIcon("archive");
 
-  QString ext = QFileInfo(filePath).suffix().toLower();
-  if (ext == "zip" || ext == "zipx") return getCustomIcon("zip");
-  if (ext == "7z") return getCustomIcon("7z");
-  if (ext == "rar") return getCustomIcon("rar");
-  if (ext == "tar") return getCustomIcon("tar");
-  if (ext == "gz" || ext == "gzip") return getCustomIcon("gz");
-  if (ext == "bz2" || ext == "bzip2") return getCustomIcon("bz2");
-  if (ext == "xz") return getCustomIcon("txz");
-  if (ext == "iso") return getCustomIcon("iso");
-  if (ext == "img" || ext == "bin") return getCustomIcon("img");
-  if (ext == "cab") return getCustomIcon("cab");
-  if (ext == "cpio") return getCustomIcon("cpio");
-  if (ext == "ar" || ext == "a") return getCustomIcon("ar");
-  return getCustomIcon("archive");
+  s_mainIconCache.insert(ext, result);
+  return result;
 }
 
 void MainWindow::onNewArchive() {
@@ -1327,9 +1376,7 @@ void MainWindow::applyTheme(const QString &mode) {
   QString activeMode = mode;
   if (activeMode == "device") {
 #ifdef Q_OS_WIN
-    QSettings winTheme("HKEY_CURRENT_"
-                       "USER\\Software\\Microsoft\\Windows\\CurrentVersion\\The"
-                       "mes\\Personalize",
+    QSettings winTheme("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
                        QSettings::NativeFormat);
     bool lightTheme = winTheme.value("AppsUseLightTheme", 0).toInt() != 0;
     activeMode = lightTheme ? "light" : "dark";
@@ -1338,26 +1385,44 @@ void MainWindow::applyTheme(const QString &mode) {
 #endif
   }
 
-  QString qssPath =
-      (activeMode == "light") ? ":/style-light.qss" : ":/style.qss";
+  bool isDark = (activeMode != "light");
+  QString qssPath = isDark ? ":/style.qss" : ":/style-light.qss";
   QFile styleFile(qssPath);
   if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
     qApp->setStyleSheet(QString::fromUtf8(styleFile.readAll()));
     styleFile.close();
   }
+
+#ifdef Q_OS_WIN
+  HWND hwnd = reinterpret_cast<HWND>(winId());
+  if (hwnd) {
+    BOOL dm = isDark ? TRUE : FALSE;
+    // DWMWA_USE_IMMERSIVE_DARK_MODE: 20 (Windows 11 / Windows 10 20H1+), 19 (older Windows 10 builds)
+    if (FAILED(DwmSetWindowAttribute(hwnd, 20, &dm, sizeof(dm)))) {
+      DwmSetWindowAttribute(hwnd, 19, &dm, sizeof(dm));
+    }
+    // DWMWA_CAPTION_COLOR (35) and DWMWA_TEXT_COLOR (36)
+    COLORREF captionColor = isDark ? RGB(0x18, 0x19, 0x20) : RGB(0xf8, 0xfa, 0xfc);
+    DwmSetWindowAttribute(hwnd, 35, &captionColor, sizeof(captionColor));
+    COLORREF textColor = isDark ? RGB(0xe5, 0xe7, 0xeb) : RGB(0x1e, 0x29, 0x3b);
+    DwmSetWindowAttribute(hwnd, 36, &textColor, sizeof(textColor));
+  }
+#endif
 }
 
 void MainWindow::onOptions() {
-  OptionsDialog dlg(this);
-  connect(&dlg, &OptionsDialog::settingsApplied, this, [this, &dlg]() {
-    m_model->setShowCheckboxes(dlg.showCheckboxes());
-    applyTheme(dlg.themeMode());
-  });
+  if (!m_optionsDlg) {
+    m_optionsDlg = new OptionsDialog(this);
+    connect(m_optionsDlg, &OptionsDialog::settingsApplied, this, [this]() {
+      m_model->setShowCheckboxes(m_optionsDlg->showCheckboxes());
+      applyTheme(m_optionsDlg->themeMode());
+    });
+  }
 
-  if (dlg.exec() == QDialog::Accepted) {
-    m_model->setShowCheckboxes(dlg.showCheckboxes());
-    applyTheme(dlg.themeMode());
-    int count = dlg.selectedAssociations().size();
+  if (m_optionsDlg->exec() == QDialog::Accepted) {
+    m_model->setShowCheckboxes(m_optionsDlg->showCheckboxes());
+    applyTheme(m_optionsDlg->themeMode());
+    int count = m_optionsDlg->selectedAssociations().size();
     statusBar()->showMessage(
         tr("Configuration saved. Registered %1 file format(s).").arg(count),
         4000);

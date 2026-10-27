@@ -42,6 +42,9 @@ void ArchiveTableView::mouseMoveEvent(QMouseEvent *event) {
         if (!m_isRubberBanding) {
             if ((event->pos() - m_dragStartPos).manhattanLength() >= QApplication::startDragDistance()) {
                 m_isRubberBanding = true;
+                if (!m_rubberBand) {
+                    m_rubberBand = new QRubberBand(QRubberBand::Rectangle, viewport());
+                }
                 if (!(m_modifiers & Qt::ControlModifier)) {
                     m_initialSelection.clear();
                 }
@@ -52,6 +55,11 @@ void ArchiveTableView::mouseMoveEvent(QMouseEvent *event) {
             m_currentDragPos = event->pos();
             QRect rect = QRect(m_dragStartPos, m_currentDragPos).normalized();
 
+            if (m_rubberBand) {
+                m_rubberBand->setGeometry(rect);
+                m_rubberBand->show();
+            }
+
             // Smooth auto-scroll when dragging near viewport boundaries
             if (event->pos().y() < 15) {
                 verticalScrollBar()->setValue(verticalScrollBar()->value() - 15);
@@ -60,7 +68,6 @@ void ArchiveTableView::mouseMoveEvent(QMouseEvent *event) {
             }
 
             updateRubberBandSelection(rect);
-            viewport()->update();
             event->accept();
             return;
         }
@@ -72,33 +79,14 @@ void ArchiveTableView::mouseReleaseEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
         if (m_isRubberBanding) {
             m_isRubberBanding = false;
-            viewport()->update();
+            if (m_rubberBand) {
+                m_rubberBand->hide();
+            }
             event->accept();
             return;
         }
     }
     QTableView::mouseReleaseEvent(event);
-}
-
-void ArchiveTableView::paintEvent(QPaintEvent *event) {
-    // 1. Let the default table view render rows, text, icons, and alternating background
-    QTableView::paintEvent(event);
-
-    // 2. Render visible marquee drag selection rectangle directly on top of viewport
-    if (m_isRubberBanding) {
-        QPainter painter(viewport());
-        painter.setRenderHint(QPainter::Antialiasing, false);
-
-        QRect rect = QRect(m_dragStartPos, m_currentDragPos).normalized();
-
-        // Fluent / macOS / GNOME native semi-transparent blue fill
-        QColor fillColor(0, 120, 215, 60);
-        QColor borderColor(0, 120, 215, 230);
-
-        painter.fillRect(rect, fillColor);
-        painter.setPen(QPen(borderColor, 1, Qt::SolidLine));
-        painter.drawRect(rect);
-    }
 }
 
 void ArchiveTableView::updateRubberBandSelection(const QRect &rect) {
@@ -110,23 +98,28 @@ void ArchiveTableView::updateRubberBandSelection(const QRect &rect) {
     int cols = model()->columnCount();
     if (cols == 0) cols = 1;
 
-    QItemSelection rubberBandSelection;
-    int maxBottom = qMax(viewport()->height(), rect.bottom());
+    // Fast O(1) row range calculation using rowAt
+    int topY = qMax(0, rect.top());
+    int botY = qMin(viewport()->height() - 1, rect.bottom());
 
-    for (int r = 0; r < totalRows; ++r) {
-        int rY = rowViewportPosition(r);
-        int rH = rowHeight(r);
-
-        if (rY + rH < 0) continue;
-        if (rY > maxBottom) break;
-
-        QRect rowRect(0, rY, viewport()->width(), rH);
-        if (rect.intersects(rowRect)) {
-            QModelIndex leftIdx = model()->index(r, 0);
-            QModelIndex rightIdx = model()->index(r, cols - 1);
-            rubberBandSelection.select(leftIdx, rightIdx);
-        }
+    int startRow = rowAt(topY);
+    if (startRow == -1) {
+        startRow = (topY <= 0) ? 0 : totalRows - 1;
     }
+
+    int endRow = rowAt(botY);
+    if (endRow == -1) {
+        endRow = totalRows - 1;
+    }
+
+    if (startRow > endRow) {
+        std::swap(startRow, endRow);
+    }
+
+    QItemSelection rubberBandSelection;
+    QModelIndex leftIdx = model()->index(startRow, 0);
+    QModelIndex rightIdx = model()->index(endRow, cols - 1);
+    rubberBandSelection.select(leftIdx, rightIdx);
 
     if (m_modifiers & Qt::ControlModifier) {
         QItemSelection combined = m_initialSelection;

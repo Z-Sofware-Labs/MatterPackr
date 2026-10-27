@@ -195,7 +195,7 @@ QStatusBar::item {
 
 /* Dialogs & Windows */
 QDialog {
-    background-color: #ffffff;
+    background-color: #f8fafc;
     color: #1e293b;
 }
 
@@ -207,9 +207,9 @@ QTabWidget::pane {
     top: -1px;
 }
 QTabBar::tab {
-    background-color: transparent;
-    color: #64748b;
-    border: 1px solid transparent;
+    background-color: #e2e8f0;
+    color: #475569;
+    border: 1px solid #cbd5e1;
     border-bottom: none;
     padding: 5px 14px;
     font-size: 11px;
@@ -227,7 +227,7 @@ QTabBar::tab:selected {
 }
 QTabBar::tab:hover:!selected {
     color: #0f172a;
-    background-color: rgba(0, 0, 0, 0.04);
+    background-color: #cbd5e1;
 }
 
 /* Group Boxes - Compact */

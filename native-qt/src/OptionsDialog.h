@@ -50,14 +50,26 @@ private slots:
     void onApply();
     void onOk();
 
+protected:
+    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
+    void showEvent(QShowEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
+
 private:
     void setupUi();
     void initFileTypes();
     void loadSettings();
     void saveSettings();
+    bool isDarkModeActive() const;
+    void applyThemeStyles();
 
-    QTabWidget *m_tabWidget;
-    QLabel *m_lblCount;
+    QTabWidget *m_tabWidget = nullptr;
+    QLabel *m_lblCount = nullptr;
+    QPushButton *m_btnSelectRW = nullptr;
+    QPushButton *m_btnSelectRO = nullptr;
+    QPushButton *m_btnClear = nullptr;
+    QLabel *m_lblNote = nullptr;
+    QLabel *m_lblChkDesc = nullptr;
 
     QVector<SupportedFileType> m_fileTypes;
 

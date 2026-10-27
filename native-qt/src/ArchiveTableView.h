@@ -3,7 +3,7 @@
 #include <QTableView>
 #include <QPoint>
 #include <QItemSelection>
-#include <QPainter>
+#include <QRubberBand>
 
 class ArchiveTableView : public QTableView {
     Q_OBJECT
@@ -16,7 +16,6 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
-    void paintEvent(QPaintEvent *event) override;
 
 private:
     void updateRubberBandSelection(const QRect &rect);
@@ -24,6 +23,7 @@ private:
     QPoint m_dragStartPos;
     QPoint m_currentDragPos;
     bool m_isRubberBanding = false;
+    QRubberBand *m_rubberBand = nullptr;
     QItemSelection m_initialSelection;
     Qt::KeyboardModifiers m_modifiers = Qt::NoModifier;
 };

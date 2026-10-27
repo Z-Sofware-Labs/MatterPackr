@@ -10,3 +10,4 @@ native-qt/build/
 compile_commands.json
 .vscode/
 .clangd
+pyrightconfig.json

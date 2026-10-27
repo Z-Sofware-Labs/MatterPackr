@@ -60,12 +60,51 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
     }
 
     if (role == Qt::DecorationRole && index.column() == ColFilename) {
-        if (item.isDirectory) {
-            static QFileIconProvider iconProvider;
-            return iconProvider.icon(QFileIconProvider::Folder);
+        if (item.filename == "..") {
+            static QIcon s_upIcon;
+            if (s_upIcon.isNull()) {
+                static QFileIconProvider iconProvider;
+                s_upIcon = iconProvider.icon(QFileIconProvider::Folder);
+            }
+            return s_upIcon;
         }
 
-        auto getCustomIcon = [](const QString &baseName) -> QIcon {
+        if (item.isDirectory) {
+            static QIcon s_folderIcon;
+            if (s_folderIcon.isNull()) {
+                static QFileIconProvider iconProvider;
+                s_folderIcon = iconProvider.icon(QFileIconProvider::Folder);
+            }
+            return s_folderIcon;
+        }
+
+        // High-performance static extension-to-icon cache (avoids repeated file/resource I/O on scroll)
+        static QHash<QString, QIcon> s_iconCache;
+
+        // Fast extension extraction without constructing QFileInfo
+        QString ext;
+        const QString &fn = item.filename;
+        const int dotIdx = fn.lastIndexOf('.');
+        if (dotIdx != -1) {
+            ext = fn.mid(dotIdx + 1).toLower();
+        }
+
+        // Check compound archive extensions
+        const QString lowerName = fn.toLower();
+        if (lowerName.endsWith(".tar.gz") || lowerName.endsWith(".tgz")) {
+            ext = "tgz";
+        } else if (lowerName.endsWith(".tar.bz2") || lowerName.endsWith(".tbz2") || lowerName.endsWith(".tbz")) {
+            ext = "tbz2";
+        } else if (lowerName.endsWith(".tar.xz") || lowerName.endsWith(".txz")) {
+            ext = "txz";
+        }
+
+        auto it = s_iconCache.constFind(ext);
+        if (it != s_iconCache.constEnd()) {
+            return it.value();
+        }
+
+        auto loadCustomIcon = [](const QString &baseName) -> QIcon {
             QIcon icon(QString(":/filetypes/%1.png").arg(baseName));
             if (icon.isNull()) {
                 icon = QIcon(QString(":/filetypes/%1.ico").arg(baseName));
@@ -73,48 +112,34 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
             return icon;
         };
 
-        const QString lowerName = item.filename.toLower();
-        if (lowerName.endsWith(".tar.gz") || lowerName.endsWith(".tgz")) {
-            return getCustomIcon("tgz");
-        } else if (lowerName.endsWith(".tar.bz2") || lowerName.endsWith(".tbz2") || lowerName.endsWith(".tbz")) {
-            return getCustomIcon("tbz2");
-        } else if (lowerName.endsWith(".tar.xz") || lowerName.endsWith(".txz")) {
-            return getCustomIcon("txz");
+        QIcon resolved;
+        if (ext == "zip" || ext == "zipx") resolved = loadCustomIcon("zip");
+        else if (ext == "7z") resolved = loadCustomIcon("7z");
+        else if (ext == "rar") resolved = loadCustomIcon("rar");
+        else if (ext == "tar") resolved = loadCustomIcon("tar");
+        else if (ext == "tgz") resolved = loadCustomIcon("tgz");
+        else if (ext == "tbz2") resolved = loadCustomIcon("tbz2");
+        else if (ext == "txz") resolved = loadCustomIcon("txz");
+        else if (ext == "gz" || ext == "gzip") resolved = loadCustomIcon("gz");
+        else if (ext == "bz2" || ext == "bzip2") resolved = loadCustomIcon("bz2");
+        else if (ext == "xz") resolved = loadCustomIcon("txz");
+        else if (ext == "iso") resolved = loadCustomIcon("iso");
+        else if (ext == "img" || ext == "bin") resolved = loadCustomIcon("img");
+        else if (ext == "cab") resolved = loadCustomIcon("cab");
+        else if (ext == "cpio") resolved = loadCustomIcon("cpio");
+        else if (ext == "ar" || ext == "a") resolved = loadCustomIcon("ar");
+        else if (ext == "zst" || ext == "lzma" || ext == "lzh" || ext == "ace") resolved = loadCustomIcon("archive");
+
+        if (resolved.isNull()) {
+            static QFileIconProvider iconProvider;
+            resolved = iconProvider.icon(QFileInfo(item.filename));
+            if (resolved.isNull()) {
+                resolved = iconProvider.icon(QAbstractFileIconProvider::File);
+            }
         }
 
-        const QString suffix = QFileInfo(item.filename).suffix().toLower();
-        if (suffix == "zip" || suffix == "zipx") {
-            return getCustomIcon("zip");
-        } else if (suffix == "7z") {
-            return getCustomIcon("7z");
-        } else if (suffix == "rar") {
-            return getCustomIcon("rar");
-        } else if (suffix == "tar") {
-            return getCustomIcon("tar");
-        } else if (suffix == "gz" || suffix == "gzip") {
-            return getCustomIcon("gz");
-        } else if (suffix == "bz2" || suffix == "bzip2") {
-            return getCustomIcon("bz2");
-        } else if (suffix == "xz") {
-            return getCustomIcon("txz");
-        } else if (suffix == "iso") {
-            return getCustomIcon("iso");
-        } else if (suffix == "img" || suffix == "bin") {
-            return getCustomIcon("img");
-        } else if (suffix == "cab") {
-            return getCustomIcon("cab");
-        } else if (suffix == "cpio") {
-            return getCustomIcon("cpio");
-        } else if (suffix == "ar" || suffix == "a") {
-            return getCustomIcon("ar");
-        } else if (suffix == "zst" || suffix == "lzma" || suffix == "lzh" || suffix == "ace") {
-            return getCustomIcon("archive");
-        }
-
-        static QFileIconProvider iconProvider;
-        QIcon icon = iconProvider.icon(QFileInfo(item.filename));
-        if (!icon.isNull()) return icon;
-        return iconProvider.icon(QAbstractFileIconProvider::File);
+        s_iconCache.insert(ext, resolved);
+        return resolved;
     }
 
     if (role == Qt::CheckStateRole && index.column() == ColFilename) {
@@ -232,10 +257,14 @@ void ArchiveModel::rebuildVisibleItems() {
 
     if (m_viewMode == ViewMode::Classic) {
         // WinZip Classic View: Flat list of all files across the entire archive
+        m_items.reserve(m_allItems.size());
         m_items = m_allItems;
     } else {
         // WinRAR / 7-Zip Explorer View: Hierarchical view for m_currentFolder
-        QString normCurrent = normalizePath(m_currentFolder);
+        const QString normCurrent = normalizePath(m_currentFolder);
+
+        // Pre-reserve estimate to minimize vector re-allocations
+        m_items.reserve(qMin<int>(m_allItems.size() + 1, 1024));
 
         // Add [..] parent directory item if not at root
         if (!normCurrent.isEmpty()) {
@@ -248,70 +277,78 @@ void ArchiveModel::rebuildVisibleItems() {
             m_items.append(upItem);
         }
 
-        // Find all immediate subfolders under normCurrent
-        QSet<QString> immediateSubfolders;
-        for (const auto &item : m_allItems) {
-            QString itemPath = normalizePath(item.path);
+        // Structure to aggregate directory statistics in a single pass
+        struct FolderStats {
+            qint64 size = 0;
+            qint64 packed = 0;
+            QDateTime latestMod;
+        };
 
-            if (normCurrent.isEmpty()) {
-                if (!itemPath.isEmpty()) {
-                    QString firstPart = itemPath.section('/', 0, 0);
-                    immediateSubfolders.insert(firstPart);
+        QHash<QString, FolderStats> folderStatsMap;
+        QVector<ArchiveItem> immediateFiles;
+        immediateFiles.reserve(m_allItems.size() / 4 + 16);
+
+        const int normCurrentLen = normCurrent.length();
+        const bool atRoot = normCurrent.isEmpty();
+
+        // SINGLE PASS over m_allItems: gathers subfolders, computes aggregated stats, and collects direct files
+        for (const auto &item : m_allItems) {
+            const QString &itemPath = item.path;
+
+            if (atRoot) {
+                if (itemPath.isEmpty()) {
+                    immediateFiles.append(item);
+                } else {
+                    int slashIdx = itemPath.indexOf('/');
+                    QString firstPart = (slashIdx == -1) ? itemPath : itemPath.left(slashIdx);
+                    auto &stats = folderStatsMap[firstPart];
+                    stats.size += item.size;
+                    stats.packed += item.packedSize;
+                    if (!stats.latestMod.isValid() || item.modified > stats.latestMod) {
+                        stats.latestMod = item.modified;
+                    }
                 }
             } else {
-                if (itemPath.startsWith(normCurrent + "/") && itemPath.length() > normCurrent.length() + 1) {
-                    QString relPath = itemPath.mid(normCurrent.length() + 1);
-                    QString firstPart = relPath.section('/', 0, 0);
-                    immediateSubfolders.insert(firstPart);
+                if (itemPath == normCurrent) {
+                    immediateFiles.append(item);
+                } else if (itemPath.startsWith(normCurrent) && itemPath.length() > normCurrentLen && itemPath.at(normCurrentLen) == '/') {
+                    QString relPath = itemPath.mid(normCurrentLen + 1);
+                    int slashIdx = relPath.indexOf('/');
+                    QString firstPart = (slashIdx == -1) ? relPath : relPath.left(slashIdx);
+                    auto &stats = folderStatsMap[firstPart];
+                    stats.size += item.size;
+                    stats.packed += item.packedSize;
+                    if (!stats.latestMod.isValid() || item.modified > stats.latestMod) {
+                        stats.latestMod = item.modified;
+                    }
                 }
             }
         }
 
         // Sort immediate subfolders alphabetically
-        QStringList sortedDirs = immediateSubfolders.values();
+        QStringList sortedDirs = folderStatsMap.keys();
         std::sort(sortedDirs.begin(), sortedDirs.end(), [](const QString &a, const QString &b) {
             return a.compare(b, Qt::CaseInsensitive) < 0;
         });
 
         for (const QString &dirName : sortedDirs) {
+            const auto &stats = folderStatsMap.value(dirName);
             ArchiveItem dirItem;
             dirItem.id = QString("dir_%1_%2").arg(normCurrent, dirName);
             dirItem.filename = dirName;
             dirItem.type = "Folder";
             dirItem.isDirectory = true;
-            dirItem.path = normCurrent.isEmpty() ? dirName : (normCurrent + "/" + dirName);
-
-            // Compute aggregated statistics for the folder
-            qint64 folderSize = 0;
-            qint64 folderPacked = 0;
-            QDateTime latestMod;
-
-            for (const auto &it : m_allItems) {
-                QString ip = normalizePath(it.path);
-                if (ip == dirItem.path || ip.startsWith(dirItem.path + "/")) {
-                    folderSize += it.size;
-                    folderPacked += it.packedSize;
-                    if (!latestMod.isValid() || it.modified > latestMod) {
-                        latestMod = it.modified;
-                    }
-                }
-            }
-
-            dirItem.size = folderSize;
-            dirItem.packedSize = folderPacked;
-            dirItem.ratio = folderSize > 0 ? static_cast<int>((1.0 - static_cast<double>(folderPacked) / folderSize) * 100.0) : 0;
-            dirItem.modified = latestMod.isValid() ? latestMod : QDateTime::currentDateTime();
+            dirItem.path = atRoot ? dirName : (normCurrent + "/" + dirName);
+            dirItem.size = stats.size;
+            dirItem.packedSize = stats.packed;
+            dirItem.ratio = stats.size > 0 ? static_cast<int>((1.0 - static_cast<double>(stats.packed) / stats.size) * 100.0) : 0;
+            dirItem.modified = stats.latestMod.isValid() ? stats.latestMod : QDateTime::currentDateTime();
 
             m_items.append(dirItem);
         }
 
-        // Add files that reside directly inside normCurrent
-        for (const auto &item : m_allItems) {
-            QString itemPath = normalizePath(item.path);
-            if (itemPath == normCurrent) {
-                m_items.append(item);
-            }
-        }
+        // Append files directly in this folder
+        m_items.append(immediateFiles);
     }
     endResetModel();
 }
@@ -320,7 +357,7 @@ QStringList ArchiveModel::allFolders() const {
     QSet<QString> folders;
     folders.insert(""); // Root folder
     for (const auto &item : m_allItems) {
-        QString norm = normalizePath(item.path);
+        const QString &norm = item.path;
         if (!norm.isEmpty()) {
             QStringList parts = norm.split('/');
             QString curr;
@@ -348,7 +385,12 @@ int ArchiveModel::allFilesCount() const {
 }
 
 void ArchiveModel::setItems(const QVector<ArchiveItem> &items) {
-    m_allItems = items;
+    m_allItems.clear();
+    m_allItems.reserve(items.size());
+    for (ArchiveItem it : items) {
+        it.path = normalizePath(it.path);
+        m_allItems.append(std::move(it));
+    }
     m_currentFolder.clear();
     rebuildVisibleItems();
 }

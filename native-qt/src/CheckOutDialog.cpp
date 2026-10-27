@@ -12,12 +12,38 @@
 #include <QFileInfo>
 #include <QFrame>
 
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <dwmapi.h>
+#endif
+
 CheckOutDialog::CheckOutDialog(const QString &archiveName, int filesCount, QWidget *parent)
     : QDialog(parent), m_archiveName(archiveName), m_filesCount(filesCount) {
     setWindowTitle(tr("CheckOut Archive"));
     setWindowIcon(QIcon(":/app.ico"));
     setModal(true);
     setMinimumWidth(480);
+
+    QPalette pal = palette();
+    pal.setColor(QPalette::Window, QColor(0x18, 0x19, 0x20));
+    pal.setColor(QPalette::Base, QColor(0x16, 0x17, 0x1c));
+    pal.setColor(QPalette::WindowText, QColor(0xe5, 0xe7, 0xeb));
+    setPalette(pal);
+    setAutoFillBackground(true);
+
+#ifdef Q_OS_WIN
+    HWND hwnd = reinterpret_cast<HWND>(winId());
+    if (hwnd) {
+        BOOL darkMode = TRUE;
+        if (FAILED(DwmSetWindowAttribute(hwnd, 20, &darkMode, sizeof(darkMode)))) {
+            DwmSetWindowAttribute(hwnd, 19, &darkMode, sizeof(darkMode));
+        }
+    }
+#endif
+
     setupUi();
 }
 

@@ -23,6 +23,7 @@ class QMenu;
 class QToolButton;
 class QLineEdit;
 class UpdateManager;
+class OptionsDialog;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -33,8 +34,10 @@ public:
     void openArchiveFile(const QString &filename);
 
 protected:
+    void showEvent(QShowEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
     bool eventFilter(QObject *obj, QEvent *event) override;
 
 private slots:
@@ -140,6 +143,7 @@ private:
     QAction *m_actSelectAll = nullptr;
 
     QAction *m_actOptions = nullptr;
+    OptionsDialog *m_optionsDlg = nullptr;
 
     QAction *m_actFilterFiles = nullptr;
     QAction *m_actToggleFolderTree = nullptr;

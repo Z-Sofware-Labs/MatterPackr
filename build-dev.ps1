@@ -1,7 +1,7 @@
 param(
     [switch]$Run,
     [switch]$Clean,
-    [string]$BuildType = "Debug"
+    [string]$BuildType = "Release"
 )
 
 $ErrorActionPreference = "Stop"

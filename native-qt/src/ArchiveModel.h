@@ -136,7 +136,7 @@ protected:
     }
 
     bool lessThan(const QModelIndex &source_left, const QModelIndex &source_right) const override {
-        auto *model = qobject_cast<ArchiveModel*>(sourceModel());
+        const auto *model = static_cast<const ArchiveModel*>(sourceModel());
         if (!model) return QSortFilterProxyModel::lessThan(source_left, source_right);
 
         const auto &left = model->itemAt(source_left.row());
@@ -153,18 +153,36 @@ protected:
             }
         }
 
-        // Numeric comparison for size and packedSize
-        if (source_left.column() == ArchiveModel::ColSize) {
+        // Numeric and date comparisons
+        const int col = source_left.column();
+        if (col == ArchiveModel::ColSize) {
             return left.size < right.size;
         }
-        if (source_left.column() == ArchiveModel::ColPacked) {
+        if (col == ArchiveModel::ColPacked) {
             return left.packedSize < right.packedSize;
         }
-        if (source_left.column() == ArchiveModel::ColRatio) {
+        if (col == ArchiveModel::ColRatio) {
             return left.ratio < right.ratio;
         }
-        if (source_left.column() == ArchiveModel::ColModified) {
+        if (col == ArchiveModel::ColModified) {
             return left.modified < right.modified;
+        }
+
+        // Direct in-place string comparison bypassing QVariant creation in QSortFilterProxyModel
+        if (col == ArchiveModel::ColFilename) {
+            return QString::compare(left.filename, right.filename, Qt::CaseInsensitive) < 0;
+        }
+        if (col == ArchiveModel::ColType) {
+            return QString::compare(left.type, right.type, Qt::CaseInsensitive) < 0;
+        }
+        if (col == ArchiveModel::ColPath) {
+            return QString::compare(left.path, right.path, Qt::CaseInsensitive) < 0;
+        }
+        if (col == ArchiveModel::ColCrc32) {
+            return QString::compare(left.crc32, right.crc32, Qt::CaseInsensitive) < 0;
+        }
+        if (col == ArchiveModel::ColEncryption) {
+            return QString::compare(left.encryptionMethod, right.encryptionMethod, Qt::CaseInsensitive) < 0;
         }
 
         return QSortFilterProxyModel::lessThan(source_left, source_right);
