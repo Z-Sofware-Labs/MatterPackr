@@ -78,6 +78,14 @@ if(WIN32)
         WIN32_EXECUTABLE TRUE
     )
 elseif(APPLE)
+    file(GLOB MACOS_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/resources/macos/*.icns")
+    if(MACOS_RESOURCES)
+        set_source_files_properties(${MACOS_RESOURCES} PROPERTIES
+            MACOSX_PACKAGE_LOCATION Resources
+        )
+        target_sources(MatterPackr PRIVATE ${MACOS_RESOURCES})
+    endif()
+
     set_target_properties(MatterPackr PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"

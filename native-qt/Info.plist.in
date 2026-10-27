@@ -15,7 +15,7 @@
     <key>CFBundleVersion</key>
     <string>3.0.1</string>
     <key>CFBundleIconFile</key>
-    <string>app.icns</string>
+    <string>MatterPackr.icns</string>
     <key>LSMinimumSystemVersion</key>
     <string>11.0</string>
     <key>NSHighResolutionCapable</key>
@@ -31,7 +31,7 @@
             <key>LSHandlerRank</key>
             <string>Default</string>
             <key>CFBundleTypeIconFile</key>
-            <string>MatterPackr.icns</string>
+            <string>zip.icns</string>
             <key>LSItemContentTypes</key>
             <array>
                 <string>public.zip-archive</string>
@@ -52,7 +52,7 @@
             <key>LSHandlerRank</key>
             <string>Default</string>
             <key>CFBundleTypeIconFile</key>
-            <string>MatterPackr.icns</string>
+            <string>7z.icns</string>
             <key>LSItemContentTypes</key>
             <array>
                 <string>org.7-zip.7-zip-archive</string>
@@ -71,7 +71,7 @@
             <key>LSHandlerRank</key>
             <string>Default</string>
             <key>CFBundleTypeIconFile</key>
-            <string>MatterPackr.icns</string>
+            <string>tar.icns</string>
             <key>LSItemContentTypes</key>
             <array>
                 <string>public.tar-archive</string>
@@ -90,7 +90,7 @@
             <key>LSHandlerRank</key>
             <string>Default</string>
             <key>CFBundleTypeIconFile</key>
-            <string>MatterPackr.icns</string>
+            <string>tgz.icns</string>
             <key>LSItemContentTypes</key>
             <array>
                 <string>org.gnu.gnu-zip-archive</string>
@@ -112,7 +112,7 @@
             <key>LSHandlerRank</key>
             <string>Default</string>
             <key>CFBundleTypeIconFile</key>
-            <string>MatterPackr.icns</string>
+            <string>tbz2.icns</string>
             <key>LSItemContentTypes</key>
             <array>
                 <string>public.bzip2-archive</string>
@@ -134,7 +134,7 @@
             <key>LSHandlerRank</key>
             <string>Default</string>
             <key>CFBundleTypeIconFile</key>
-            <string>MatterPackr.icns</string>
+            <string>txz.icns</string>
             <key>LSItemContentTypes</key>
             <array>
                 <string>org.tukaani.xz-archive</string>
@@ -155,7 +155,7 @@
             <key>LSHandlerRank</key>
             <string>Alternate</string>
             <key>CFBundleTypeIconFile</key>
-            <string>MatterPackr.icns</string>
+            <string>rar.icns</string>
             <key>LSItemContentTypes</key>
             <array>
                 <string>com.rarlab.rar-archive</string>
@@ -174,7 +174,7 @@
             <key>LSHandlerRank</key>
             <string>Alternate</string>
             <key>CFBundleTypeIconFile</key>
-            <string>MatterPackr.icns</string>
+            <string>iso.icns</string>
             <key>LSItemContentTypes</key>
             <array>
                 <string>public.iso-image</string>
@@ -193,7 +193,7 @@
             <key>LSHandlerRank</key>
             <string>Alternate</string>
             <key>CFBundleTypeIconFile</key>
-            <string>MatterPackr.icns</string>
+            <string>cab.icns</string>
             <key>LSItemContentTypes</key>
             <array>
                 <string>com.microsoft.cab</string>
@@ -201,6 +201,53 @@
             <key>CFBundleTypeExtensions</key>
             <array>
                 <string>cab</string>
+            </array>
+        </dict>
+        <!-- CPIO -->
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>CPIO Archive</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>CFBundleTypeIconFile</key>
+            <string>cpio.icns</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>cpio</string>
+            </array>
+        </dict>
+        <!-- UNIX Archive (AR) -->
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>UNIX Archive</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>CFBundleTypeIconFile</key>
+            <string>ar.icns</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>ar</string>
+                <string>a</string>
+            </array>
+        </dict>
+        <!-- Raw Disk Image -->
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Raw Disk Image</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>CFBundleTypeIconFile</key>
+            <string>img.icns</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>img</string>
+                <string>bin</string>
             </array>
         </dict>
     </array>

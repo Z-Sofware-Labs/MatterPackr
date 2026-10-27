@@ -87,19 +87,9 @@ jobs:
       - name: Package macOS App Bundle
         if: matrix.os == 'macos-latest'
         run: |
-          mkdir -p MatterPackr.iconset
-          sips -z 16 16 native-qt/resources/app.png --out MatterPackr.iconset/icon_16x16.png
-          sips -z 32 32 native-qt/resources/app.png --out MatterPackr.iconset/icon_16x16@2x.png
-          sips -z 32 32 native-qt/resources/app.png --out MatterPackr.iconset/icon_32x32.png
-          sips -z 64 64 native-qt/resources/app.png --out MatterPackr.iconset/icon_32x32@2x.png
-          sips -z 128 128 native-qt/resources/app.png --out MatterPackr.iconset/icon_128x128.png
-          sips -z 256 256 native-qt/resources/app.png --out MatterPackr.iconset/icon_128x128@2x.png
-          sips -z 256 256 native-qt/resources/app.png --out MatterPackr.iconset/icon_256x256.png
-          sips -z 512 512 native-qt/resources/app.png --out MatterPackr.iconset/icon_256x256@2x.png
-          sips -z 512 512 native-qt/resources/app.png --out MatterPackr.iconset/icon_512x512.png
-          sips -z 1024 1024 native-qt/resources/app.png --out MatterPackr.iconset/icon_512x512@2x.png
           mkdir -p native-qt/build/MatterPackr.app/Contents/Resources
-          iconutil -c icns MatterPackr.iconset -o native-qt/build/MatterPackr.app/Contents/Resources/MatterPackr.icns
+          # Copy pre-generated ICNS filetype and app icons
+          cp native-qt/resources/macos/*.icns native-qt/build/MatterPackr.app/Contents/Resources/
           plutil -replace CFBundleIconFile -string "MatterPackr.icns" native-qt/build/MatterPackr.app/Contents/Info.plist
           macdeployqt native-qt/build/MatterPackr.app -always-overwrite
           ditto -c -k --keepParent native-qt/build/MatterPackr.app ${{ matrix.artifact-name }}
@@ -109,10 +99,11 @@ jobs:
       - name: Package Linux Binary
         if: matrix.os == 'ubuntu-22.04'
         run: |
-          mkdir -p dist/MatterPackr/share/applications dist/MatterPackr/share/icons/hicolor/256x256/apps dist/MatterPackr/bin
+          mkdir -p dist/MatterPackr/share/applications dist/MatterPackr/share/icons/hicolor/256x256/apps dist/MatterPackr/share/icons/hicolor/256x256/mimetypes dist/MatterPackr/bin
           cp native-qt/build/MatterPackr dist/MatterPackr/bin/
           cp native-qt/resources/app.png dist/MatterPackr/share/icons/hicolor/256x256/apps/matterpackr.png
           cp packaging/linux/matterpackr.desktop dist/MatterPackr/share/applications/
+          cp packaging/linux/icons/hicolor/256x256/mimetypes/*.png dist/MatterPackr/share/icons/hicolor/256x256/mimetypes/
           # Keep binary in root of dist/MatterPackr for direct portable execution
           cp native-qt/build/MatterPackr dist/MatterPackr/
           cp native-qt/resources/app.png dist/MatterPackr/matterpackr.png

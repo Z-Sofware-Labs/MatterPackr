@@ -8,14 +8,16 @@ if [ "$EUID" -eq 0 ]; then
     BIN_DIR="/usr/local/bin"
     APP_DIR="/usr/share/applications"
     ICON_DIR="/usr/share/icons/hicolor/256x256/apps"
+    MIME_ICON_DIR="/usr/share/icons/hicolor/256x256/mimetypes"
 else
     BIN_DIR="${HOME}/.local/bin"
     APP_DIR="${HOME}/.local/share/applications"
     ICON_DIR="${HOME}/.local/share/icons/hicolor/256x256/apps"
+    MIME_ICON_DIR="${HOME}/.local/share/icons/hicolor/256x256/mimetypes"
 fi
 
 echo "Installing MatterPackr..."
-mkdir -p "$BIN_DIR" "$APP_DIR" "$ICON_DIR"
+mkdir -p "$BIN_DIR" "$APP_DIR" "$ICON_DIR" "$MIME_ICON_DIR"
 
 # Install binary
 if [ -f "$SCRIPT_DIR/bin/MatterPackr" ]; then
@@ -25,11 +27,21 @@ elif [ -f "$SCRIPT_DIR/MatterPackr" ]; then
 fi
 chmod +x "$BIN_DIR/MatterPackr"
 
-# Install icon
+# Install application icon
 if [ -f "$SCRIPT_DIR/share/icons/hicolor/256x256/apps/matterpackr.png" ]; then
     cp "$SCRIPT_DIR/share/icons/hicolor/256x256/apps/matterpackr.png" "$ICON_DIR/matterpackr.png"
 elif [ -f "$SCRIPT_DIR/matterpackr.png" ]; then
     cp "$SCRIPT_DIR/matterpackr.png" "$ICON_DIR/matterpackr.png"
+fi
+
+# Install custom filetype MIME icons
+MIME_SRC_DIR="$SCRIPT_DIR/share/icons/hicolor/256x256/mimetypes"
+if [ ! -d "$MIME_SRC_DIR" ]; then
+    MIME_SRC_DIR="$SCRIPT_DIR/icons/hicolor/256x256/mimetypes"
+fi
+
+if [ -d "$MIME_SRC_DIR" ]; then
+    cp -r "$MIME_SRC_DIR/"* "$MIME_ICON_DIR/"
 fi
 
 # Install desktop entry
