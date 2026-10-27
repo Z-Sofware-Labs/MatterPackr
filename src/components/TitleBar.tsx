@@ -85,15 +85,11 @@ export const TitleBar: React.FC<TitleBarProps> = ({
               <span className="text-xs font-semibold tracking-tight truncate">
                 MatterPackr
               </span>
-              {archiveName ? (
-                <>
-                  <span className="text-neutral-400 dark:text-neutral-500 text-[11px]">·</span>
-                  <span className="text-xs font-medium text-neutral-600 dark:text-neutral-300 truncate max-w-[200px] sm:max-w-xs">
-                    {archiveName}
-                    {isModified && ' *'}
-                  </span>
-                </>
-              ) : null}
+              <span className="text-neutral-400 dark:text-neutral-500 text-[11px]">·</span>
+              <span className="text-xs font-medium text-neutral-600 dark:text-neutral-300 truncate max-w-[200px] sm:max-w-xs">
+                {archiveName || 'Untitled.zip'}
+                {isModified && ' *'}
+              </span>
             </div>
           </div>
         )}
@@ -104,13 +100,14 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         <div className="flex items-center gap-2 text-xs font-medium text-center truncate px-2">
           <AppLogoIcon os={os} size={16} />
           <span className="truncate font-semibold">
-            {archiveName ? `${archiveName}${isModified ? ' *' : ''}` : 'MatterPackr'}
+            {archiveName || 'Untitled.zip'}
+            {isModified && ' *'}
           </span>
           <span className="text-[10px] text-neutral-400 dark:text-neutral-500">· Native Qt 6</span>
         </div>
       ) : os === 'linux' ? (
         <div className="hidden md:flex items-center gap-2 text-xs text-[#deddda] font-medium text-center">
-          <span className="truncate">{archiveName ? `${archiveName}${isModified ? ' *' : ''}` : 'MatterPackr'}</span>
+          <span className="truncate">{archiveName || 'Untitled.zip'}</span>
           <span className="text-[10px] text-emerald-400 font-mono">Qt 6.5</span>
         </div>
       ) : null}

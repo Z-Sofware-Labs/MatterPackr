@@ -15,7 +15,6 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QPushButton>
-#include <QStackedWidget>
 #include "ArchiveModel.h"
 #include "ArchiveTableView.h"
 #include "CompressionEngine.h"
@@ -108,7 +107,6 @@ private:
     ArchiveSortProxyModel *m_proxyModel = nullptr;
     ArchiveTableView *m_tableView = nullptr;
     QWidget *m_emptyWidget = nullptr;
-    QStackedWidget *m_centralStack = nullptr;
 
     // View Navigation & Two-Pane Explorer Tree
     QSplitter *m_splitter = nullptr;

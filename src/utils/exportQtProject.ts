@@ -735,7 +735,7 @@ void MainWindow::createCentralGrid() {
 
 void MainWindow::updateEmptyStateVisibility() {
     bool hasFiles = m_model->rowCount() > 0;
-    m_tableView->setVisible(hasFiles);
+    m_tableView->setVisible(true);
     m_emptyWidget->setVisible(!hasFiles);
 }
 

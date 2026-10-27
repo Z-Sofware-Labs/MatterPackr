@@ -469,19 +469,8 @@ export const FileList: React.FC<FileListProps> = ({
         </div>
       )}
 
-      {/* If no archive is opened or created, show the welcome message centered on the main UI */}
-      {!archiveName ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none min-h-[300px]">
-          <div className="flex flex-col items-center justify-center gap-3 max-w-md">
-            <AppLogoIcon os={os} size={64} className="drop-shadow-md" />
-            <p className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
-              Create a new archive or open an existing one to begin.
-            </p>
-          </div>
-        </div>
-      ) : (
-        /* Main Container: Flat layout (Classic View) or Two-Pane Split Layout (Explorer View) */
-        <div className="flex-1 flex overflow-hidden">
+      {/* Main Container: Flat layout (Classic View) or Two-Pane Split Layout (Explorer View) */}
+      <div className="flex-1 flex overflow-hidden">
         {/* Explorer Left Folder Tree Pane */}
         {viewMode === 'explorer' && (
           <div
@@ -810,13 +799,10 @@ export const FileList: React.FC<FileListProps> = ({
                   </>
                 ) : (
                   <>
-                    <span className="text-4xl opacity-40">🗜️</span>
-                    <span className="font-semibold text-neutral-800 dark:text-neutral-200">
-                      Archive is empty
-                    </span>
-                    <span className="text-xs text-neutral-500 max-w-sm">
-                      Click 'Add' on the toolbar or drag and drop files here to add them to this archive.
-                    </span>
+                    <AppLogoIcon os={os} size={64} className="drop-shadow-md" />
+                    <p className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                      Create a new archive or open an existing one to begin.
+                    </p>
                   </>
                 )}
               </div>
@@ -856,7 +842,6 @@ export const FileList: React.FC<FileListProps> = ({
           )}
         </div>
       </div>
-      )}
 
       {/* Modern Context Menu */}
       {contextMenu && (
