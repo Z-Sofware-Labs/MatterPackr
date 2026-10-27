@@ -221,7 +221,11 @@ FunctionEnd
 !macroend
 
 !macro UnregisterExt Ext ProgId
-  DeleteRegKey SHCTX "Software\Classes\.${Ext}"
+  ReadRegStr $0 SHCTX "Software\Classes\.${Ext}" ""
+  ${If} $0 == "${ProgId}"
+    DeleteRegValue SHCTX "Software\Classes\.${Ext}" ""
+  ${EndIf}
+  DeleteRegValue SHCTX "Software\Classes\.${Ext}\OpenWithProgids" "${ProgId}"
   DeleteRegKey SHCTX "Software\Classes\${ProgId}"
 !macroend
 
@@ -326,10 +330,12 @@ Section "Uninstall"
   Delete "$DESKTOP\${PRODUCT_NAME}.lnk"
 
   ; Delete Files & Uninstaller
-  RMDir /r "$INSTDIR\icons"
   Delete "$INSTDIR\uninstall.exe"
   Delete "$INSTDIR\${MAIN_EXE_NAME}"
-  RMDir /r "$INSTDIR"
+  RMDir /r "$INSTDIR\icons"
+  ${If} $INSTDIR != ""
+    RMDir /r "$INSTDIR"
+  ${EndIf}
 
   ; Remove Add/Remove Programs registry key
   DeleteRegKey SHCTX "${UNINST_KEY}"
