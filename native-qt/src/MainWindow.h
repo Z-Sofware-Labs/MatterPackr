@@ -16,6 +16,7 @@
 #include <QTreeWidgetItem>
 #include <QPushButton>
 #include "ArchiveModel.h"
+#include "ArchiveTableView.h"
 #include "CompressionEngine.h"
 
 class QMenu;
@@ -104,7 +105,7 @@ private:
 
     ArchiveModel *m_model = nullptr;
     ArchiveSortProxyModel *m_proxyModel = nullptr;
-    QTableView *m_tableView = nullptr;
+    ArchiveTableView *m_tableView = nullptr;
     QWidget *m_emptyWidget = nullptr;
 
     // View Navigation & Two-Pane Explorer Tree

@@ -212,7 +212,7 @@ void MainWindow::createCentralGrid() {
 
   tableLayout->addWidget(m_filterBar);
 
-  m_tableView = new QTableView(m_tableContainer);
+  m_tableView = new ArchiveTableView(m_tableContainer);
   m_tableView->setModel(m_proxyModel);
   m_tableView->setSelectionBehavior(QAbstractItemView::SelectRows);
   m_tableView->setSelectionMode(QAbstractItemView::ExtendedSelection);

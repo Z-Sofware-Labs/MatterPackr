@@ -27,6 +27,7 @@ find_package(ZLIB QUIET)
 set(SOURCES
     src/main.cpp
     src/MainWindow.cpp
+    src/ArchiveTableView.cpp
     src/ArchiveModel.cpp
     src/CompressionEngine.cpp
     src/OptionsDialog.cpp
@@ -43,6 +44,7 @@ endif()
 
 set(HEADERS
     src/MainWindow.h
+    src/ArchiveTableView.h
     src/ArchiveModel.h
     src/CompressionEngine.h
     src/OptionsDialog.h
