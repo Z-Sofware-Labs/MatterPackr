@@ -18,11 +18,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
-            artifact-name: MatterPackr-v3.0.2-linux-x86_64.tar.gz
+            artifact-name: MatterPackr-v3.0.3-linux-x86_64.tar.gz
           - os: macos-latest
-            artifact-name: MatterPackr-v3.0.2-macos-universal.zip
+            artifact-name: MatterPackr-v3.0.3-macos-universal.zip
           - os: windows-latest
-            artifact-name: MatterPackr-v3.0.2-windows-x64-Setup.exe
+            artifact-name: MatterPackr-v3.0.3-windows-x64-Setup.exe
 
     steps:
       - name: Checkout repository
@@ -80,7 +80,7 @@ jobs:
           Copy-Item native-qt/build/MatterPackr.exe packaging/windows/dist/
           windeployqt --release --no-translations --compiler-runtime packaging/windows/dist/MatterPackr.exe
           cd packaging/windows
-          makensis /DPRODUCT_VERSION=3.0.2 "/DOUTFILE=$PWD/../../${{ matrix.artifact-name }}" installer.nsi
+          makensis /DPRODUCT_VERSION=3.0.3 "/DOUTFILE=$PWD/../../${{ matrix.artifact-name }}" installer.nsi
           cd ../..
 
       # Package macOS
@@ -140,19 +140,19 @@ jobs:
       - name: Download Windows Setup Installer
         uses: actions/download-artifact@v4
         with:
-          name: MatterPackr-v3.0.2-windows-x64-Setup.exe
+          name: MatterPackr-v3.0.3-windows-x64-Setup.exe
           path: artifacts
 
       - name: Download Linux Archive
         uses: actions/download-artifact@v4
         with:
-          name: MatterPackr-v3.0.2-linux-x86_64.tar.gz
+          name: MatterPackr-v3.0.3-linux-x86_64.tar.gz
           path: artifacts
 
       - name: Download macOS Archive
         uses: actions/download-artifact@v4
         with:
-          name: MatterPackr-v3.0.2-macos-universal.zip
+          name: MatterPackr-v3.0.3-macos-universal.zip
           path: artifacts
 
       - name: Setup Node.js
@@ -167,32 +167,32 @@ jobs:
         run: |
           mkdir -p release-assets
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            WIN_FILE="artifacts/MatterPackr-v3.0.2-windows-x64-Setup.exe"
-            npx @tauri-apps/cli signer sign --app-version 3.0.2 "$WIN_FILE"
+            WIN_FILE="artifacts/MatterPackr-v3.0.3-windows-x64-Setup.exe"
+            npx @tauri-apps/cli signer sign --app-version 3.0.3 "$WIN_FILE"
             WIN_SIG=$(cat "${WIN_FILE}.sig")
-            cp "$WIN_FILE" "artifacts/MatterPackr_3.0.2_x64-setup.exe"
-            cp "${WIN_FILE}.sig" "artifacts/MatterPackr_3.0.2_x64-setup.exe.sig"
+            cp "$WIN_FILE" "artifacts/MatterPackr_3.0.3_x64-setup.exe"
+            cp "${WIN_FILE}.sig" "artifacts/MatterPackr_3.0.3_x64-setup.exe.sig"
 
-            LINUX_FILE="artifacts/MatterPackr-v3.0.2-linux-x86_64.tar.gz"
-            npx @tauri-apps/cli signer sign --app-version 3.0.2 "$LINUX_FILE"
+            LINUX_FILE="artifacts/MatterPackr-v3.0.3-linux-x86_64.tar.gz"
+            npx @tauri-apps/cli signer sign --app-version 3.0.3 "$LINUX_FILE"
             LINUX_SIG=$(cat "${LINUX_FILE}.sig")
-            cp "$LINUX_FILE" "artifacts/MatterPackr_3.0.2_amd64.tar.gz"
-            cp "${LINUX_FILE}.sig" "artifacts/MatterPackr_3.0.2_amd64.tar.gz.sig"
+            cp "$LINUX_FILE" "artifacts/MatterPackr_3.0.3_amd64.tar.gz"
+            cp "${LINUX_FILE}.sig" "artifacts/MatterPackr_3.0.3_amd64.tar.gz.sig"
 
-            MAC_FILE="artifacts/MatterPackr-v3.0.2-macos-universal.zip"
+            MAC_FILE="artifacts/MatterPackr-v3.0.3-macos-universal.zip"
             MAC_SIG=""
             if [ -f "$MAC_FILE" ]; then
-              npx @tauri-apps/cli signer sign --app-version 3.0.2 "$MAC_FILE"
+              npx @tauri-apps/cli signer sign --app-version 3.0.3 "$MAC_FILE"
               MAC_SIG=$(cat "${MAC_FILE}.sig")
             fi
 
             PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-            python3 packaging/generate_manifest.py "3.0.2" "$PUB_DATE" "$WIN_SIG" "$LINUX_SIG" "$MAC_SIG"
+            python3 packaging/generate_manifest.py "3.0.3" "$PUB_DATE" "$WIN_SIG" "$LINUX_SIG" "$MAC_SIG"
 
             cp artifacts/*.sig release-assets/
-            cp artifacts/MatterPackr_3.0.2_*.exe release-assets/ 2>/dev/null || true
-            cp artifacts/MatterPackr_3.0.2_*.tar.gz release-assets/ 2>/dev/null || true
+            cp artifacts/MatterPackr_3.0.3_*.exe release-assets/ 2>/dev/null || true
+            cp artifacts/MatterPackr_3.0.3_*.tar.gz release-assets/ 2>/dev/null || true
             cp latest.json release-assets/
           fi
 

@@ -59,7 +59,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
             MatterPackr
           </h2>
           <span className="text-xs text-neutral-400 mt-0.5 font-medium">
-            Version 3.0.2
+            Version 3.0.3
           </span>
 
           {/* Copyright Line with Z Software Labs SVG Badge */}

@@ -10,6 +10,7 @@
 #include <QProcess>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QDateTime>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -293,25 +294,47 @@ void UpdateManager::onDownloadFinished() {
 
 void UpdateManager::launchInstallerAndExit(const QString &installerPath) {
 #if defined(Q_OS_WIN)
-    // On Windows: Elevate privileges using ShellExecuteW "runas" with silent flags (/S)
-    // to perform a seamless unattended upgrade and immediately exit current instance
-    std::wstring pathW = QDir::toNativeSeparators(installerPath).toStdWString();
-    std::wstring paramsW = L"/S";
+    // On Windows: Create a self-deleting helper batch script in Temp that executes
+    // the installer silently (/S), waits for installation to finish, and automatically
+    // relaunches MatterPackr.
+    QString currentExe = QDir::toNativeSeparators(qApp->applicationFilePath());
+    QString cleanInstaller = QDir::toNativeSeparators(installerPath);
 
+    QString tempDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    QString scriptPath = QDir(tempDir).filePath(QString("apply_update_%1.cmd").arg(QDateTime::currentMSecsSinceEpoch()));
+
+    QFile script(scriptPath);
+    if (script.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&script);
+        out << "@echo off\r\n";
+        out << "setlocal\r\n";
+        out << "timeout /t 1 /nobreak >nul\r\n";
+        out << "start /wait \"\" \"" << cleanInstaller << "\" /S\r\n";
+        out << "timeout /t 1 /nobreak >nul\r\n";
+        out << "tasklist /FI \"IMAGENAME eq MatterPackr.exe\" 2>nul | find /I \"MatterPackr.exe\" >nul\r\n";
+        out << "if errorlevel 1 (\r\n";
+        out << "    start \"\" \"" << currentExe << "\"\r\n";
+        out << ")\r\n";
+        out << "endlocal\r\n";
+        out << "(goto) 2>nul & del \"%~f0\"\r\n";
+        script.close();
+    }
+
+    std::wstring scriptW = QDir::toNativeSeparators(scriptPath).toStdWString();
     HINSTANCE result = ShellExecuteW(
         nullptr,
         L"runas", // UAC elevation prompt
-        pathW.c_str(),
-        paramsW.c_str(),
+        L"cmd.exe",
+        (L"/c \"" + scriptW + L"\"").c_str(),
         nullptr,
-        SW_SHOWNORMAL
+        SW_HIDE
     );
 
     if ((INT_PTR)result > 32) {
         qApp->quit();
     } else {
         // Fallback without runas or launch GUI installer
-        QProcess::startDetached(installerPath, QStringList());
+        QProcess::startDetached("cmd.exe", QStringList() << "/c" << scriptPath);
         qApp->quit();
     }
 
@@ -348,7 +371,7 @@ void UpdateManager::launchInstallerAndExit(const QString &installerPath) {
         return;
     }
 
-    // Write a standalone updater shell script to execute atomically
+    // Write a standalone updater shell script to execute atomically and reopen app
     QString scriptPath = tempExtractDir + "/update.sh";
     QFile script(scriptPath);
     if (script.open(QIODevice::WriteOnly)) {
@@ -357,7 +380,13 @@ void UpdateManager::launchInstallerAndExit(const QString &installerPath) {
         out << "sleep 1\n";
         out << "rm -rf \"" << targetBundle << "\"\n";
         out << "mv \"" << newBundlePath << "\" \"" << targetBundle << "\"\n";
-        out << "open \"" << targetBundle << "\"\n";
+        out << "xattr -dr com.apple.quarantine \"" << targetBundle << "\" 2>/dev/null || true\n";
+        out << "CONSOLE_USER=$(stat -f '%Su' /dev/console 2>/dev/null || echo \"$USER\")\n";
+        out << "if [ -n \"$CONSOLE_USER\" ] && [ \"$CONSOLE_USER\" != \"root\" ]; then\n";
+        out << "    sudo -u \"$CONSOLE_USER\" open \"" << targetBundle << "\" 2>/dev/null || open \"" << targetBundle << "\"\n";
+        out << "else\n";
+        out << "    open \"" << targetBundle << "\"\n";
+        out << "fi\n";
         script.close();
         script.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner | QFile::ReadGroup | QFile::ExeGroup);
     }
@@ -376,8 +405,22 @@ void UpdateManager::launchInstallerAndExit(const QString &installerPath) {
 
     if (installerPath.endsWith(".deb", Qt::CaseInsensitive)) {
         // Native deb package upgrade via pkexec apt-get
-        QString cmd = QString("apt-get install -y --reinstall '%1' && '%2' &").arg(installerPath, currentExe);
-        QProcess::startDetached("pkexec", QStringList() << "sh" << "-c" << cmd);
+        QString scriptPath = tempDir + "/apply_update_deb.sh";
+        QFile script(scriptPath);
+        if (script.open(QIODevice::WriteOnly)) {
+            QTextStream out(&script);
+            out << "#!/bin/sh\n";
+            out << "apt-get install -y --reinstall \"" << installerPath << "\"\n";
+            out << "CONSOLE_USER=$(logname 2>/dev/null || who -m 2>/dev/null | awk '{print $1}' || echo \"$USER\")\n";
+            out << "if [ -n \"$CONSOLE_USER\" ] && [ \"$CONSOLE_USER\" != \"root\" ]; then\n";
+            out << "    su - \"$CONSOLE_USER\" -c \"" << currentExe << "\" 2>/dev/null || \"" << currentExe << "\" &\n";
+            out << "else\n";
+            out << "    \"" << currentExe << "\" &\n";
+            out << "fi\n";
+            script.close();
+            script.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+        }
+        QProcess::startDetached("pkexec", QStringList() << "sh" << scriptPath);
         qApp->quit();
     } else {
         // Extracted tar.gz binary swap
@@ -399,7 +442,12 @@ void UpdateManager::launchInstallerAndExit(const QString &installerPath) {
                 out << "sleep 1\n";
                 out << "cp -f \"" << extractedExe << "\" \"" << currentExe << "\"\n";
                 out << "chmod +x \"" << currentExe << "\"\n";
-                out << "\"" << currentExe << "\" &\n";
+                out << "CONSOLE_USER=$(logname 2>/dev/null || who -m 2>/dev/null | awk '{print $1}' || echo \"$USER\")\n";
+                out << "if [ -n \"$CONSOLE_USER\" ] && [ \"$CONSOLE_USER\" != \"root\" ]; then\n";
+                out << "    su - \"$CONSOLE_USER\" -c \"" << currentExe << "\" 2>/dev/null || \"" << currentExe << "\" &\n";
+                out << "else\n";
+                out << "    \"" << currentExe << "\" &\n";
+                out << "fi\n";
                 script.close();
                 script.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
             }

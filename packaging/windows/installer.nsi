@@ -13,7 +13,7 @@ SetCompressor /SOLID "lzma"
 
 !define PRODUCT_NAME "MatterPackr"
 !ifndef PRODUCT_VERSION
-  !define PRODUCT_VERSION "3.0.2"
+  !define PRODUCT_VERSION "3.0.3"
 !endif
 !define PRODUCT_PUBLISHER "Z Software Labs"
 !define PRODUCT_WEB_SITE "https://github.com/Z-Sofware-Labs/MatterPackr"
@@ -21,7 +21,7 @@ SetCompressor /SOLID "lzma"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 
 !ifndef OUTFILE
-  !define OUTFILE "MatterPackr-v3.0.2-windows-x64-Setup.exe"
+  !define OUTFILE "MatterPackr-v3.0.3-windows-x64-Setup.exe"
 !endif
 
 Name "${PRODUCT_NAME}"
@@ -91,6 +91,7 @@ Page custom PageFileAssociationsShow PageFileAssociationsLeave
 
 ; 7. Finish Page
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${MAIN_EXE_NAME}"
+!define MUI_FINISHPAGE_RUN_CHECKED
 !define MUI_FINISHPAGE_RUN_TEXT "Launch MatterPackr"
 !insertmacro MUI_PAGE_FINISH
 
@@ -114,6 +115,13 @@ Function .onInit
   StrCpy $StateGz ${BST_CHECKED}
   StrCpy $StateIso ${BST_CHECKED}
   StrCpy $StateOther ${BST_CHECKED}
+FunctionEnd
+
+; Automatically open the application after successful installation/upgrade
+Function .onInstSuccess
+  ${If} ${Silent}
+    Exec '"$INSTDIR\${MAIN_EXE_NAME}"'
+  ${EndIf}
 FunctionEnd
 
 Function un.onInit
