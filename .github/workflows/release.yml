@@ -194,12 +194,15 @@ jobs:
             PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
             python3 packaging/generate_manifest.py "$PUB_DATE" "$WIN_SIG" "$LINUX_SIG" "$MAC_SIG"
+
+            mkdir -p release-assets
+            cp artifacts/*.sig release-assets/
+            cp artifacts/MatterPackr_3.0.0_*.exe release-assets/ 2>/dev/null || true
+            cp artifacts/MatterPackr_3.0.0_*.tar.gz release-assets/ 2>/dev/null || true
+            cp latest.json release-assets/
           fi
 
       - name: Upload Signatures and latest.json to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            artifacts/*.sig
-            artifacts/MatterPackr_3.0.0_*
-            latest.json
+          files: release-assets/*
