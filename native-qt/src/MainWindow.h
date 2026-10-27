@@ -30,6 +30,7 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
+    void openArchiveFile(const QString &filename);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -45,7 +46,6 @@ private slots:
     void onRemoveFavorite(const QString &path);
     void onClearAllFavorites();
     void updateFavoritesMenu();
-    void openArchiveFile(const QString &filename);
     void onCloseArchive();
     void onSaveArchiveAs();
     void onArchiveProperties();

@@ -27,6 +27,7 @@
 #include <QPushButton>
 #include <QLineEdit>
 #include <QKeyEvent>
+#include <QFileOpenEvent>
 #include <QProcess>
 #include <QDir>
 #include <functional>
@@ -72,6 +73,10 @@ MainWindow::MainWindow(QWidget *parent)
 
   updateEmptyStateVisibility();
   updateStatusBarStats();
+
+  if (qApp) {
+    qApp->installEventFilter(this);
+  }
 }
 
 MainWindow::~MainWindow() = default;
@@ -303,6 +308,11 @@ void MainWindow::closeEvent(QCloseEvent *event) {
 }
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
+  if (event->type() == QEvent::FileOpen) {
+    auto *fe = static_cast<QFileOpenEvent *>(event);
+    openArchiveFile(fe->file());
+    return true;
+  }
   if (obj == m_filterEdit && event->type() == QEvent::KeyPress) {
     auto *ke = static_cast<QKeyEvent *>(event);
     if (ke->key() == Qt::Key_Escape) {
@@ -600,13 +610,18 @@ void MainWindow::onOpenArchive() {
 }
 
 void MainWindow::openArchiveFile(const QString &filename) {
-  if (filename.isEmpty())
+  QString path = filename.trimmed();
+  if (path.startsWith('"') && path.endsWith('"') && path.length() >= 2) {
+    path = path.mid(1, path.length() - 2);
+  }
+  if (path.isEmpty())
     return;
 
   if (!promptAndCleanUpCheckOut())
     return;
 
-  m_currentArchivePath = filename;
+  QFileInfo fileInfo(path);
+  m_currentArchivePath = fileInfo.exists() ? fileInfo.absoluteFilePath() : path;
   updateWindowTitle();
 
   // Populate archive files with hierarchical folders
