@@ -116,6 +116,9 @@ jobs:
           # Keep binary in root of dist/MatterPackr for direct portable execution
           cp native-qt/build/MatterPackr dist/MatterPackr/
           cp native-qt/resources/app.png dist/MatterPackr/matterpackr.png
+          cp packaging/linux/install.sh dist/MatterPackr/
+          cp packaging/linux/uninstall.sh dist/MatterPackr/
+          chmod +x dist/MatterPackr/install.sh dist/MatterPackr/uninstall.sh
           tar -czvf ${{ matrix.artifact-name }} -C dist MatterPackr
 
 

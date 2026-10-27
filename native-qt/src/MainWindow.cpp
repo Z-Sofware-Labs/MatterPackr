@@ -240,21 +240,27 @@ void MainWindow::createCentralGrid() {
   connect(m_tableView, &QTableView::doubleClicked, this,
           &MainWindow::onTableDoubleClicked);
 
-  // Centered empty state container overlay on table viewport
-  m_emptyWidget = new QWidget(m_tableView->viewport());
-  m_emptyWidget->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-  m_emptyWidget->setStyleSheet("background: transparent;");
+  tableLayout->addWidget(m_tableView);
+  m_splitter->addWidget(m_tableContainer);
 
+  // Centered Welcome / Empty State container shown when nothing is opened or created
+  m_emptyWidget = new QWidget(centralWidget);
+  m_emptyWidget->setObjectName("welcomeWidget");
   auto *emptyLayout = new QVBoxLayout(m_emptyWidget);
   emptyLayout->setAlignment(Qt::AlignCenter);
-  emptyLayout->setSpacing(10);
+  emptyLayout->setSpacing(14);
 
   auto *lblIcon = new QLabel(m_emptyWidget);
   lblIcon->setAlignment(Qt::AlignCenter);
   QPixmap iconPix(":/app.png");
   if (!iconPix.isNull()) {
     lblIcon->setPixmap(
-        iconPix.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        iconPix.scaled(72, 72, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+  } else {
+    QIcon icon(":/app.ico");
+    if (!icon.isNull()) {
+      lblIcon->setPixmap(icon.pixmap(72, 72));
+    }
   }
   emptyLayout->addWidget(lblIcon);
 
@@ -263,13 +269,13 @@ void MainWindow::createCentralGrid() {
                  m_emptyWidget);
   lblText->setAlignment(Qt::AlignCenter);
   lblText->setStyleSheet(
-      "font-size: 12px; font-weight: 500; color: #9ca3af; margin-top: 2px;");
+      "font-size: 13px; font-weight: 500; color: #9ca3af; margin-top: 4px;");
   emptyLayout->addWidget(lblText);
 
-  tableLayout->addWidget(m_tableView);
-  m_splitter->addWidget(m_tableContainer);
-
-  layout->addWidget(m_splitter, 1);
+  m_centralStack = new QStackedWidget(centralWidget);
+  m_centralStack->addWidget(m_emptyWidget); // Page 0: Welcome view
+  m_centralStack->addWidget(m_splitter);    // Page 1: Archive Browser
+  layout->addWidget(m_centralStack, 1);
   setCentralWidget(centralWidget);
 
   // Connect model signals
@@ -287,9 +293,6 @@ void MainWindow::createCentralGrid() {
 
 void MainWindow::resizeEvent(QResizeEvent *event) {
   QMainWindow::resizeEvent(event);
-  if (m_emptyWidget && m_tableView && m_tableView->viewport()) {
-    m_emptyWidget->setGeometry(m_tableView->viewport()->rect());
-  }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {
@@ -324,20 +327,25 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 }
 
 void MainWindow::updateEmptyStateVisibility() {
+  bool hasArchive = !m_currentArchivePath.isEmpty();
   bool hasFiles = m_model->rowCount() > 0;
-  if (m_emptyWidget) {
-    m_emptyWidget->setVisible(!hasFiles);
-    if (!hasFiles && m_tableView && m_tableView->viewport()) {
-      m_emptyWidget->setGeometry(m_tableView->viewport()->rect());
+
+  if (m_centralStack) {
+    if (!hasArchive) {
+      m_centralStack->setCurrentWidget(m_emptyWidget);
+    } else {
+      m_centralStack->setCurrentWidget(m_splitter);
     }
   }
 
   if (m_actCloseArchive)
-    m_actCloseArchive->setEnabled(hasFiles);
+    m_actCloseArchive->setEnabled(hasArchive);
   if (m_actSaveAs)
-    m_actSaveAs->setEnabled(hasFiles);
+    m_actSaveAs->setEnabled(hasArchive);
   if (m_actProperties)
-    m_actProperties->setEnabled(hasFiles);
+    m_actProperties->setEnabled(hasArchive);
+  if (m_actAdd)
+    m_actAdd->setEnabled(hasArchive);
   if (m_actExtract)
     m_actExtract->setEnabled(hasFiles);
   if (m_actCheckOut)
@@ -345,7 +353,7 @@ void MainWindow::updateEmptyStateVisibility() {
   if (m_actSelectAll)
     m_actSelectAll->setEnabled(hasFiles);
   if (m_actAddCurrentFavorite)
-    m_actAddCurrentFavorite->setEnabled(!m_currentArchivePath.isEmpty());
+    m_actAddCurrentFavorite->setEnabled(hasArchive);
 }
 
 void MainWindow::createActions() {
@@ -449,33 +457,31 @@ void MainWindow::createToolBars() {
   toolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
   // 1. New, Open
-  auto *tbNew = toolBar->addAction(QIcon(":/toolbar/new.svg"), tr("New"), this,
-                                   &MainWindow::onNewArchive);
-  tbNew->setToolTip(tr("Create a new archive (Ctrl+N)"));
+  m_actNew->setIcon(QIcon(":/toolbar/new.svg"));
+  m_actNew->setToolTip(tr("Create a new archive (Ctrl+N)"));
+  toolBar->addAction(m_actNew);
 
-  auto *tbOpen = toolBar->addAction(QIcon(":/toolbar/open.svg"), tr("Open"),
-                                    this, &MainWindow::onOpenArchive);
-  tbOpen->setToolTip(tr("Open archive from computer (Ctrl+O)"));
+  m_actOpen->setIcon(QIcon(":/toolbar/open.svg"));
+  m_actOpen->setToolTip(tr("Open archive from computer (Ctrl+O)"));
+  toolBar->addAction(m_actOpen);
   toolBar->addSeparator();
 
   // 2. Add, Extract, View, CheckOut
-  auto *tbAdd = toolBar->addAction(QIcon(":/toolbar/add.svg"), tr("Add"), this,
-                                   &MainWindow::onAddFiles);
-  tbAdd->setToolTip(tr("Add files to current archive (Ctrl+A)"));
+  m_actAdd->setIcon(QIcon(":/toolbar/add.svg"));
+  m_actAdd->setToolTip(tr("Add files to current archive (Ctrl+A)"));
+  toolBar->addAction(m_actAdd);
 
-  auto *tbExtract =
-      toolBar->addAction(QIcon(":/toolbar/extract.svg"), tr("Extract"), this,
-                         &MainWindow::onExtractFiles);
-  tbExtract->setToolTip(tr("Extract files from archive (Ctrl+E)"));
+  m_actExtract->setIcon(QIcon(":/toolbar/extract.svg"));
+  m_actExtract->setToolTip(tr("Extract files from archive (Ctrl+E)"));
+  toolBar->addAction(m_actExtract);
 
-  auto *tbView = toolBar->addAction(QIcon(":/toolbar/view.svg"), tr("View"),
-                                    this, &MainWindow::onViewFile);
-  tbView->setToolTip(tr("View selected file (Ctrl+V)"));
+  m_actView->setIcon(QIcon(":/toolbar/view.svg"));
+  m_actView->setToolTip(tr("View selected file (Ctrl+V)"));
+  toolBar->addAction(m_actView);
 
-  auto *tbCheckOut =
-      toolBar->addAction(QIcon(":/toolbar/checkout.svg"), tr("CheckOut"), this,
-                         &MainWindow::onCheckOut);
-  tbCheckOut->setToolTip(tr("CheckOut and test archive"));
+  m_actCheckOut->setIcon(QIcon(":/toolbar/checkout.svg"));
+  m_actCheckOut->setToolTip(tr("CheckOut and test archive"));
+  toolBar->addAction(m_actCheckOut);
   toolBar->addSeparator();
 
   // 3. Classic / Explorer Toggle, Search
@@ -528,6 +534,15 @@ void MainWindow::createStatusBar() {
 }
 
 void MainWindow::updateStatusBarStats() {
+  if (m_currentArchivePath.isEmpty()) {
+    m_lblSelection->setText(tr("Ready"));
+    if (m_actDelete)
+      m_actDelete->setEnabled(false);
+    if (m_actView)
+      m_actView->setEnabled(false);
+    return;
+  }
+
   int totalCount = m_model->rowCount();
   qint64 totalBytes = m_model->totalUncompressedSize();
 
@@ -562,12 +577,12 @@ void MainWindow::updateStatusBarStats() {
 }
 
 void MainWindow::updateWindowTitle() {
-  QString displayName =
-      m_currentArchivePath.isEmpty()
-          ? "NEW_ARCHIVE.ZIP"
-          : QFileInfo(m_currentArchivePath).fileName().toUpper();
-
-  setWindowTitle(QString("MatterPackr · %1").arg(displayName));
+  if (m_currentArchivePath.isEmpty()) {
+    setWindowTitle(tr("MatterPackr"));
+  } else {
+    QString displayName = QFileInfo(m_currentArchivePath).fileName().toUpper();
+    setWindowTitle(QString("MatterPackr · %1").arg(displayName));
+  }
 }
 
 void MainWindow::onNewArchive() {
@@ -873,7 +888,7 @@ void MainWindow::onSaveArchiveAs() {
 
   QString filename = QFileDialog::getSaveFileName(
       this, tr("Save Archive As"),
-      m_currentArchivePath.isEmpty() ? "NEW_ARCHIVE.ZIP" : m_currentArchivePath,
+      m_currentArchivePath.isEmpty() ? "Archive.zip" : m_currentArchivePath,
       tr("ZIP Archives (*.zip);;7-Zip Archives (*.7z);;All Files (*.*)"));
   if (filename.isEmpty())
     return;
@@ -1440,8 +1455,9 @@ void MainWindow::updateNavBar() {
   if (!m_navBar)
     return;
   bool isExplorer = (m_model->viewMode() == ArchiveModel::ViewMode::Explorer);
-  m_navBar->setVisible(isExplorer);
-  if (!isExplorer)
+  bool hasArchive = !m_currentArchivePath.isEmpty();
+  m_navBar->setVisible(isExplorer && hasArchive);
+  if (!isExplorer || !hasArchive)
     return;
 
   if (m_btnNavUp) {
@@ -1461,9 +1477,10 @@ void MainWindow::updateFolderTree() {
     return;
   m_folderTree->clear();
 
-  QString archiveName = m_currentArchivePath.isEmpty()
-                            ? tr("Current Archive")
-                            : QFileInfo(m_currentArchivePath).fileName();
+  if (m_currentArchivePath.isEmpty())
+    return;
+
+  QString archiveName = QFileInfo(m_currentArchivePath).fileName();
 
   // Root node: All files (WinZip flat view shortcut)
   auto *allItem = new QTreeWidgetItem(m_folderTree);

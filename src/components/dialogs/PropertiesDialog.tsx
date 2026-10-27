@@ -27,7 +27,7 @@ export const PropertiesDialog: React.FC<PropertiesDialogProps> = ({
 
   if (!isOpen) return null;
 
-  const fileName = file ? file.name : (archive.files.length > 0 ? 'Archive.zip' : 'NEW_ARCHIVE.ZIP');
+  const fileName = file ? file.name : (archive.name || 'Archive.zip');
   const uncompressedSize = file ? file.size : archive.totalSize;
   const packedSize = file ? file.packedSize : archive.totalPackedSize;
   const isEncrypted = file ? file.encrypted : archive.isEncrypted;

@@ -257,6 +257,13 @@ export default function App() {
     }
   };
 
+  // Handler: Close Current Archive
+  const handleCloseArchive = () => {
+    setArchive(initialArchiveState);
+    setSelectedFileIds([]);
+    showNotification('Archive closed.', 'info');
+  };
+
   // Handler: Open Archive from OS File Explorer / Finder
   const handleTriggerOpenFilePicker = async () => {
     // 1. Try modern File System Access API (supported in Edge, Chrome, Chromium desktop webviews)
@@ -846,7 +853,7 @@ export default function App() {
           os={os}
           onNew={handleTriggerNewArchive}
           onOpen={handleTriggerOpenFilePicker}
-          onCloseArchive={handleTriggerNewArchive}
+          onCloseArchive={handleCloseArchive}
           onSaveAs={handleSaveArchiveAs}
           onProperties={() => {
             setPropertiesFile(selectedFiles.length === 1 ? selectedFiles[0] : null);
@@ -876,7 +883,7 @@ export default function App() {
           onAbout={() => setActiveDialog('about')}
           onCheckForUpdates={() => showNotification('MatterPackr v3.0.1 is up to date!', 'info')}
           onExportQtProject={handleExportQtProject}
-          hasArchive={archive.files.length > 0}
+          hasArchive={Boolean(archive.name)}
           hasSelection={selectedFileIds.length > 0}
         />
 
@@ -894,7 +901,7 @@ export default function App() {
           onToggleViewMode={() => setViewMode((prev) => (prev === 'classic' ? 'explorer' : 'classic'))}
           onToggleSearch={handleToggleFilter}
           isSearchActive={showFilter}
-          hasArchive={archive.files.length > 0}
+          hasArchive={Boolean(archive.name)}
           hasSelection={selectedFileIds.length > 0}
         />
 

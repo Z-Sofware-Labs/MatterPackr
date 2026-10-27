@@ -244,8 +244,8 @@ export function calculateArchiveStats(files: ArchiveFile[]) {
 }
 
 export const initialArchiveState: ArchiveState = {
-  name: 'NEW_ARCHIVE.ZIP',
-  path: 'C:\\ARCHIVES\\NEW_ARCHIVE.ZIP',
+  name: '',
+  path: '',
   files: [],
   encryptionMethod: 'none',
   totalSize: 0,

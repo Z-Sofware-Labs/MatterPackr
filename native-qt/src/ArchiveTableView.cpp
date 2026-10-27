@@ -2,22 +2,21 @@
 #include <QApplication>
 #include <QMouseEvent>
 #include <QScrollBar>
+#include <QPainter>
 
 ArchiveTableView::ArchiveTableView(QWidget *parent)
-    : QTableView(parent) {}
-
-ArchiveTableView::~ArchiveTableView() {
-    if (m_rubberBand) {
-        delete m_rubberBand;
-        m_rubberBand = nullptr;
-    }
+    : QTableView(parent) {
+    // Ensure viewport receives mouse moves and paints cleanly
+    viewport()->setAttribute(Qt::WA_Hover, true);
 }
 
 void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
         m_dragStartPos = event->pos();
+        m_currentDragPos = event->pos();
         m_isRubberBanding = false;
         m_modifiers = event->modifiers();
+
         if (selectionModel()) {
             m_initialSelection = selectionModel()->selection();
         } else {
@@ -26,7 +25,7 @@ void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
 
         QModelIndex index = indexAt(event->pos());
         if (!index.isValid()) {
-            // Clicked on empty background of table
+            // Clicked on empty space below or beside table items
             if (!(m_modifiers & (Qt::ControlModifier | Qt::ShiftModifier))) {
                 clearSelection();
                 m_initialSelection.clear();
@@ -43,19 +42,6 @@ void ArchiveTableView::mouseMoveEvent(QMouseEvent *event) {
         if (!m_isRubberBanding) {
             if ((event->pos() - m_dragStartPos).manhattanLength() >= QApplication::startDragDistance()) {
                 m_isRubberBanding = true;
-                if (!m_rubberBand) {
-                    m_rubberBand = new QRubberBand(QRubberBand::Rectangle, viewport());
-                    m_rubberBand->setAttribute(Qt::WA_TransparentForMouseEvents);
-                    m_rubberBand->setStyleSheet(
-                        "QRubberBand {"
-                        "  background-color: rgba(59, 130, 246, 0.25);"
-                        "  border: 1px solid #3b82f6;"
-                        "}"
-                    );
-                }
-                m_rubberBand->setGeometry(QRect(m_dragStartPos, QSize()));
-                m_rubberBand->show();
-
                 if (!(m_modifiers & Qt::ControlModifier)) {
                     m_initialSelection.clear();
                 }
@@ -63,19 +49,18 @@ void ArchiveTableView::mouseMoveEvent(QMouseEvent *event) {
         }
 
         if (m_isRubberBanding) {
-            QRect rect = QRect(m_dragStartPos, event->pos()).normalized();
-            if (m_rubberBand) {
-                m_rubberBand->setGeometry(rect);
-            }
+            m_currentDragPos = event->pos();
+            QRect rect = QRect(m_dragStartPos, m_currentDragPos).normalized();
 
-            // Smooth auto-scroll when dragging near viewport top/bottom
-            if (event->pos().y() < 12) {
-                verticalScrollBar()->setValue(verticalScrollBar()->value() - 16);
-            } else if (event->pos().y() > viewport()->height() - 12) {
-                verticalScrollBar()->setValue(verticalScrollBar()->value() + 16);
+            // Smooth auto-scroll when dragging near viewport boundaries
+            if (event->pos().y() < 15) {
+                verticalScrollBar()->setValue(verticalScrollBar()->value() - 15);
+            } else if (event->pos().y() > viewport()->height() - 15) {
+                verticalScrollBar()->setValue(verticalScrollBar()->value() + 15);
             }
 
             updateRubberBandSelection(rect);
+            viewport()->update();
             event->accept();
             return;
         }
@@ -87,9 +72,7 @@ void ArchiveTableView::mouseReleaseEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
         if (m_isRubberBanding) {
             m_isRubberBanding = false;
-            if (m_rubberBand) {
-                m_rubberBand->hide();
-            }
+            viewport()->update();
             event->accept();
             return;
         }
@@ -97,11 +80,32 @@ void ArchiveTableView::mouseReleaseEvent(QMouseEvent *event) {
     QTableView::mouseReleaseEvent(event);
 }
 
+void ArchiveTableView::paintEvent(QPaintEvent *event) {
+    // 1. Let the default table view render rows, text, icons, and alternating background
+    QTableView::paintEvent(event);
+
+    // 2. Render visible marquee drag selection rectangle directly on top of viewport
+    if (m_isRubberBanding) {
+        QPainter painter(viewport());
+        painter.setRenderHint(QPainter::Antialiasing, false);
+
+        QRect rect = QRect(m_dragStartPos, m_currentDragPos).normalized();
+
+        // Fluent / macOS / GNOME native semi-transparent blue fill
+        QColor fillColor(0, 120, 215, 60);
+        QColor borderColor(0, 120, 215, 230);
+
+        painter.fillRect(rect, fillColor);
+        painter.setPen(QPen(borderColor, 1, Qt::SolidLine));
+        painter.drawRect(rect);
+    }
+}
+
 void ArchiveTableView::updateRubberBandSelection(const QRect &rect) {
     if (!model() || !selectionModel()) return;
 
-    int numRows = model()->rowCount();
-    if (numRows == 0) return;
+    int totalRows = model()->rowCount();
+    if (totalRows == 0) return;
 
     int cols = model()->columnCount();
     if (cols == 0) cols = 1;
@@ -109,7 +113,7 @@ void ArchiveTableView::updateRubberBandSelection(const QRect &rect) {
     QItemSelection rubberBandSelection;
     int maxBottom = qMax(viewport()->height(), rect.bottom());
 
-    for (int r = 0; r < numRows; ++r) {
+    for (int r = 0; r < totalRows; ++r) {
         int rY = rowViewportPosition(r);
         int rH = rowHeight(r);
 

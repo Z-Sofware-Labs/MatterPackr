@@ -71,7 +71,7 @@ void CheckOutDialog::setupUi() {
     auto *pathLayout = new QHBoxLayout();
     pathLayout->setSpacing(8);
 
-    QString subName = m_archiveName.isEmpty() ? "NEW_ARCHIVE" : QFileInfo(m_archiveName).completeBaseName();
+    QString subName = m_archiveName.isEmpty() ? "Archive" : QFileInfo(m_archiveName).completeBaseName();
     QString defaultDir = QDir::toNativeSeparators(QDir::tempPath() + "/MatterPackr_CheckOut/" + subName);
 
     m_txtFolder = new QLineEdit(defaultDir, this);

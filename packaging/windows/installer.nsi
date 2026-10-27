@@ -209,24 +209,44 @@ FunctionEnd
 ; File Association Macros
 ; ==============================================================================
 !macro RegisterExt Ext ProgId Desc IconName
-  WriteRegStr SHCTX "Software\Classes\.${Ext}" "" "${ProgId}"
-  WriteRegNone SHCTX "Software\Classes\.${Ext}\OpenWithProgids" "${ProgId}"
+  ; 1. ProgId Definition
   WriteRegStr SHCTX "Software\Classes\${ProgId}" "" "${Desc}"
   ${If} ${FileExists} "$INSTDIR\icons\filetypes\${IconName}"
-    WriteRegStr SHCTX "Software\Classes\${ProgId}\DefaultIcon" "" '"$INSTDIR\icons\filetypes\${IconName}"'
+    WriteRegStr SHCTX "Software\Classes\${ProgId}\DefaultIcon" "" "$INSTDIR\icons\filetypes\${IconName},0"
   ${Else}
-    WriteRegStr SHCTX "Software\Classes\${ProgId}\DefaultIcon" "" '"$INSTDIR\${MAIN_EXE_NAME}",0'
+    WriteRegStr SHCTX "Software\Classes\${ProgId}\DefaultIcon" "" "$INSTDIR\${MAIN_EXE_NAME},0"
   ${EndIf}
   WriteRegStr SHCTX "Software\Classes\${ProgId}\shell\open\command" "" '"$INSTDIR\${MAIN_EXE_NAME}" "%1"'
+
+  ; 2. Extension Default Handler & Direct DefaultIcon
+  WriteRegStr SHCTX "Software\Classes\.${Ext}" "" "${ProgId}"
+  WriteRegStr SHCTX "Software\Classes\.${Ext}\OpenWithProgids" "${ProgId}" ""
+  ${If} ${FileExists} "$INSTDIR\icons\filetypes\${IconName}"
+    WriteRegStr SHCTX "Software\Classes\.${Ext}\DefaultIcon" "" "$INSTDIR\icons\filetypes\${IconName},0"
+  ${EndIf}
+
+  ; 3. Windows Capabilities & Registered Applications
+  WriteRegStr SHCTX "Software\${PRODUCT_NAME}\Capabilities\FileAssociations" ".${Ext}" "${ProgId}"
+  WriteRegStr SHCTX "Software\Classes\Applications\${MAIN_EXE_NAME}\SupportedTypes" ".${Ext}" ""
+
+  ; 4. Clear cached UserChoice in HKCU so Windows 10/11 activates MatterPackr as default
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.${Ext}\UserChoice"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.${Ext}\OpenWithProgids" "${ProgId}" ""
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.${Ext}\OpenWithList" "a" "${MAIN_EXE_NAME}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.${Ext}\OpenWithList" "MRUList" "a"
 !macroend
 
 !macro UnregisterExt Ext ProgId
   ReadRegStr $0 SHCTX "Software\Classes\.${Ext}" ""
   ${If} $0 == "${ProgId}"
     DeleteRegValue SHCTX "Software\Classes\.${Ext}" ""
+    DeleteRegKey SHCTX "Software\Classes\.${Ext}\DefaultIcon"
   ${EndIf}
   DeleteRegValue SHCTX "Software\Classes\.${Ext}\OpenWithProgids" "${ProgId}"
   DeleteRegKey SHCTX "Software\Classes\${ProgId}"
+  DeleteRegValue SHCTX "Software\${PRODUCT_NAME}\Capabilities\FileAssociations" ".${Ext}"
+  DeleteRegValue SHCTX "Software\Classes\Applications\${MAIN_EXE_NAME}\SupportedTypes" ".${Ext}"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.${Ext}\OpenWithProgids" "${ProgId}"
 !macroend
 
 ; ==============================================================================
@@ -249,6 +269,16 @@ Section "MainSection" SEC01
   CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\${MAIN_EXE_NAME}" "" "$INSTDIR\${MAIN_EXE_NAME}" 0
   CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk" "$INSTDIR\uninstall.exe"
   CreateShortcut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\${MAIN_EXE_NAME}" "" "$INSTDIR\${MAIN_EXE_NAME}" 0
+
+  ; Register Application in Windows
+  WriteRegStr SHCTX "Software\Classes\Applications\${MAIN_EXE_NAME}" "FriendlyAppName" "${PRODUCT_NAME}"
+  WriteRegStr SHCTX "Software\Classes\Applications\${MAIN_EXE_NAME}\DefaultIcon" "" "$INSTDIR\${MAIN_EXE_NAME},0"
+  WriteRegStr SHCTX "Software\Classes\Applications\${MAIN_EXE_NAME}\shell\open\command" "" '"$INSTDIR\${MAIN_EXE_NAME}" "%1"'
+
+  ; Register in Windows 10/11 RegisteredApplications
+  WriteRegStr SHCTX "Software\RegisteredApplications" "${PRODUCT_NAME}" "Software\${PRODUCT_NAME}\Capabilities"
+  WriteRegStr SHCTX "Software\${PRODUCT_NAME}\Capabilities" "ApplicationName" "${PRODUCT_NAME}"
+  WriteRegStr SHCTX "Software\${PRODUCT_NAME}\Capabilities" "ApplicationDescription" "MatterPackr Modern Archive Manager"
 
   ; File Associations
   ${If} $StateZip == ${BST_CHECKED}
@@ -339,4 +369,10 @@ Section "Uninstall"
 
   ; Remove Add/Remove Programs registry key
   DeleteRegKey SHCTX "${UNINST_KEY}"
+
+  ; Remove Application & Capabilities Registration
+  DeleteRegValue SHCTX "Software\RegisteredApplications" "${PRODUCT_NAME}"
+  DeleteRegKey SHCTX "Software\${PRODUCT_NAME}\Capabilities"
+  DeleteRegKey SHCTX "Software\${PRODUCT_NAME}"
+  DeleteRegKey SHCTX "Software\Classes\Applications\${MAIN_EXE_NAME}"
 SectionEnd

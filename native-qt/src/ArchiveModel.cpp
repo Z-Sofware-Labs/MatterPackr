@@ -66,7 +66,7 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
         }
 
         const QString suffix = QFileInfo(item.filename).suffix().toLower();
-        if (suffix == "zip") {
+        if (suffix == "zip" || suffix == "zipx") {
             return QIcon(":/filetypes/zip.ico");
         } else if (suffix == "7z") {
             return QIcon(":/filetypes/7z.ico");
@@ -76,13 +76,13 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
             return QIcon(":/filetypes/tar.ico");
         } else if (suffix == "tgz") {
             return QIcon(":/filetypes/tgz.ico");
-        } else if (suffix == "tbz2") {
+        } else if (suffix == "tbz2" || suffix == "tbz") {
             return QIcon(":/filetypes/tbz2.ico");
-        } else if (suffix == "txz") {
+        } else if (suffix == "txz" || suffix == "xz") {
             return QIcon(":/filetypes/txz.ico");
-        } else if (suffix == "gz") {
+        } else if (suffix == "gz" || suffix == "gzip") {
             return QIcon(":/filetypes/gz.ico");
-        } else if (suffix == "bz2") {
+        } else if (suffix == "bz2" || suffix == "bzip2") {
             return QIcon(":/filetypes/bz2.ico");
         } else if (suffix == "iso") {
             return QIcon(":/filetypes/iso.ico");
@@ -94,10 +94,14 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
             return QIcon(":/filetypes/cpio.ico");
         } else if (suffix == "ar") {
             return QIcon(":/filetypes/ar.ico");
+        } else if (suffix == "zst" || suffix == "lzma" || suffix == "lzh" || suffix == "ace") {
+            return QIcon(":/filetypes/archive.ico");
         }
 
         static QFileIconProvider iconProvider;
-        return iconProvider.icon(QFileInfo(item.filename));
+        QIcon icon = iconProvider.icon(QFileInfo(item.filename));
+        if (!icon.isNull()) return icon;
+        return iconProvider.icon(QAbstractFileIconProvider::File);
     }
 
     if (role == Qt::CheckStateRole && index.column() == ColFilename) {
