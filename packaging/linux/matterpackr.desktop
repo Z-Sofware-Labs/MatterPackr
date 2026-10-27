@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=MatterPackr
+Comment=Modern Multi-Threaded Archive Manager
+Exec=MatterPackr %F
+Icon=matterpackr
+Terminal=false
+Type=Application
+Categories=Utility;Archiving;Compression;
+MimeType=application/zip;application/x-7z-compressed;application/x-tar;application/x-bzip2;application/x-gzip;application/x-rar;application/x-compressed-tar;

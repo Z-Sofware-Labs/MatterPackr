@@ -25,7 +25,12 @@ set(SOURCES
     src/ArchiveModel.cpp
     src/CompressionEngine.cpp
     src/OptionsDialog.cpp
+    resources.qrc
 )
+
+if(WIN32)
+    list(APPEND SOURCES MatterPackr.rc)
+endif()
 
 set(HEADERS
     src/MainWindow.h
@@ -1008,6 +1013,7 @@ void MainWindow::onTableDoubleClicked(const QModelIndex &index) {
 
 export const MAIN_CPP = `#include <QApplication>
 #include <QStyleFactory>
+#include <QIcon>
 #include "MainWindow.h"
 
 int main(int argc, char *argv[]) {
@@ -1020,9 +1026,17 @@ int main(int argc, char *argv[]) {
     app.setApplicationVersion("3.0.0");
     app.setOrganizationName("MatterPackr Core Engineering");
 
+    // Set application icon from embedded Qt resources
+    QIcon appIcon(":/app.ico");
+    if (appIcon.isNull()) {
+        appIcon = QIcon(":/app.png");
+    }
+    app.setWindowIcon(appIcon);
+
     QApplication::setStyle(QStyleFactory::create("Fusion"));
 
     MainWindow window;
+    window.setWindowIcon(appIcon);
     window.show();
 
     return app.exec();

@@ -1,0 +1,56 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/">
+        <file alias="app.ico">resources/app.ico</file>
+        <file alias="app.png">resources/app.png</file>
+        <file alias="style.qss">resources/style.qss</file>
+        <file alias="style-light.qss">resources/style-light.qss</file>
+        <file alias="checkmark.svg">resources/checkmark.svg</file>
+        <file alias="checkbox-unchecked.svg">resources/checkbox-unchecked.svg</file>
+        <file alias="checkbox-unchecked-hover.svg">resources/checkbox-unchecked-hover.svg</file>
+        <file alias="checkbox-checked.svg">resources/checkbox-checked.svg</file>
+        <file alias="checkbox-checked-hover.svg">resources/checkbox-checked-hover.svg</file>
+        <file alias="checkbox-unchecked-light.svg">resources/checkbox-unchecked-light.svg</file>
+        <file alias="checkbox-unchecked-hover-light.svg">resources/checkbox-unchecked-hover-light.svg</file>
+        <file alias="checkbox-checked-light.svg">resources/checkbox-checked-light.svg</file>
+        <file alias="checkbox-checked-hover-light.svg">resources/checkbox-checked-hover-light.svg</file>
+        <file alias="shield.svg">resources/shield.svg</file>
+        <file alias="radio-unchecked.svg">resources/radio-unchecked.svg</file>
+        <file alias="radio-unchecked-hover.svg">resources/radio-unchecked-hover.svg</file>
+        <file alias="radio-checked.svg">resources/radio-checked.svg</file>
+        <file alias="radio-unchecked-light.svg">resources/radio-unchecked-light.svg</file>
+        <file alias="radio-unchecked-hover-light.svg">resources/radio-unchecked-hover-light.svg</file>
+        <file alias="radio-checked-light.svg">resources/radio-checked-light.svg</file>
+        <file alias="up.svg">resources/up.svg</file>
+        <file alias="close.svg">resources/close.svg</file>
+
+        <!-- Toolbar Icons -->
+        <file alias="toolbar/new.svg">resources/toolbar/new.svg</file>
+        <file alias="toolbar/open.svg">resources/toolbar/open.svg</file>
+        <file alias="toolbar/favorites.svg">resources/toolbar/favorites.svg</file>
+        <file alias="toolbar/add.svg">resources/toolbar/add.svg</file>
+        <file alias="toolbar/extract.svg">resources/toolbar/extract.svg</file>
+        <file alias="toolbar/view.svg">resources/toolbar/view.svg</file>
+        <file alias="toolbar/checkout.svg">resources/toolbar/checkout.svg</file>
+        <file alias="toolbar/classic.svg">resources/toolbar/classic.svg</file>
+        <file alias="toolbar/explorer.svg">resources/toolbar/explorer.svg</file>
+        <file alias="toolbar/search.svg">resources/toolbar/search.svg</file>
+
+        <!-- Supported Filetype Icons -->
+        <file alias="filetypes/zip.ico">resources/filetypes/zip.ico</file>
+        <file alias="filetypes/7z.ico">resources/filetypes/7z.ico</file>
+        <file alias="filetypes/rar.ico">resources/filetypes/rar.ico</file>
+        <file alias="filetypes/tar.ico">resources/filetypes/tar.ico</file>
+        <file alias="filetypes/tgz.ico">resources/filetypes/tgz.ico</file>
+        <file alias="filetypes/tbz2.ico">resources/filetypes/tbz2.ico</file>
+        <file alias="filetypes/txz.ico">resources/filetypes/txz.ico</file>
+        <file alias="filetypes/gz.ico">resources/filetypes/gz.ico</file>
+        <file alias="filetypes/bz2.ico">resources/filetypes/bz2.ico</file>
+        <file alias="filetypes/iso.ico">resources/filetypes/iso.ico</file>
+        <file alias="filetypes/cab.ico">resources/filetypes/cab.ico</file>
+        <file alias="filetypes/cpio.ico">resources/filetypes/cpio.ico</file>
+        <file alias="filetypes/ar.ico">resources/filetypes/ar.ico</file>
+        <file alias="filetypes/img.ico">resources/filetypes/img.ico</file>
+        <file alias="filetypes/archive.ico">resources/filetypes/archive.ico</file>
+    </qresource>
+</RCC>

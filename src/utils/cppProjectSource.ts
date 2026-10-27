@@ -1,16 +1,16 @@
 export interface CppSourceFile {
-  filename: string;
-  category: 'build' | 'headers' | 'sources' | 'styles' | 'docs';
-  description: string;
-  content: string;
+    filename: string;
+    category: 'build' | 'headers' | 'sources' | 'styles' | 'docs';
+    description: string;
+    content: string;
 }
 
 export const cppProjectFiles: CppSourceFile[] = [
-  {
-    filename: 'CMakeLists.txt',
-    category: 'build',
-    description: 'Modern CMake 3.22+ build configuration targeting Qt 6/5 and OpenSSL/Zlib',
-    content: `cmake_minimum_required(VERSION 3.22)
+    {
+        filename: 'CMakeLists.txt',
+        category: 'build',
+        description: 'Modern CMake 3.22+ build configuration targeting Qt 6/5 and OpenSSL/Zlib',
+        content: `cmake_minimum_required(VERSION 3.22)
 project(WinZipClassicQt VERSION 8.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -55,12 +55,12 @@ target_compile_definitions(WinZipClassicQt PRIVATE
     WINZIP_USE_AES256=1
 )
 `,
-  },
-  {
-    filename: 'src/main.cpp',
-    category: 'sources',
-    description: 'Application entry point initializing Qt GUI, event loop, and thread pool',
-    content: `#include <QApplication>
+    },
+    {
+        filename: 'src/main.cpp',
+        category: 'sources',
+        description: 'Application entry point initializing Qt GUI, event loop, and thread pool',
+        content: `#include <QApplication>
 #include <QThreadPool>
 #include <QFile>
 #include <QDebug>
@@ -101,12 +101,12 @@ int main(int argc, char *argv[]) {
     return app.exec();
 }
 `,
-  },
-  {
-    filename: 'src/MainWindow.h',
-    category: 'headers',
-    description: 'Main window header with drag-and-drop, table model, progress hooks',
-    content: `#pragma once
+    },
+    {
+        filename: 'src/MainWindow.h',
+        category: 'headers',
+        description: 'Main window header with drag-and-drop, table model, progress hooks',
+        content: `#pragma once
 
 #include <QMainWindow>
 #include <QTableWidget>
@@ -155,12 +155,12 @@ private:
     std::unique_ptr<ZipArchiveEngine> m_zipEngine;
 };
 `,
-  },
-  {
-    filename: 'src/CompressionWorker.h',
-    category: 'headers',
-    description: 'QRunnable worker for multi-threaded chunked compression & AES-256 encryption',
-    content: `#pragma once
+    },
+    {
+        filename: 'src/CompressionWorker.h',
+        category: 'headers',
+        description: 'QRunnable worker for multi-threaded chunked compression & AES-256 encryption',
+        content: `#pragma once
 
 #include <QRunnable>
 #include <QObject>
@@ -209,12 +209,12 @@ private:
     QByteArray encryptAes256(const QByteArray &data, const QString &password);
 };
 `,
-  },
-  {
-    filename: 'src/CompressionWorker.cpp',
-    category: 'sources',
-    description: 'Multi-threaded chunked Deflate implementation with OpenSSL AES-256 CTR',
-    content: `#include "CompressionWorker.h"
+    },
+    {
+        filename: 'src/CompressionWorker.cpp',
+        category: 'sources',
+        description: 'Multi-threaded chunked Deflate implementation with OpenSSL AES-256 CTR',
+        content: `#include "CompressionWorker.h"
 #include <zlib.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
@@ -322,12 +322,12 @@ QByteArray CompressionWorker::encryptAes256(const QByteArray &data, const QStrin
     return finalPayload;
 }
 `,
-  },
-  {
-    filename: 'src/ZipArchiveEngine.h',
-    category: 'headers',
-    description: 'High-level archive coordinator with memory-mapped I/O and chunk scheduling',
-    content: `#pragma once
+    },
+    {
+        filename: 'src/ZipArchiveEngine.h',
+        category: 'headers',
+        description: 'High-level archive coordinator with memory-mapped I/O and chunk scheduling',
+        content: `#pragma once
 
 #include <QObject>
 #include <QStringList>
@@ -366,12 +366,12 @@ private:
     qint64 m_totalBytesProcessed{0};
 };
 `,
-  },
-  {
-    filename: 'src/ZipArchiveEngine.cpp',
-    category: 'sources',
-    description: 'Multi-threaded chunk orchestrator and ZIP file serialization',
-    content: `#include "ZipArchiveEngine.h"
+    },
+    {
+        filename: 'src/ZipArchiveEngine.cpp',
+        category: 'sources',
+        description: 'Multi-threaded chunk orchestrator and ZIP file serialization',
+        content: `#include "ZipArchiveEngine.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QDateTime>
@@ -436,12 +436,12 @@ void ZipArchiveEngine::testIntegrity() {
     emit archiveOperationFinished(true, "Archive integrity verified: All CRC-32 checksums matched.");
 }
 `,
-  },
-  {
-    filename: 'resources/winzip_classic.qss',
-    category: 'styles',
-    description: 'Pixel-perfect WinZip 8.1 / Windows 98/2000 Qt stylesheet with 3D bevels',
-    content: `/* WinZip 8.1 Classic Windows 98/2000 Theme for Qt Widgets */
+    },
+    {
+        filename: 'resources/winzip_classic.qss',
+        category: 'styles',
+        description: 'Pixel-perfect WinZip 8.1 / Windows 98/2000 Qt stylesheet with 3D bevels',
+        content: `/* WinZip 8.1 Classic Windows 98/2000 Theme for Qt Widgets */
 QMainWindow {
     background-color: #d4d0c8;
 }
@@ -543,12 +543,12 @@ QStatusBar::item {
     padding: 1px 4px;
 }
 `,
-  },
-  {
-    filename: 'src/OptionsDialog.h',
-    category: 'headers',
-    description: 'Compact Qt 6 QDialog for file associations, MIME registration, and UI preferences',
-    content: `#pragma once
+    },
+    {
+        filename: 'src/OptionsDialog.h',
+        category: 'headers',
+        description: 'Compact Qt 6 QDialog for file associations, MIME registration, and UI preferences',
+        content: `#pragma once
 
 #include <QDialog>
 #include <QTabWidget>
@@ -596,12 +596,12 @@ private:
     QCheckBox *m_showCheckboxesBox{nullptr};
 };
 `,
-  },
-  {
-    filename: 'src/OptionsDialog.cpp',
-    category: 'sources',
-    description: 'Qt 6 implementation of compact QTabWidget, QGroupBox, and shell association registry',
-    content: `#include "OptionsDialog.h"
+    },
+    {
+        filename: 'src/OptionsDialog.cpp',
+        category: 'sources',
+        description: 'Qt 6 implementation of compact QTabWidget, QGroupBox, and shell association registry',
+        content: `#include "OptionsDialog.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -669,7 +669,7 @@ void OptionsDialog::createAssociationsTab()
     layout->addLayout(toolBarLayout);
 
     // Read & Write Formats (7)
-    auto *rwGroup = new QGroupBox(tr("Read & Write Formats (7) — Full Creation & Modification"), tab);
+    auto *rwGroup = new QGroupBox(tr("Read & Write Formats (7) — Full Creation and Modification"), tab);
     auto *rwGrid = new QGridLayout(rwGroup);
     rwGrid->setContentsMargins(8, 6, 8, 6);
     rwGrid->setSpacing(4);
@@ -691,7 +691,7 @@ void OptionsDialog::createAssociationsTab()
     layout->addWidget(rwGroup);
 
     // Read Only Formats (6)
-    auto *roGroup = new QGroupBox(tr("Read Only Formats (6) — Decompression & Inspection"), tab);
+    auto *roGroup = new QGroupBox(tr("Read Only Formats (6) — Decompression and Inspection"), tab);
     auto *roGrid = new QGridLayout(roGroup);
     roGrid->setContentsMargins(8, 6, 8, 6);
     roGrid->setSpacing(4);
@@ -803,5 +803,141 @@ int OptionsDialog::themeMode() const
     return 0; // Device setting default
 }
 `,
-  },
+    },
+    {
+        filename: 'src/FavoritesDialog.h',
+        category: 'headers',
+        description: 'Favorites management dialog and QSettings-backed bookmark engine header',
+        content: `#pragma once
+
+#include <QDialog>
+#include <QString>
+#include <QVector>
+#include <QIcon>
+#include <QPoint>
+
+class QListWidget;
+class QListWidgetItem;
+class QPushButton;
+class QLabel;
+class QLineEdit;
+class QKeyEvent;
+
+struct FavoriteArchiveEntry {
+    QString name;
+    QString path;
+    QString size;
+    QString date;
+    int count = 0;
+};
+
+class FavoritesDialog : public QDialog {
+    Q_OBJECT
+
+public:
+    explicit FavoritesDialog(const QString &currentArchivePath, QWidget *parent = nullptr);
+
+    QString selectedArchivePath() const;
+
+    // Static backend helpers for seamless app-wide favorites access
+    static QVector<FavoriteArchiveEntry> loadFavoritesList();
+    static void saveFavoritesList(const QVector<FavoriteArchiveEntry> &favorites);
+    static bool addFavoriteEntry(const FavoriteArchiveEntry &entry);
+    static bool addCurrentToFavorites(const QString &currentArchivePath, QString *outMessage = nullptr);
+    static QIcon iconForPath(const QString &path);
+
+protected:
+    void keyPressEvent(QKeyEvent *event) override;
+
+private slots:
+    void onOpenSelected();
+    void onAddCurrent();
+    void onAddFromDisk();
+    void onRemoveSelected();
+    void onExploreFolder();
+    void onCopyPath();
+    void onFilterChanged(const QString &text);
+    void onSelectionChanged();
+    void onCustomContextMenuRequested(const QPoint &pos);
+
+private:
+    void setupUi();
+    void refreshList(const QString &filter = QString());
+    QWidget *createCardWidget(const FavoriteArchiveEntry &entry);
+
+    QString m_currentArchivePath;
+    QString m_selectedPath;
+    QVector<FavoriteArchiveEntry> m_favorites;
+
+    QLineEdit *m_searchEdit = nullptr;
+    QListWidget *m_list = nullptr;
+    QPushButton *m_btnOpen = nullptr;
+    QPushButton *m_btnAddCurrent = nullptr;
+    QPushButton *m_btnAddOther = nullptr;
+    QPushButton *m_btnRemove = nullptr;
+    QPushButton *m_btnExplore = nullptr;
+    QLabel *m_lblStatus = nullptr;
+};
+`,
+    },
+    {
+        filename: 'src/FavoritesDialog.cpp',
+        category: 'sources',
+        description: 'Fast, card-based favorites bookmarking, search filter, context menus, and QSettings persistence',
+        content: `#include "FavoritesDialog.h"
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QListWidget>
+#include <QPushButton>
+#include <QLineEdit>
+#include <QFileDialog>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QSettings>
+#include <QFileInfo>
+#include <QDir>
+#include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QMessageBox>
+#include <QMenu>
+#include <QClipboard>
+#include <QGuiApplication>
+#include <QKeyEvent>
+
+FavoritesDialog::FavoritesDialog(const QString &currentArchivePath, QWidget *parent)
+    : QDialog(parent), m_currentArchivePath(currentArchivePath) {
+    setWindowTitle(tr("Favorite Archives & Bookmarks"));
+    setWindowIcon(QIcon(":/app.ico"));
+    setModal(true);
+    resize(620, 480);
+    setMinimumSize(540, 360);
+
+    m_favorites = loadFavoritesList();
+    setupUi();
+    refreshList();
+}
+
+QVector<FavoriteArchiveEntry> FavoritesDialog::loadFavoritesList() {
+    QVector<FavoriteArchiveEntry> list;
+    QSettings settings("MatterPackr", "MatterPackr");
+
+    if (settings.contains("favoriteArchives")) {
+        QByteArray data = settings.value("favoriteArchives").toByteArray();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isArray()) {
+            for (const auto &val : doc.array()) {
+                QJsonObject obj = val.toObject();
+                list.append({obj["name"].toString(), obj["path"].toString(),
+                             obj["size"].toString(), obj["date"].toString(),
+                             obj["count"].toInt()});
+            }
+        }
+    }
+    return list;
+}
+`,
+    },
 ];

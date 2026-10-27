@@ -1,5 +1,7 @@
 #include <QApplication>
 #include <QStyleFactory>
+#include <QIcon>
+#include <QFile>
 #include "MainWindow.h"
 
 int main(int argc, char *argv[]) {
@@ -13,11 +15,27 @@ int main(int argc, char *argv[]) {
     app.setApplicationVersion("3.0.0");
     app.setOrganizationName("MatterPackr Core Engineering");
 
+    // Set application icon from embedded Qt resources
+    QIcon appIcon(":/app.ico");
+    if (appIcon.isNull()) {
+        appIcon = QIcon(":/app.png");
+    }
+    app.setWindowIcon(appIcon);
+
     // Use modern Fusion style by default across platforms
     QApplication::setStyle(QStyleFactory::create("Fusion"));
 
+    // Load embedded Fluent Dark stylesheet
+    QFile styleFile(":/style.qss");
+    if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        app.setStyleSheet(QString::fromUtf8(styleFile.readAll()));
+        styleFile.close();
+    }
+
     MainWindow window;
+    window.setWindowIcon(appIcon);
     window.show();
 
     return app.exec();
 }
+

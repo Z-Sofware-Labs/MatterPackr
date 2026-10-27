@@ -30,5 +30,6 @@ private:
     QNetworkAccessManager *m_network = nullptr;
     QNetworkReply *m_currentReply = nullptr;
     QProgressDialog *m_progressDialog = nullptr;
+    QProgressDialog *m_checkingDialog = nullptr;
     QString m_downloadTargetFile;
 };

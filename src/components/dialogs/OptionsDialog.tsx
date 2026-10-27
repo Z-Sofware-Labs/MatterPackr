@@ -253,13 +253,12 @@ export const OptionsDialog: React.FC<OptionsDialogProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 select-none">
       {/* Compact Qt-style QDialog window frame */}
       <div
-        className={`w-full max-w-lg shadow-2xl rounded-xl border overflow-hidden transition-all duration-200 flex flex-col font-sans text-xs ${
-          os === 'macos'
-            ? 'bg-white/95 dark:bg-[#1e1e24]/95 border-neutral-300/80 dark:border-neutral-700/80 text-[#1d1d1f] dark:text-[#f5f5f7]'
-            : os === 'linux'
+        className={`w-full max-w-lg shadow-2xl rounded-xl border overflow-hidden transition-all duration-200 flex flex-col font-sans text-xs ${os === 'macos'
+          ? 'bg-white/95 dark:bg-[#1e1e24]/95 border-neutral-300/80 dark:border-neutral-700/80 text-[#1d1d1f] dark:text-[#f5f5f7]'
+          : os === 'linux'
             ? 'bg-[#2a2638] border-[#1f1c29] text-[#deddda]'
             : 'bg-[#f0f0f0] dark:bg-[#202020] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100'
-        }`}
+          }`}
       >
         {/* Header following native OS guidelines */}
         <DialogHeader
@@ -274,11 +273,10 @@ export const OptionsDialog: React.FC<OptionsDialogProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('associations')}
-            className={`px-3 py-1.5 rounded-t-md font-medium border-t border-l border-r transition-all cursor-pointer ${
-              activeTab === 'associations'
-                ? 'bg-white dark:bg-[#202020] border-neutral-300 dark:border-neutral-700 text-blue-600 dark:text-blue-400 font-bold -mb-[1px] shadow-2xs'
-                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
-            }`}
+            className={`px-3 py-1.5 rounded-t-md font-medium border-t border-l border-r transition-all cursor-pointer ${activeTab === 'associations'
+              ? 'bg-white dark:bg-[#202020] border-neutral-300 dark:border-neutral-700 text-blue-600 dark:text-blue-400 font-bold -mb-[1px] shadow-2xs'
+              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
+              }`}
           >
             File Formats
           </button>
@@ -286,11 +284,10 @@ export const OptionsDialog: React.FC<OptionsDialogProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('view_theme')}
-            className={`px-3 py-1.5 rounded-t-md font-medium border-t border-l border-r transition-all cursor-pointer ${
-              activeTab === 'view_theme'
-                ? 'bg-white dark:bg-[#202020] border-neutral-300 dark:border-neutral-700 text-blue-600 dark:text-blue-400 font-bold -mb-[1px] shadow-2xs'
-                : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
-            }`}
+            className={`px-3 py-1.5 rounded-t-md font-medium border-t border-l border-r transition-all cursor-pointer ${activeTab === 'view_theme'
+              ? 'bg-white dark:bg-[#202020] border-neutral-300 dark:border-neutral-700 text-blue-600 dark:text-blue-400 font-bold -mb-[1px] shadow-2xs'
+              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
+              }`}
           >
             Appearance
           </button>
@@ -342,7 +339,7 @@ export const OptionsDialog: React.FC<OptionsDialogProps> = ({
               <fieldset className="border border-neutral-300 dark:border-neutral-700 rounded-lg p-2.5 pt-1.5 bg-neutral-50/50 dark:bg-neutral-900/30">
                 <legend className="px-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                   <span>●</span>
-                  <span>Read and Write Formats (7) — Full Creation & Compression</span>
+                  <span>Read and Write Formats (7) — Full Creation and Compression</span>
                 </legend>
 
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-1">
@@ -351,11 +348,10 @@ export const OptionsDialog: React.FC<OptionsDialogProps> = ({
                     return (
                       <label
                         key={item.id}
-                        className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer transition-colors ${
-                          checked
-                            ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-100 font-medium'
-                            : 'hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-neutral-700 dark:text-neutral-300'
-                        }`}
+                        className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer transition-colors ${checked
+                          ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-100 font-medium'
+                          : 'hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-neutral-700 dark:text-neutral-300'
+                          }`}
                       >
                         <input
                           type="checkbox"
@@ -379,7 +375,7 @@ export const OptionsDialog: React.FC<OptionsDialogProps> = ({
               <fieldset className="border border-neutral-300 dark:border-neutral-700 rounded-lg p-2.5 pt-1.5 bg-neutral-50/50 dark:bg-neutral-900/30">
                 <legend className="px-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
                   <span>●</span>
-                  <span>Read Only Formats (6) — Decompression & Inspection</span>
+                  <span>Read Only Formats (6) — Decompression and Inspection</span>
                 </legend>
 
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-1">
@@ -388,11 +384,10 @@ export const OptionsDialog: React.FC<OptionsDialogProps> = ({
                     return (
                       <label
                         key={item.id}
-                        className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer transition-colors ${
-                          checked
-                            ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100 font-medium'
-                            : 'hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-neutral-700 dark:text-neutral-300'
-                        }`}
+                        className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer transition-colors ${checked
+                          ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100 font-medium'
+                          : 'hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-neutral-700 dark:text-neutral-300'
+                          }`}
                       >
                         <input
                           type="checkbox"
@@ -455,11 +450,10 @@ export const OptionsDialog: React.FC<OptionsDialogProps> = ({
 
                 <div className="grid grid-cols-3 gap-2 pt-1">
                   <label
-                    className={`p-2.5 rounded-lg border cursor-pointer flex flex-col items-center justify-center gap-1 text-center transition-all ${
-                      currentMode === 'device'
-                        ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 font-bold text-blue-900 dark:text-blue-200 shadow-2xs'
-                        : 'border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                    }`}
+                    className={`p-2.5 rounded-lg border cursor-pointer flex flex-col items-center justify-center gap-1 text-center transition-all ${currentMode === 'device'
+                      ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 font-bold text-blue-900 dark:text-blue-200 shadow-2xs'
+                      : 'border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                      }`}
                   >
                     <input
                       type="radio"
@@ -473,11 +467,10 @@ export const OptionsDialog: React.FC<OptionsDialogProps> = ({
                   </label>
 
                   <label
-                    className={`p-2.5 rounded-lg border cursor-pointer flex flex-col items-center justify-center gap-1 text-center transition-all ${
-                      currentMode === 'light'
-                        ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 font-bold text-blue-900 dark:text-blue-200 shadow-2xs'
-                        : 'border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                    }`}
+                    className={`p-2.5 rounded-lg border cursor-pointer flex flex-col items-center justify-center gap-1 text-center transition-all ${currentMode === 'light'
+                      ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 font-bold text-blue-900 dark:text-blue-200 shadow-2xs'
+                      : 'border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                      }`}
                   >
                     <input
                       type="radio"
@@ -491,11 +484,10 @@ export const OptionsDialog: React.FC<OptionsDialogProps> = ({
                   </label>
 
                   <label
-                    className={`p-2.5 rounded-lg border cursor-pointer flex flex-col items-center justify-center gap-1 text-center transition-all ${
-                      currentMode === 'dark'
-                        ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 font-bold text-blue-900 dark:text-blue-200 shadow-2xs'
-                        : 'border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                    }`}
+                    className={`p-2.5 rounded-lg border cursor-pointer flex flex-col items-center justify-center gap-1 text-center transition-all ${currentMode === 'dark'
+                      ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 font-bold text-blue-900 dark:text-blue-200 shadow-2xs'
+                      : 'border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                      }`}
                   >
                     <input
                       type="radio"

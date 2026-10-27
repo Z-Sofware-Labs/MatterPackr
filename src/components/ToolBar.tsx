@@ -16,7 +16,7 @@ interface ToolBarProps {
   os: PlatformOS;
   onNew: () => void;
   onOpen: () => void;
-  onFavorites: () => void;
+  onFavorites?: () => void;
   onAdd: () => void;
   onExtract: () => void;
   onView: () => void;
@@ -80,19 +80,6 @@ export const ToolBar: React.FC<ToolBarProps> = ({
           <OpenArchiveIcon os={os} size={26} />
           <span className="text-[10px] font-medium text-neutral-800 dark:text-neutral-200 mt-0.5 truncate w-full text-center leading-tight">
             Open
-          </span>
-        </button>
-
-        {/* 3. FAVORITES */}
-        <button
-          type="button"
-          onClick={onFavorites}
-          title="View favorite and recent archives"
-          className="w-[52px] h-[46px] flex flex-col items-center justify-center py-0.5 px-0.5 rounded hover:bg-neutral-200/60 dark:hover:bg-neutral-800 active:bg-neutral-300 dark:active:bg-neutral-700 transition-all cursor-pointer shrink-0"
-        >
-          <FavoritesIcon os={os} size={26} />
-          <span className="text-[10px] font-medium text-neutral-800 dark:text-neutral-200 mt-0.5 truncate w-full text-center leading-tight">
-            Favorites
           </span>
         </button>
 

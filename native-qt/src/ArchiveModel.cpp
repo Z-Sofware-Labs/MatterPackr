@@ -23,15 +23,23 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
     const ArchiveItem &item = m_items.at(index.row());
 
     if (role == Qt::DisplayRole) {
+        if (item.filename == "..") {
+            switch (index.column()) {
+                case ColFilename: return QString("..");
+                case ColType:     return tr("Parent Folder");
+                default:          return QVariant();
+            }
+        }
+
         switch (index.column()) {
             case ColFilename:   return item.filename;
-            case ColType:       return item.type;
-            case ColModified:   return item.modified.toString("yyyy-MM-dd hh:mm AP");
-            case ColSize:       return formatBytes(item.size);
-            case ColRatio:      return QString("%1%").arg(item.ratio);
-            case ColPacked:     return formatBytes(item.packedSize);
-            case ColCrc32:      return item.crc32.toUpper();
-            case ColEncryption: return item.isEncrypted ? item.encryptionMethod : QString("-");
+            case ColType:       return item.isDirectory ? tr("Folder") : item.type;
+            case ColModified:   return item.modified.isValid() ? item.modified.toString("yyyy-MM-dd hh:mm AP") : QString("-");
+            case ColSize:       return item.isDirectory ? (item.size > 0 ? formatBytes(item.size) : tr("<DIR>")) : formatBytes(item.size);
+            case ColRatio:      return item.isDirectory ? (item.size > 0 ? QString("%1%").arg(item.ratio) : QString("-")) : QString("%1%").arg(item.ratio);
+            case ColPacked:     return item.isDirectory ? (item.size > 0 ? formatBytes(item.packedSize) : QString("-")) : formatBytes(item.packedSize);
+            case ColCrc32:      return item.isDirectory ? QString("-") : item.crc32.toUpper();
+            case ColEncryption: return item.isDirectory ? QString("-") : (item.isEncrypted ? item.encryptionMethod : QString("-"));
             case ColPath:       return item.path.isEmpty() ? QString(".") : item.path;
             default:            return QVariant();
         }
@@ -52,14 +60,64 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
     }
 
     if (role == Qt::DecorationRole && index.column() == ColFilename) {
-        static QFileIconProvider iconProvider;
         if (item.isDirectory) {
+            static QFileIconProvider iconProvider;
             return iconProvider.icon(QFileIconProvider::Folder);
         }
+
+        const QString suffix = QFileInfo(item.filename).suffix().toLower();
+        if (suffix == "zip") {
+            return QIcon(":/filetypes/zip.ico");
+        } else if (suffix == "7z") {
+            return QIcon(":/filetypes/7z.ico");
+        } else if (suffix == "rar") {
+            return QIcon(":/filetypes/rar.ico");
+        } else if (suffix == "tar") {
+            return QIcon(":/filetypes/tar.ico");
+        } else if (suffix == "tgz") {
+            return QIcon(":/filetypes/tgz.ico");
+        } else if (suffix == "tbz2") {
+            return QIcon(":/filetypes/tbz2.ico");
+        } else if (suffix == "txz") {
+            return QIcon(":/filetypes/txz.ico");
+        } else if (suffix == "gz") {
+            return QIcon(":/filetypes/gz.ico");
+        } else if (suffix == "bz2") {
+            return QIcon(":/filetypes/bz2.ico");
+        } else if (suffix == "iso") {
+            return QIcon(":/filetypes/iso.ico");
+        } else if (suffix == "img") {
+            return QIcon(":/filetypes/img.ico");
+        } else if (suffix == "cab") {
+            return QIcon(":/filetypes/cab.ico");
+        } else if (suffix == "cpio") {
+            return QIcon(":/filetypes/cpio.ico");
+        } else if (suffix == "ar") {
+            return QIcon(":/filetypes/ar.ico");
+        }
+
+        static QFileIconProvider iconProvider;
         return iconProvider.icon(QFileInfo(item.filename));
     }
 
+    if (role == Qt::CheckStateRole && index.column() == ColFilename) {
+        if (m_showCheckboxes && item.filename != "..") {
+            return item.isChecked ? Qt::Checked : Qt::Unchecked;
+        }
+    }
+
     return QVariant();
+}
+
+bool ArchiveModel::setData(const QModelIndex &index, const QVariant &value, int role) {
+    if (!index.isValid() || index.row() >= m_items.size()) return false;
+
+    if (role == Qt::CheckStateRole && index.column() == ColFilename && m_showCheckboxes) {
+        m_items[index.row()].isChecked = (value.toInt() == Qt::Checked);
+        emit dataChanged(index, index, {Qt::CheckStateRole});
+        return true;
+    }
+    return false;
 }
 
 QVariant ArchiveModel::headerData(int section, Qt::Orientation orientation, int role) const {
@@ -82,53 +140,236 @@ QVariant ArchiveModel::headerData(int section, Qt::Orientation orientation, int 
 
 Qt::ItemFlags ArchiveModel::flags(const QModelIndex &index) const {
     if (!index.isValid()) return Qt::NoItemFlags;
-    return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    Qt::ItemFlags f = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    if (m_showCheckboxes && index.column() == ColFilename) {
+        f |= Qt::ItemIsUserCheckable;
+    }
+    return f;
 }
 
-void ArchiveModel::setItems(const QVector<ArchiveItem> &items) {
+void ArchiveModel::setShowCheckboxes(bool show) {
+    if (m_showCheckboxes != show) {
+        m_showCheckboxes = show;
+        if (!m_items.isEmpty()) {
+            emit dataChanged(index(0, ColFilename), index(m_items.size() - 1, ColFilename), {Qt::CheckStateRole});
+        }
+    }
+}
+
+void ArchiveModel::setViewMode(ViewMode mode) {
+    if (m_viewMode != mode) {
+        m_viewMode = mode;
+        rebuildVisibleItems();
+        emit viewModeChanged(m_viewMode);
+    }
+}
+
+QString ArchiveModel::normalizePath(const QString &path) {
+    QString norm = path.trimmed();
+    norm.replace('\\', '/');
+    while (norm.startsWith('/')) norm = norm.mid(1);
+    while (norm.endsWith('/')) norm.chop(1);
+    if (norm == ".") norm = "";
+    return norm;
+}
+
+QString ArchiveModel::parentPath(const QString &path) {
+    QString norm = normalizePath(path);
+    int idx = norm.lastIndexOf('/');
+    if (idx == -1) return QString();
+    return norm.left(idx);
+}
+
+bool ArchiveModel::canNavigateUp() const {
+    return m_viewMode == ViewMode::Explorer && !m_currentFolder.isEmpty();
+}
+
+void ArchiveModel::navigateUp() {
+    if (!canNavigateUp()) return;
+    setCurrentFolder(parentPath(m_currentFolder));
+}
+
+void ArchiveModel::navigateInto(const QString &subfolder) {
+    if (m_viewMode != ViewMode::Explorer) return;
+    QString sub = normalizePath(subfolder);
+    if (sub == "..") {
+        navigateUp();
+        return;
+    }
+    QString next = m_currentFolder.isEmpty() ? sub : (m_currentFolder + "/" + sub);
+    setCurrentFolder(next);
+}
+
+void ArchiveModel::setCurrentFolder(const QString &folder) {
+    QString norm = normalizePath(folder);
+    if (m_currentFolder != norm) {
+        m_currentFolder = norm;
+        rebuildVisibleItems();
+        emit folderChanged(m_currentFolder);
+    }
+}
+
+void ArchiveModel::rebuildVisibleItems() {
     beginResetModel();
-    m_items = items;
+    m_items.clear();
+
+    if (m_viewMode == ViewMode::Classic) {
+        // WinZip Classic View: Flat list of all files across the entire archive
+        m_items = m_allItems;
+    } else {
+        // WinRAR / 7-Zip Explorer View: Hierarchical view for m_currentFolder
+        QString normCurrent = normalizePath(m_currentFolder);
+
+        // Add [..] parent directory item if not at root
+        if (!normCurrent.isEmpty()) {
+            ArchiveItem upItem;
+            upItem.id = "__UP_ONE_LEVEL__";
+            upItem.filename = "..";
+            upItem.type = "Folder";
+            upItem.isDirectory = true;
+            upItem.path = parentPath(normCurrent);
+            m_items.append(upItem);
+        }
+
+        // Find all immediate subfolders under normCurrent
+        QSet<QString> immediateSubfolders;
+        for (const auto &item : m_allItems) {
+            QString itemPath = normalizePath(item.path);
+
+            if (normCurrent.isEmpty()) {
+                if (!itemPath.isEmpty()) {
+                    QString firstPart = itemPath.section('/', 0, 0);
+                    immediateSubfolders.insert(firstPart);
+                }
+            } else {
+                if (itemPath.startsWith(normCurrent + "/") && itemPath.length() > normCurrent.length() + 1) {
+                    QString relPath = itemPath.mid(normCurrent.length() + 1);
+                    QString firstPart = relPath.section('/', 0, 0);
+                    immediateSubfolders.insert(firstPart);
+                }
+            }
+        }
+
+        // Sort immediate subfolders alphabetically
+        QStringList sortedDirs = immediateSubfolders.values();
+        std::sort(sortedDirs.begin(), sortedDirs.end(), [](const QString &a, const QString &b) {
+            return a.compare(b, Qt::CaseInsensitive) < 0;
+        });
+
+        for (const QString &dirName : sortedDirs) {
+            ArchiveItem dirItem;
+            dirItem.id = QString("dir_%1_%2").arg(normCurrent, dirName);
+            dirItem.filename = dirName;
+            dirItem.type = "Folder";
+            dirItem.isDirectory = true;
+            dirItem.path = normCurrent.isEmpty() ? dirName : (normCurrent + "/" + dirName);
+
+            // Compute aggregated statistics for the folder
+            qint64 folderSize = 0;
+            qint64 folderPacked = 0;
+            QDateTime latestMod;
+
+            for (const auto &it : m_allItems) {
+                QString ip = normalizePath(it.path);
+                if (ip == dirItem.path || ip.startsWith(dirItem.path + "/")) {
+                    folderSize += it.size;
+                    folderPacked += it.packedSize;
+                    if (!latestMod.isValid() || it.modified > latestMod) {
+                        latestMod = it.modified;
+                    }
+                }
+            }
+
+            dirItem.size = folderSize;
+            dirItem.packedSize = folderPacked;
+            dirItem.ratio = folderSize > 0 ? static_cast<int>((1.0 - static_cast<double>(folderPacked) / folderSize) * 100.0) : 0;
+            dirItem.modified = latestMod.isValid() ? latestMod : QDateTime::currentDateTime();
+
+            m_items.append(dirItem);
+        }
+
+        // Add files that reside directly inside normCurrent
+        for (const auto &item : m_allItems) {
+            QString itemPath = normalizePath(item.path);
+            if (itemPath == normCurrent) {
+                m_items.append(item);
+            }
+        }
+    }
     endResetModel();
 }
 
+QStringList ArchiveModel::allFolders() const {
+    QSet<QString> folders;
+    folders.insert(""); // Root folder
+    for (const auto &item : m_allItems) {
+        QString norm = normalizePath(item.path);
+        if (!norm.isEmpty()) {
+            QStringList parts = norm.split('/');
+            QString curr;
+            for (const QString &part : parts) {
+                curr = curr.isEmpty() ? part : (curr + "/" + part);
+                folders.insert(curr);
+            }
+        }
+    }
+    QStringList result = folders.values();
+    std::sort(result.begin(), result.end(), [](const QString &a, const QString &b) {
+        if (a.isEmpty()) return true;
+        if (b.isEmpty()) return false;
+        return a.localeAwareCompare(b) < 0;
+    });
+    return result;
+}
+
+int ArchiveModel::allFilesCount() const {
+    int count = 0;
+    for (const auto &item : m_allItems) {
+        if (!item.isDirectory) count++;
+    }
+    return count;
+}
+
+void ArchiveModel::setItems(const QVector<ArchiveItem> &items) {
+    m_allItems = items;
+    m_currentFolder.clear();
+    rebuildVisibleItems();
+}
+
 void ArchiveModel::addItem(const ArchiveItem &item) {
-    beginInsertRows(QModelIndex(), m_items.size(), m_items.size());
-    m_items.append(item);
-    endInsertRows();
+    m_allItems.append(item);
+    rebuildVisibleItems();
 }
 
 void ArchiveModel::addItems(const QVector<ArchiveItem> &items) {
     if (items.isEmpty()) return;
-    beginInsertRows(QModelIndex(), m_items.size(), m_items.size() + items.size() - 1);
-    m_items.append(items);
-    endInsertRows();
+    m_allItems.append(items);
+    rebuildVisibleItems();
 }
 
 void ArchiveModel::removeRowById(const QString &id) {
-    for (int i = 0; i < m_items.size(); ++i) {
-        if (m_items[i].id == id) {
-            beginRemoveRows(QModelIndex(), i, i);
-            m_items.removeAt(i);
-            endRemoveRows();
+    for (int i = 0; i < m_allItems.size(); ++i) {
+        if (m_allItems[i].id == id) {
+            m_allItems.removeAt(i);
+            rebuildVisibleItems();
             return;
         }
     }
 }
 
 void ArchiveModel::removeRowsByIds(const QSet<QString> &ids) {
-    beginResetModel();
-    for (int i = m_items.size() - 1; i >= 0; --i) {
-        if (ids.contains(m_items[i].id)) {
-            m_items.removeAt(i);
+    for (int i = m_allItems.size() - 1; i >= 0; --i) {
+        if (ids.contains(m_allItems[i].id)) {
+            m_allItems.removeAt(i);
         }
     }
-    endResetModel();
+    rebuildVisibleItems();
 }
 
 void ArchiveModel::clear() {
-    beginResetModel();
-    m_items.clear();
-    endResetModel();
+    m_allItems.clear();
+    m_currentFolder.clear();
+    rebuildVisibleItems();
 }
 
 const ArchiveItem& ArchiveModel::itemAt(int row) const {
@@ -137,13 +378,17 @@ const ArchiveItem& ArchiveModel::itemAt(int row) const {
 
 qint64 ArchiveModel::totalUncompressedSize() const {
     qint64 sum = 0;
-    for (const auto &item : m_items) sum += item.size;
+    for (const auto &item : m_allItems) {
+        if (!item.isDirectory) sum += item.size;
+    }
     return sum;
 }
 
 qint64 ArchiveModel::totalPackedSize() const {
     qint64 sum = 0;
-    for (const auto &item : m_items) sum += item.packedSize;
+    for (const auto &item : m_allItems) {
+        if (!item.isDirectory) sum += item.packedSize;
+    }
     return sum;
 }
 

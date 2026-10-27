@@ -1,5 +1,6 @@
 import React from 'react';
 import { PlatformOS } from '../types/winzip';
+import matterpackrLogo from '../assets/matterpackr-icon.png';
 
 interface PlatformIconProps {
   os: PlatformOS;
@@ -13,7 +14,7 @@ interface PlatformIconProps {
 export const AppLogoIcon: React.FC<PlatformIconProps> = ({ size = 32, className = '' }) => {
   return (
     <img
-      src="/assets/aistudio/1_200fffc5.png"
+      src={matterpackrLogo}
       width={size}
       height={size}
       alt="MatterPackr"

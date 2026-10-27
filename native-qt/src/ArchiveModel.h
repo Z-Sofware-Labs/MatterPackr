@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QVector>
 #include <QIcon>
+#include <QSortFilterProxyModel>
 
 struct ArchiveItem {
     QString id;
@@ -19,6 +20,7 @@ struct ArchiveItem {
     QString encryptionMethod = "None"; // "AES-256", "AES-128", "Zip 2.0"
     QString path;
     bool isDirectory = false;
+    bool isChecked = false;
 };
 
 class ArchiveModel : public QAbstractTableModel {
@@ -38,13 +40,35 @@ public:
         ColumnCount
     };
 
+    enum class ViewMode {
+        Classic,  // WinZip style flat list of all archive items
+        Explorer  // WinRAR / 7-Zip style hierarchical folder browsing
+    };
+
     explicit ArchiveModel(QObject *parent = nullptr);
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+    bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
     Qt::ItemFlags flags(const QModelIndex &index) const override;
+
+    bool showCheckboxes() const { return m_showCheckboxes; }
+    void setShowCheckboxes(bool show);
+
+    // View Mode & Folder Navigation (WinZip Classic vs WinRAR/7-Zip Explorer)
+    ViewMode viewMode() const { return m_viewMode; }
+    void setViewMode(ViewMode mode);
+
+    QString currentFolder() const { return m_currentFolder; }
+    void setCurrentFolder(const QString &folder);
+    bool canNavigateUp() const;
+    void navigateUp();
+    void navigateInto(const QString &subfolder);
+
+    QStringList allFolders() const;
+    int allFilesCount() const;
 
     void setItems(const QVector<ArchiveItem> &items);
     void addItem(const ArchiveItem &item);
@@ -55,13 +79,97 @@ public:
 
     const ArchiveItem& itemAt(int row) const;
     const QVector<ArchiveItem>& items() const { return m_items; }
+    const QVector<ArchiveItem>& allItems() const { return m_allItems; }
 
     qint64 totalUncompressedSize() const;
     qint64 totalPackedSize() const;
     int overallCompressionRatio() const;
 
     static QString formatBytes(qint64 bytes);
+    static QString normalizePath(const QString &path);
+    static QString parentPath(const QString &path);
+
+signals:
+    void folderChanged(const QString &folder);
+    void viewModeChanged(ViewMode mode);
 
 private:
+    void rebuildVisibleItems();
+
+    QVector<ArchiveItem> m_allItems;
     QVector<ArchiveItem> m_items;
+    bool m_showCheckboxes = false;
+    ViewMode m_viewMode = ViewMode::Classic;
+    QString m_currentFolder;
+};
+
+class ArchiveSortProxyModel : public QSortFilterProxyModel {
+    Q_OBJECT
+
+public:
+    explicit ArchiveSortProxyModel(QObject *parent = nullptr)
+        : QSortFilterProxyModel(parent) {}
+
+    void setFilterPattern(const QString &pattern) {
+        m_filterPattern = pattern.trimmed();
+        invalidate();
+    }
+
+    QString filterPattern() const { return m_filterPattern; }
+
+protected:
+    bool filterAcceptsRow(int source_row, const QModelIndex &source_parent) const override {
+        Q_UNUSED(source_parent);
+        if (m_filterPattern.isEmpty())
+            return true;
+
+        auto *model = qobject_cast<ArchiveModel*>(sourceModel());
+        if (!model) return true;
+
+        const auto &item = model->itemAt(source_row);
+        if (item.filename == "..") return true;
+
+        return item.filename.contains(m_filterPattern, Qt::CaseInsensitive) ||
+               item.path.contains(m_filterPattern, Qt::CaseInsensitive) ||
+               item.type.contains(m_filterPattern, Qt::CaseInsensitive) ||
+               item.crc32.contains(m_filterPattern, Qt::CaseInsensitive);
+    }
+
+    bool lessThan(const QModelIndex &source_left, const QModelIndex &source_right) const override {
+        auto *model = qobject_cast<ArchiveModel*>(sourceModel());
+        if (!model) return QSortFilterProxyModel::lessThan(source_left, source_right);
+
+        const auto &left = model->itemAt(source_left.row());
+        const auto &right = model->itemAt(source_right.row());
+
+        // ".." parent directory always stays pinned at row 0 regardless of sort direction
+        if (left.filename == "..") return sortOrder() == Qt::AscendingOrder;
+        if (right.filename == "..") return sortOrder() != Qt::AscendingOrder;
+
+        // In Explorer view, directories always sort before files (like WinRAR / 7-Zip)
+        if (model->viewMode() == ArchiveModel::ViewMode::Explorer) {
+            if (left.isDirectory != right.isDirectory) {
+                return sortOrder() == Qt::AscendingOrder ? left.isDirectory : !left.isDirectory;
+            }
+        }
+
+        // Numeric comparison for size and packedSize
+        if (source_left.column() == ArchiveModel::ColSize) {
+            return left.size < right.size;
+        }
+        if (source_left.column() == ArchiveModel::ColPacked) {
+            return left.packedSize < right.packedSize;
+        }
+        if (source_left.column() == ArchiveModel::ColRatio) {
+            return left.ratio < right.ratio;
+        }
+        if (source_left.column() == ArchiveModel::ColModified) {
+            return left.modified < right.modified;
+        }
+
+        return QSortFilterProxyModel::lessThan(source_left, source_right);
+    }
+
+private:
+    QString m_filterPattern;
 };

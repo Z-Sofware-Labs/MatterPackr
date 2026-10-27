@@ -22,6 +22,23 @@ UpdateManager::UpdateManager(QWidget *parent)
     , m_network(new QNetworkAccessManager(this)) {}
 
 void UpdateManager::checkForUpdates() {
+    if (m_checkingDialog) {
+        m_checkingDialog->close();
+        m_checkingDialog->deleteLater();
+        m_checkingDialog = nullptr;
+    }
+
+    m_checkingDialog = new QProgressDialog(tr("Checking for updates..."), tr("Cancel"), 0, 0, m_parent);
+    m_checkingDialog->setWindowTitle(tr("Check for Updates"));
+    m_checkingDialog->setWindowModality(Qt::WindowModal);
+    m_checkingDialog->setMinimumDuration(0);
+    connect(m_checkingDialog, &QProgressDialog::canceled, [this]() {
+        if (m_currentReply) {
+            m_currentReply->abort();
+        }
+    });
+    m_checkingDialog->show();
+
     QUrl url("https://api.github.com/repos/Z-Sofware-Labs/MatterPackr/releases/latest");
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::UserAgentHeader, "MatterPackr-Qt6-Client");
@@ -66,11 +83,19 @@ bool UpdateManager::isNewerVersion(const QString &remoteVersion, const QString &
 }
 
 void UpdateManager::onReleaseInfoFetched() {
+    if (m_checkingDialog) {
+        m_checkingDialog->close();
+        m_checkingDialog->deleteLater();
+        m_checkingDialog = nullptr;
+    }
+
     if (!m_currentReply) return;
 
     if (m_currentReply->error() != QNetworkReply::NoError) {
-        QMessageBox::warning(m_parent, tr("Check for Updates"),
-                             tr("Unable to check for updates.\nError: %1").arg(m_currentReply->errorString()));
+        if (m_currentReply->error() != QNetworkReply::OperationCanceledError) {
+            QMessageBox::warning(m_parent, tr("Check for Updates"),
+                                 tr("Unable to check for updates.\nError: %1").arg(m_currentReply->errorString()));
+        }
         m_currentReply->deleteLater();
         m_currentReply = nullptr;
         return;
@@ -92,14 +117,23 @@ void UpdateManager::onReleaseInfoFetched() {
     QJsonArray assets = release.value("assets").toArray();
 
     QString currentVersion = qApp->applicationVersion();
-    if (!isNewerVersion(tagName, currentVersion)) {
-        QMessageBox::information(m_parent, tr("Check for Updates"),
-                                 tr("MatterPackr is up to date!\n\nCurrent version: %1\nLatest version: %2")
-                                 .arg(currentVersion, tagName));
-        return;
+    bool newer = isNewerVersion(tagName, currentVersion);
+    if (!newer) {
+        auto reply = QMessageBox::question(
+            m_parent, tr("Check for Updates"),
+            tr("MatterPackr is currently up to date!\n\n"
+               "Current version: %1\n"
+               "Latest version: %2\n\n"
+               "Would you like to re-download and reinstall the latest package anyway?")
+            .arg(currentVersion, tagName),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No);
+        if (reply != QMessageBox::Yes) {
+            return;
+        }
     }
 
-    // Match platform asset
+    // Match platform asset across Windows, macOS, and Linux
     QString targetAssetUrl;
     QString targetFileName;
 
@@ -107,17 +141,37 @@ void UpdateManager::onReleaseInfoFetched() {
     for (const auto &val : assets) {
         QJsonObject asset = val.toObject();
         QString name = asset.value("name").toString();
-        if (name.endsWith("-Setup.exe", Qt::CaseInsensitive) || name.endsWith(".exe", Qt::CaseInsensitive)) {
+        if (name.endsWith(".sig", Qt::CaseInsensitive))
+            continue;
+        if (name.contains("setup", Qt::CaseInsensitive) && name.endsWith(".exe", Qt::CaseInsensitive)) {
             targetAssetUrl = asset.value("browser_download_url").toString();
             targetFileName = name;
             break;
         }
     }
-#elif defined(Q_OS_MACOS)
+    // Fallback to any non-sig .exe or .msi if setup.exe was not found
+    if (targetAssetUrl.isEmpty()) {
+        for (const auto &val : assets) {
+            QJsonObject asset = val.toObject();
+            QString name = asset.value("name").toString();
+            if (name.endsWith(".sig", Qt::CaseInsensitive))
+                continue;
+            if (name.endsWith(".exe", Qt::CaseInsensitive) || name.endsWith(".msi", Qt::CaseInsensitive)) {
+                targetAssetUrl = asset.value("browser_download_url").toString();
+                targetFileName = name;
+                break;
+            }
+        }
+    }
+#elif defined(Q_OS_MACOS) || defined(Q_OS_MAC)
     for (const auto &val : assets) {
         QJsonObject asset = val.toObject();
         QString name = asset.value("name").toString();
-        if (name.contains("macos", Qt::CaseInsensitive) && name.endsWith(".zip", Qt::CaseInsensitive)) {
+        if (name.endsWith(".sig", Qt::CaseInsensitive))
+            continue;
+        if (name.endsWith(".dmg", Qt::CaseInsensitive) ||
+            name.endsWith(".pkg", Qt::CaseInsensitive) ||
+            (name.contains("mac", Qt::CaseInsensitive) && name.endsWith(".zip", Qt::CaseInsensitive))) {
             targetAssetUrl = asset.value("browser_download_url").toString();
             targetFileName = name;
             break;
@@ -127,7 +181,12 @@ void UpdateManager::onReleaseInfoFetched() {
     for (const auto &val : assets) {
         QJsonObject asset = val.toObject();
         QString name = asset.value("name").toString();
-        if (name.contains("linux", Qt::CaseInsensitive) && (name.endsWith(".tar.gz", Qt::CaseInsensitive) || name.endsWith(".deb", Qt::CaseInsensitive))) {
+        if (name.endsWith(".sig", Qt::CaseInsensitive))
+            continue;
+        if (name.endsWith(".deb", Qt::CaseInsensitive) ||
+            name.endsWith(".AppImage", Qt::CaseInsensitive) ||
+            name.endsWith(".tar.gz", Qt::CaseInsensitive) ||
+            name.contains("linux", Qt::CaseInsensitive)) {
             targetAssetUrl = asset.value("browser_download_url").toString();
             targetFileName = name;
             break;
@@ -137,7 +196,7 @@ void UpdateManager::onReleaseInfoFetched() {
 
     if (targetAssetUrl.isEmpty()) {
         QMessageBox::information(m_parent, tr("Update Available"),
-                                 tr("A newer version (%1) is available, but no matching package was found for your OS.\nVisit GitHub to download.")
+                                 tr("A newer version (%1) is available, but no matching installer was found for your operating system.\nVisit GitHub to download.")
                                  .arg(tagName));
         return;
     }

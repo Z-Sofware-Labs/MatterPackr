@@ -27,6 +27,7 @@ interface MenuBarProps {
   onWizard?: () => void;
   onTipOfDay?: () => void;
   onAbout: () => void;
+  onCheckForUpdates?: () => void;
   onExportQtProject?: () => void;
   hasArchive: boolean;
   hasSelection: boolean;
@@ -58,6 +59,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
   onWizard,
   onTipOfDay,
   onAbout,
+  onCheckForUpdates,
   onExportQtProject,
   hasArchive,
   hasSelection,
@@ -138,7 +140,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               disabled={!hasArchive}
               onClick={closeAnd(onCloseArchive)}
               className={`w-full text-left px-3 py-1.5 flex justify-between rounded-sm ${
-                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
               }`}
             >
               <span>Close Archive</span>
@@ -147,7 +149,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               disabled={!hasArchive}
               onClick={closeAnd(onSaveAs)}
               className={`w-full text-left px-3 py-1.5 flex justify-between rounded-sm ${
-                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
               }`}
             >
               <span>Save Archive As...</span>
@@ -158,7 +160,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               disabled={!hasArchive}
               onClick={closeAnd(onProperties)}
               className={`w-full text-left px-3 py-1.5 flex justify-between rounded-sm ${
-                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
               }`}
             >
               <span>Archive Properties...</span>
@@ -195,7 +197,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               disabled={!hasArchive}
               onClick={closeAnd(onExtract)}
               className={`w-full text-left px-3 py-1.5 flex justify-between rounded-sm ${
-                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
               }`}
             >
               <span>Extract Files...</span>
@@ -206,7 +208,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 disabled={!hasArchive}
                 onClick={closeAnd(onCheckOut)}
                 className={`w-full text-left px-3 py-1.5 flex justify-between rounded-sm ${
-                  hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                  hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
                 }`}
               >
                 <span>CheckOut Archive...</span>
@@ -216,7 +218,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               disabled={!hasSelection}
               onClick={closeAnd(onDelete)}
               className={`w-full text-left px-3 py-1.5 flex justify-between rounded-sm ${
-                hasSelection ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                hasSelection ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
               }`}
             >
               <span>Delete Selected Files</span>
@@ -227,7 +229,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               disabled={!hasSelection}
               onClick={closeAnd(onViewFile)}
               className={`w-full text-left px-3 py-1.5 flex justify-between rounded-sm ${
-                hasSelection ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                hasSelection ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
               }`}
             >
               <span>View Selected File...</span>
@@ -237,7 +239,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               disabled={!hasArchive}
               onClick={closeAnd(onSelectAll)}
               className={`w-full text-left px-3 py-1.5 flex justify-between rounded-sm ${
-                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
               }`}
             >
               <span>Select All Entries</span>
@@ -251,46 +253,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       <div className="relative">
         <button
           type="button"
-          onClick={() => handleMenuClick('Options')}
-          onMouseEnter={() => handleMenuHover('Options')}
-          className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${
-            activeMenu === 'Options'
-              ? 'bg-neutral-200 dark:bg-neutral-700 font-semibold text-black dark:text-white'
-              : 'hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
-          }`}
+          onClick={closeAnd(onOptions)}
+          className="px-2.5 py-1 rounded-md cursor-pointer transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
         >
           Options
         </button>
-
-        {activeMenu === 'Options' && (
-          <div className="absolute top-full left-0 z-50 min-w-64 bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 py-1 text-neutral-800 dark:text-neutral-200 text-xs">
-            <button
-              onClick={closeAnd(onOptions)}
-              className="w-full text-left px-3 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between items-center cursor-pointer rounded-sm font-medium"
-            >
-              <span className="flex items-center gap-2">
-                <span>⚙️</span>
-                <span>Configuration Options...</span>
-              </span>
-              <span className="opacity-50 text-[11px]">{cmdSymbol},</span>
-            </button>
-            <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
-            <button
-              onClick={closeAnd(onSettings)}
-              className="w-full text-left px-3 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between cursor-pointer rounded-sm"
-            >
-              <span>Multi-Threaded Engine Settings...</span>
-            </button>
-            {onWizard && (
-              <button
-                onClick={closeAnd(onWizard)}
-                className="w-full text-left px-3 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between cursor-pointer rounded-sm"
-              >
-                <span>MatterPackr Wizard Mode...</span>
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* VIEW: Exactly 3 options: Filter files, separator, Classic view or Explorer view */}
@@ -375,6 +342,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
         {activeMenu === 'Help' && (
           <div className="absolute top-full left-0 z-50 min-w-56 bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 py-1 text-neutral-800 dark:text-neutral-200 text-xs">
+            <button
+              onClick={closeAnd(onCheckForUpdates || onAbout)}
+              className="w-full text-left px-3 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between cursor-pointer rounded-sm"
+            >
+              <span>Check for Updates...</span>
+            </button>
+            <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
             <button
               onClick={closeAnd(onAbout)}
               className="w-full text-left px-3 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between cursor-pointer rounded-sm"
