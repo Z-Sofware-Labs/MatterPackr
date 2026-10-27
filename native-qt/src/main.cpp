@@ -2,6 +2,7 @@
 #include <QStyleFactory>
 #include <QIcon>
 #include <QFile>
+#include <QFileInfo>
 #include "MainWindow.h"
 
 int main(int argc, char *argv[]) {
@@ -37,15 +38,26 @@ int main(int argc, char *argv[]) {
 
     // Open file passed via command-line arguments (e.g. double-clicked associated archive)
     const QStringList args = QApplication::arguments();
+    const QString selfExeName = QFileInfo(QApplication::applicationFilePath()).fileName();
     for (int i = 1; i < args.size(); ++i) {
         QString arg = args.at(i).trimmed();
         if (arg.startsWith('"') && arg.endsWith('"') && arg.length() >= 2) {
             arg = arg.mid(1, arg.length() - 2);
         }
-        if (!arg.startsWith('-') && !arg.startsWith('/')) {
-            window.openArchiveFile(arg);
-            break;
+        if (arg.isEmpty() || arg.startsWith('-') || arg.startsWith('/')) {
+            continue;
         }
+
+        QFileInfo fi(arg);
+        if (fi.fileName().compare("MatterPackr.exe", Qt::CaseInsensitive) == 0 ||
+            fi.fileName().compare(selfExeName, Qt::CaseInsensitive) == 0 ||
+            fi.suffix().compare("exe", Qt::CaseInsensitive) == 0 ||
+            fi.suffix().compare("dll", Qt::CaseInsensitive) == 0) {
+            continue;
+        }
+
+        window.openArchiveFile(arg);
+        break;
     }
 
     window.show();

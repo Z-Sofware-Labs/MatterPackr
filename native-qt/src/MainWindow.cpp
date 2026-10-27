@@ -576,7 +576,7 @@ void MainWindow::updateWindowTitle() {
     setWindowTitle(tr("MatterPackr"));
     setWindowIcon(QIcon(":/app.png"));
   } else {
-    QString displayName = QFileInfo(m_currentArchivePath).fileName().toUpper();
+    QString displayName = QFileInfo(m_currentArchivePath).fileName();
     setWindowTitle(QString("MatterPackr · %1").arg(displayName));
     setWindowIcon(getArchiveTypeIcon(m_currentArchivePath));
   }
@@ -666,6 +666,12 @@ void MainWindow::openArchiveFile(const QString &filename) {
     return;
 
   QFileInfo fileInfo(path);
+  if (fileInfo.fileName().compare("MatterPackr.exe", Qt::CaseInsensitive) == 0 ||
+      fileInfo.suffix().compare("exe", Qt::CaseInsensitive) == 0 ||
+      fileInfo.suffix().compare("dll", Qt::CaseInsensitive) == 0) {
+    return;
+  }
+
   m_currentArchivePath = fileInfo.exists() ? fileInfo.absoluteFilePath() : path;
   updateWindowTitle();
 

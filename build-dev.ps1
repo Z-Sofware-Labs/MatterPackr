@@ -52,6 +52,7 @@ if ($LASTEXITCODE -eq 0) {
 
     if ($Run) {
         Write-Host "Launching MatterPackr..." -ForegroundColor Cyan
-        Start-Process "$buildDir/MatterPackr.exe"
+        $absExe = (Resolve-Path "$buildDir/MatterPackr.exe").Path
+        Start-Process -FilePath $absExe
     }
 }
