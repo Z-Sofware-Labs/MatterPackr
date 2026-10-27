@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QIcon>
 #include <QPixmap>
+#include <QApplication>
 
 AboutDialog::AboutDialog(QWidget *parent)
     : QDialog(parent) {
@@ -36,7 +37,7 @@ void AboutDialog::setupUi() {
     lblTitle->setStyleSheet("font-size: 18px; font-weight: bold; margin-top: 2px;");
     layout->addWidget(lblTitle);
 
-    auto *lblVersion = new QLabel(tr("Version 3.0.0"), this);
+    auto *lblVersion = new QLabel(tr("Version %1").arg(qApp->applicationVersion()), this);
     lblVersion->setAlignment(Qt::AlignCenter);
     lblVersion->setStyleSheet("font-size: 12px; color: #6b7280;");
     layout->addWidget(lblVersion);
