@@ -16,9 +16,9 @@ int main(int argc, char *argv[]) {
     app.setOrganizationName("MatterPackr Core Engineering");
 
     // Set application icon from embedded Qt resources
-    QIcon appIcon(":/app.ico");
+    QIcon appIcon(":/app.png");
     if (appIcon.isNull()) {
-        appIcon = QIcon(":/app.png");
+        appIcon = QIcon(":/app.ico");
     }
     app.setWindowIcon(appIcon);
 

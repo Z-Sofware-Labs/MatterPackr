@@ -36,21 +36,36 @@
         <file alias="toolbar/explorer.svg">resources/toolbar/explorer.svg</file>
         <file alias="toolbar/search.svg">resources/toolbar/search.svg</file>
 
-        <!-- Supported Filetype Icons -->
+        <!-- Supported Filetype Icons (ICO + native PNG fallbacks for macOS/Linux) -->
         <file alias="filetypes/zip.ico">resources/filetypes/zip.ico</file>
+        <file alias="filetypes/zip.png">resources/filetypes/zip.png</file>
         <file alias="filetypes/7z.ico">resources/filetypes/7z.ico</file>
+        <file alias="filetypes/7z.png">resources/filetypes/7z.png</file>
         <file alias="filetypes/rar.ico">resources/filetypes/rar.ico</file>
+        <file alias="filetypes/rar.png">resources/filetypes/rar.png</file>
         <file alias="filetypes/tar.ico">resources/filetypes/tar.ico</file>
+        <file alias="filetypes/tar.png">resources/filetypes/tar.png</file>
         <file alias="filetypes/tgz.ico">resources/filetypes/tgz.ico</file>
+        <file alias="filetypes/tgz.png">resources/filetypes/tgz.png</file>
         <file alias="filetypes/tbz2.ico">resources/filetypes/tbz2.ico</file>
+        <file alias="filetypes/tbz2.png">resources/filetypes/tbz2.png</file>
         <file alias="filetypes/txz.ico">resources/filetypes/txz.ico</file>
+        <file alias="filetypes/txz.png">resources/filetypes/txz.png</file>
         <file alias="filetypes/gz.ico">resources/filetypes/gz.ico</file>
+        <file alias="filetypes/gz.png">resources/filetypes/gz.png</file>
         <file alias="filetypes/bz2.ico">resources/filetypes/bz2.ico</file>
+        <file alias="filetypes/bz2.png">resources/filetypes/bz2.png</file>
         <file alias="filetypes/iso.ico">resources/filetypes/iso.ico</file>
+        <file alias="filetypes/iso.png">resources/filetypes/iso.png</file>
         <file alias="filetypes/cab.ico">resources/filetypes/cab.ico</file>
+        <file alias="filetypes/cab.png">resources/filetypes/cab.png</file>
         <file alias="filetypes/cpio.ico">resources/filetypes/cpio.ico</file>
+        <file alias="filetypes/cpio.png">resources/filetypes/cpio.png</file>
         <file alias="filetypes/ar.ico">resources/filetypes/ar.ico</file>
+        <file alias="filetypes/ar.png">resources/filetypes/ar.png</file>
         <file alias="filetypes/img.ico">resources/filetypes/img.ico</file>
+        <file alias="filetypes/img.png">resources/filetypes/img.png</file>
         <file alias="filetypes/archive.ico">resources/filetypes/archive.ico</file>
+        <file alias="filetypes/archive.png">resources/filetypes/archive.png</file>
     </qresource>
 </RCC>

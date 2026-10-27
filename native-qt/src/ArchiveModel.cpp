@@ -65,42 +65,50 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
             return iconProvider.icon(QFileIconProvider::Folder);
         }
 
+        auto getCustomIcon = [](const QString &baseName) -> QIcon {
+            QIcon icon(QString(":/filetypes/%1.png").arg(baseName));
+            if (icon.isNull()) {
+                icon = QIcon(QString(":/filetypes/%1.ico").arg(baseName));
+            }
+            return icon;
+        };
+
         const QString lowerName = item.filename.toLower();
         if (lowerName.endsWith(".tar.gz") || lowerName.endsWith(".tgz")) {
-            return QIcon(":/filetypes/tgz.ico");
+            return getCustomIcon("tgz");
         } else if (lowerName.endsWith(".tar.bz2") || lowerName.endsWith(".tbz2") || lowerName.endsWith(".tbz")) {
-            return QIcon(":/filetypes/tbz2.ico");
+            return getCustomIcon("tbz2");
         } else if (lowerName.endsWith(".tar.xz") || lowerName.endsWith(".txz")) {
-            return QIcon(":/filetypes/txz.ico");
+            return getCustomIcon("txz");
         }
 
         const QString suffix = QFileInfo(item.filename).suffix().toLower();
         if (suffix == "zip" || suffix == "zipx") {
-            return QIcon(":/filetypes/zip.ico");
+            return getCustomIcon("zip");
         } else if (suffix == "7z") {
-            return QIcon(":/filetypes/7z.ico");
+            return getCustomIcon("7z");
         } else if (suffix == "rar") {
-            return QIcon(":/filetypes/rar.ico");
+            return getCustomIcon("rar");
         } else if (suffix == "tar") {
-            return QIcon(":/filetypes/tar.ico");
+            return getCustomIcon("tar");
         } else if (suffix == "gz" || suffix == "gzip") {
-            return QIcon(":/filetypes/gz.ico");
+            return getCustomIcon("gz");
         } else if (suffix == "bz2" || suffix == "bzip2") {
-            return QIcon(":/filetypes/bz2.ico");
+            return getCustomIcon("bz2");
         } else if (suffix == "xz") {
-            return QIcon(":/filetypes/txz.ico");
+            return getCustomIcon("txz");
         } else if (suffix == "iso") {
-            return QIcon(":/filetypes/iso.ico");
+            return getCustomIcon("iso");
         } else if (suffix == "img" || suffix == "bin") {
-            return QIcon(":/filetypes/img.ico");
+            return getCustomIcon("img");
         } else if (suffix == "cab") {
-            return QIcon(":/filetypes/cab.ico");
+            return getCustomIcon("cab");
         } else if (suffix == "cpio") {
-            return QIcon(":/filetypes/cpio.ico");
+            return getCustomIcon("cpio");
         } else if (suffix == "ar" || suffix == "a") {
-            return QIcon(":/filetypes/ar.ico");
+            return getCustomIcon("ar");
         } else if (suffix == "zst" || suffix == "lzma" || suffix == "lzh" || suffix == "ace") {
-            return QIcon(":/filetypes/archive.ico");
+            return getCustomIcon("archive");
         }
 
         static QFileIconProvider iconProvider;

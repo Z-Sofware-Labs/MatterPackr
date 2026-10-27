@@ -27,7 +27,7 @@
 FavoritesDialog::FavoritesDialog(const QString &currentArchivePath, QWidget *parent)
     : QDialog(parent), m_currentArchivePath(currentArchivePath) {
     setWindowTitle(tr("Favorite Archives & Bookmarks"));
-    setWindowIcon(QIcon(":/app.ico"));
+    setWindowIcon(QIcon(":/app.png"));
     setModal(true);
     resize(620, 480);
     setMinimumSize(540, 360);
@@ -138,21 +138,33 @@ bool FavoritesDialog::addCurrentToFavorites(const QString &currentArchivePath, Q
 }
 
 QIcon FavoritesDialog::iconForPath(const QString &path) {
+    auto getCustomIcon = [](const QString &baseName) -> QIcon {
+        QIcon icon(QString(":/filetypes/%1.png").arg(baseName));
+        if (icon.isNull()) {
+            icon = QIcon(QString(":/filetypes/%1.ico").arg(baseName));
+        }
+        return icon;
+    };
+
+    QString lowerPath = path.toLower();
+    if (lowerPath.endsWith(".tar.gz") || lowerPath.endsWith(".tgz")) return getCustomIcon("tgz");
+    if (lowerPath.endsWith(".tar.bz2") || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tbz")) return getCustomIcon("tbz2");
+    if (lowerPath.endsWith(".tar.xz") || lowerPath.endsWith(".txz")) return getCustomIcon("txz");
+
     QString ext = QFileInfo(path).suffix().toLower();
-    if (ext == "zip" || ext == "zipx") return QIcon(":/filetypes/zip.ico");
-    if (ext == "7z") return QIcon(":/filetypes/7z.ico");
-    if (ext == "tar") return QIcon(":/filetypes/tar.ico");
-    if (ext == "tgz" || ext == "tar.gz") return QIcon(":/filetypes/tgz.ico");
-    if (ext == "gz") return QIcon(":/filetypes/gz.ico");
-    if (ext == "bz2" || ext == "tbz2") return QIcon(":/filetypes/bz2.ico");
-    if (ext == "xz" || ext == "txz") return QIcon(":/filetypes/txz.ico");
-    if (ext == "rar") return QIcon(":/filetypes/rar.ico");
-    if (ext == "iso") return QIcon(":/filetypes/iso.ico");
-    if (ext == "cab") return QIcon(":/filetypes/cab.ico");
-    if (ext == "img") return QIcon(":/filetypes/img.ico");
-    if (ext == "cpio") return QIcon(":/filetypes/cpio.ico");
-    if (ext == "ar") return QIcon(":/filetypes/ar.ico");
-    return QIcon(":/filetypes/archive.ico");
+    if (ext == "zip" || ext == "zipx") return getCustomIcon("zip");
+    if (ext == "7z") return getCustomIcon("7z");
+    if (ext == "tar") return getCustomIcon("tar");
+    if (ext == "gz" || ext == "gzip") return getCustomIcon("gz");
+    if (ext == "bz2" || ext == "bzip2") return getCustomIcon("bz2");
+    if (ext == "xz") return getCustomIcon("txz");
+    if (ext == "rar") return getCustomIcon("rar");
+    if (ext == "iso") return getCustomIcon("iso");
+    if (ext == "cab") return getCustomIcon("cab");
+    if (ext == "img" || ext == "bin") return getCustomIcon("img");
+    if (ext == "cpio") return getCustomIcon("cpio");
+    if (ext == "ar" || ext == "a") return getCustomIcon("ar");
+    return getCustomIcon("archive");
 }
 
 void FavoritesDialog::setupUi() {

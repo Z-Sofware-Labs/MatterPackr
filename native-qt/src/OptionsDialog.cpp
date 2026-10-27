@@ -26,7 +26,7 @@
 
 OptionsDialog::OptionsDialog(QWidget *parent) : QDialog(parent) {
   setWindowTitle(tr("Options"));
-  setWindowIcon(QIcon(":/app.ico"));
+  setWindowIcon(QIcon(":/app.png"));
   setModal(true);
   resize(510, 420);
   setMinimumSize(470, 380);
@@ -41,33 +41,33 @@ void OptionsDialog::initFileTypes() {
   m_fileTypes = {
       // Read & Write (7 Formats)
       {"zip", ".zip", "ZIP (Deflate / AES-256)", "ZIP Archive", "read_write",
-       "Deflate, BZip2, AES-256", ":/filetypes/zip.ico"},
+       "Deflate, BZip2, AES-256", ":/filetypes/zip.png"},
       {"7z", ".7z", "7z (LZMA / LZMA2)", "7-Zip Archive", "read_write",
-       "LZMA, LZMA2, PPMd, BCJ2", ":/filetypes/7z.ico"},
+       "LZMA, LZMA2, PPMd, BCJ2", ":/filetypes/7z.png"},
       {"tar", ".tar", "TAR (POSIX Container)", "Tape Archive (TAR)",
-       "read_write", "POSIX ustar, pax, GNU tar", ":/filetypes/tar.ico"},
+       "read_write", "POSIX ustar, pax, GNU tar", ":/filetypes/tar.png"},
       {"tar.gz", ".tar.gz", "TAR+GZIP (.tgz)", "Gzip Tarball (TAR+GZIP)",
-       "read_write", "RFC 1952 Deflate stream", ":/filetypes/tgz.ico"},
+       "read_write", "RFC 1952 Deflate stream", ":/filetypes/tgz.png"},
       {"gz", ".gz", "GZIP (Single Stream)", "GNU Zip (GZIP)", "read_write",
-       "RFC 1952 single data stream", ":/filetypes/gz.ico"},
+       "RFC 1952 single data stream", ":/filetypes/gz.png"},
       {"tar.bz2", ".tar.bz2", "BZIP2+TAR (.tbz2)", "Bzip2 Tarball (BZIP2+TAR)",
-       "read_write", "Burrows-Wheeler block sorting", ":/filetypes/tbz2.ico"},
+       "read_write", "Burrows-Wheeler block sorting", ":/filetypes/tbz2.png"},
       {"tar.xz", ".tar.xz", "XZ+TAR (.txz)", "XZ Tarball (XZ+TAR)",
-       "read_write", "LZMA2 multi-stream compression", ":/filetypes/txz.ico"},
+       "read_write", "LZMA2 multi-stream compression", ":/filetypes/txz.png"},
 
       // Read Only (6 Formats)
       {"rar", ".rar", "RAR (unRAR v7.0)", "Roshal Archive", "read_only",
-       "unRAR 7.0 (RAR 1.5–5.0+)", ":/filetypes/rar.ico"},
+       "unRAR 7.0 (RAR 1.5–5.0+)", ":/filetypes/rar.png"},
       {"iso", ".iso", "ISO (Optical Disc)", "Optical Disc Image (ISO)",
-       "read_only", "ISO 9660, Joliet, UDF", ":/filetypes/iso.ico"},
+       "read_only", "ISO 9660, Joliet, UDF", ":/filetypes/iso.png"},
       {"cab", ".cab", "CAB (MS Cabinet)", "Microsoft Cabinet (CAB)",
-       "read_only", "MSZIP, Quantum, LZX", ":/filetypes/cab.ico"},
+       "read_only", "MSZIP, Quantum, LZX", ":/filetypes/cab.png"},
       {"img", ".img", "IMG (Raw Disk Image)", "Disk Image (IMG)", "read_only",
-       "Sector-by-sector FAT/NTFS/ext4", ":/filetypes/img.ico"},
+       "Sector-by-sector FAT/NTFS/ext4", ":/filetypes/img.png"},
       {"cpio", ".cpio", "CPIO (Unix initramfs)", "Unix CPIO Archive",
-       "read_only", "POSIX SVR4 portable ASCII", ":/filetypes/cpio.ico"},
+       "read_only", "POSIX SVR4 portable ASCII", ":/filetypes/cpio.png"},
       {"ar", ".ar", "AR / DEB (Unix Archiver)", "Unix Archiver (AR)",
-       "read_only", "BSD / GNU ar, Debian .deb", ":/filetypes/ar.ico"}};
+       "read_only", "BSD / GNU ar, Debian .deb", ":/filetypes/ar.png"}};
 }
 
 void OptionsDialog::setupUi() {

@@ -267,12 +267,13 @@ void MainWindow::createCentralGrid() {
   emptyLayout->addWidget(lblIcon);
 
   m_lblEmptyText =
-      new QLabel(tr("Create a new or open an existing archive to begin."),
+      new QLabel(tr("Archive is empty. Drop files here or click Add to add files to archive."),
                  m_emptyWidget);
   m_lblEmptyText->setAlignment(Qt::AlignCenter);
   m_lblEmptyText->setStyleSheet(
       "font-size: 13px; font-weight: 500; color: #9ca3af; margin-top: 4px;");
   emptyLayout->addWidget(m_lblEmptyText);
+  m_emptyWidget->setVisible(false);
 
   // Connect model signals
   connect(m_model, &ArchiveModel::folderChanged, this, [this](const QString &) {
@@ -328,17 +329,14 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 void MainWindow::updateEmptyStateVisibility() {
   bool hasFiles = m_model->rowCount() > 0;
   bool hasArchive = !m_currentArchivePath.isEmpty();
+  bool showEmpty = hasArchive && !hasFiles;
   if (m_emptyWidget) {
-    m_emptyWidget->setVisible(!hasFiles);
-    if (!hasFiles && m_tableView && m_tableView->viewport()) {
+    m_emptyWidget->setVisible(showEmpty);
+    if (showEmpty && m_tableView && m_tableView->viewport()) {
       m_emptyWidget->setGeometry(m_tableView->viewport()->rect());
     }
     if (m_lblEmptyText) {
-      if (!hasArchive) {
-        m_lblEmptyText->setText(tr("Create a new or open an existing archive to begin."));
-      } else {
-        m_lblEmptyText->setText(tr("Archive is empty. Drop files here or click Add to add files to archive."));
-      }
+      m_lblEmptyText->setText(tr("Archive is empty. Drop files here or click Add to add files to archive."));
     }
   }
 
@@ -588,25 +586,33 @@ QIcon MainWindow::getArchiveTypeIcon(const QString &filePath) const {
   if (filePath.isEmpty()) {
     return QIcon(":/app.png");
   }
+  auto getCustomIcon = [](const QString &baseName) -> QIcon {
+    QIcon icon(QString(":/filetypes/%1.png").arg(baseName));
+    if (icon.isNull()) {
+      icon = QIcon(QString(":/filetypes/%1.ico").arg(baseName));
+    }
+    return icon;
+  };
+
   QString lowerPath = filePath.toLower();
-  if (lowerPath.endsWith(".tar.gz") || lowerPath.endsWith(".tgz")) return QIcon(":/filetypes/tgz.ico");
-  if (lowerPath.endsWith(".tar.bz2") || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tbz")) return QIcon(":/filetypes/tbz2.ico");
-  if (lowerPath.endsWith(".tar.xz") || lowerPath.endsWith(".txz")) return QIcon(":/filetypes/txz.ico");
+  if (lowerPath.endsWith(".tar.gz") || lowerPath.endsWith(".tgz")) return getCustomIcon("tgz");
+  if (lowerPath.endsWith(".tar.bz2") || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tbz")) return getCustomIcon("tbz2");
+  if (lowerPath.endsWith(".tar.xz") || lowerPath.endsWith(".txz")) return getCustomIcon("txz");
 
   QString ext = QFileInfo(filePath).suffix().toLower();
-  if (ext == "zip" || ext == "zipx") return QIcon(":/filetypes/zip.ico");
-  if (ext == "7z") return QIcon(":/filetypes/7z.ico");
-  if (ext == "rar") return QIcon(":/filetypes/rar.ico");
-  if (ext == "tar") return QIcon(":/filetypes/tar.ico");
-  if (ext == "gz" || ext == "gzip") return QIcon(":/filetypes/gz.ico");
-  if (ext == "bz2" || ext == "bzip2") return QIcon(":/filetypes/bz2.ico");
-  if (ext == "xz") return QIcon(":/filetypes/txz.ico");
-  if (ext == "iso") return QIcon(":/filetypes/iso.ico");
-  if (ext == "img" || ext == "bin") return QIcon(":/filetypes/img.ico");
-  if (ext == "cab") return QIcon(":/filetypes/cab.ico");
-  if (ext == "cpio") return QIcon(":/filetypes/cpio.ico");
-  if (ext == "ar" || ext == "a") return QIcon(":/filetypes/ar.ico");
-  return QIcon(":/filetypes/archive.ico");
+  if (ext == "zip" || ext == "zipx") return getCustomIcon("zip");
+  if (ext == "7z") return getCustomIcon("7z");
+  if (ext == "rar") return getCustomIcon("rar");
+  if (ext == "tar") return getCustomIcon("tar");
+  if (ext == "gz" || ext == "gzip") return getCustomIcon("gz");
+  if (ext == "bz2" || ext == "bzip2") return getCustomIcon("bz2");
+  if (ext == "xz") return getCustomIcon("txz");
+  if (ext == "iso") return getCustomIcon("iso");
+  if (ext == "img" || ext == "bin") return getCustomIcon("img");
+  if (ext == "cab") return getCustomIcon("cab");
+  if (ext == "cpio") return getCustomIcon("cpio");
+  if (ext == "ar" || ext == "a") return getCustomIcon("ar");
+  return getCustomIcon("archive");
 }
 
 void MainWindow::onNewArchive() {

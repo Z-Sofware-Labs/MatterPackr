@@ -89,8 +89,31 @@ if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$APP_DIR" 2>/dev/null || true
 fi
 
+HICOLOR_DIR="$(dirname "$(dirname "$ICON_DIR")")"
+if [ ! -f "$HICOLOR_DIR/index.theme" ]; then
+    if [ -f "/usr/share/icons/hicolor/index.theme" ]; then
+        cp "/usr/share/icons/hicolor/index.theme" "$HICOLOR_DIR/index.theme" 2>/dev/null || true
+    else
+        cat << 'EOF' > "$HICOLOR_DIR/index.theme"
+[Icon Theme]
+Name=Hicolor
+Comment=Fallback icon theme
+Hidden=true
+Directories=256x256/apps,256x256/mimetypes
+
+[256x256/apps]
+Size=256
+Type=Threshold
+
+[256x256/mimetypes]
+Size=256
+Type=Threshold
+EOF
+    fi
+fi
+
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-    gtk-update-icon-cache -f -t "$(dirname "$(dirname "$ICON_DIR")")" 2>/dev/null || true
+    gtk-update-icon-cache -f -t "$HICOLOR_DIR" 2>/dev/null || true
 fi
 
 echo "MatterPackr installed successfully! File associations have been registered."
