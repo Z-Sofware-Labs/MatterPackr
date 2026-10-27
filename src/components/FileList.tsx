@@ -801,7 +801,7 @@ export const FileList: React.FC<FileListProps> = ({
                   <>
                     <AppLogoIcon os={os} size={64} className="drop-shadow-md" />
                     <p className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
-                      Create a new archive or open an existing one to begin.
+                      Create a new or open an existing archive to begin.
                     </p>
                   </>
                 )}

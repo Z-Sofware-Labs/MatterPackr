@@ -553,13 +553,25 @@ void OptionsDialog::registerFileAssociations(const QStringList &extensions) {
     bool isEnabled = extensions.contains(fmt.ext.trimmed().toLower());
 
     if (isEnabled) {
+      // Locate custom icon file for format
+      QString iconsDir = QDir(QFileInfo(appPath).dir()).filePath("icons/filetypes");
+      if (!QDir(iconsDir).exists()) {
+        QString devDir = QDir(QFileInfo(appPath).dir()).filePath("../resources/filetypes");
+        if (QDir(devDir).exists()) {
+          iconsDir = QDir(devDir).canonicalPath();
+        }
+      }
+
+      QString cleanExt = fmt.ext.startsWith('.') ? fmt.ext.mid(1) : fmt.ext;
+      QString specificIcon = QDir::toNativeSeparators(QDir(iconsDir).filePath(cleanExt + ".ico"));
+      QString iconVal = QFile::exists(specificIcon) ? QString("%1,0").arg(specificIcon) : QString("%1,0").arg(winAppPath);
+
       // Register ProgId
       QSettings progIdSettings(
           QString("HKEY_CURRENT_USER\\Software\\Classes\\%1").arg(fmt.progId),
           QSettings::NativeFormat);
       progIdSettings.setValue(".", fmt.description);
-      progIdSettings.setValue("DefaultIcon/.",
-                              QString("\"%1\",0").arg(winAppPath));
+      progIdSettings.setValue("DefaultIcon/.", iconVal);
       progIdSettings.setValue("shell/open/command/.",
                               QString("\"%1\" \"%%1\"").arg(winAppPath));
 
@@ -576,6 +588,7 @@ void OptionsDialog::registerFileAssociations(const QStringList &extensions) {
             QString("HKEY_CURRENT_USER\\Software\\Classes\\%1").arg(subExt),
             QSettings::NativeFormat);
         extSettings.setValue(".", fmt.progId);
+        extSettings.setValue("DefaultIcon/.", iconVal);
 
         QSettings openWithSettings(
             QString("HKEY_CURRENT_USER\\Software\\Classes\\%1\\OpenWithProgids")

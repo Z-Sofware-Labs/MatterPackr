@@ -65,6 +65,15 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
             return iconProvider.icon(QFileIconProvider::Folder);
         }
 
+        const QString lowerName = item.filename.toLower();
+        if (lowerName.endsWith(".tar.gz") || lowerName.endsWith(".tgz")) {
+            return QIcon(":/filetypes/tgz.ico");
+        } else if (lowerName.endsWith(".tar.bz2") || lowerName.endsWith(".tbz2") || lowerName.endsWith(".tbz")) {
+            return QIcon(":/filetypes/tbz2.ico");
+        } else if (lowerName.endsWith(".tar.xz") || lowerName.endsWith(".txz")) {
+            return QIcon(":/filetypes/txz.ico");
+        }
+
         const QString suffix = QFileInfo(item.filename).suffix().toLower();
         if (suffix == "zip" || suffix == "zipx") {
             return QIcon(":/filetypes/zip.ico");
@@ -74,25 +83,21 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
             return QIcon(":/filetypes/rar.ico");
         } else if (suffix == "tar") {
             return QIcon(":/filetypes/tar.ico");
-        } else if (suffix == "tgz") {
-            return QIcon(":/filetypes/tgz.ico");
-        } else if (suffix == "tbz2" || suffix == "tbz") {
-            return QIcon(":/filetypes/tbz2.ico");
-        } else if (suffix == "txz" || suffix == "xz") {
-            return QIcon(":/filetypes/txz.ico");
         } else if (suffix == "gz" || suffix == "gzip") {
             return QIcon(":/filetypes/gz.ico");
         } else if (suffix == "bz2" || suffix == "bzip2") {
             return QIcon(":/filetypes/bz2.ico");
+        } else if (suffix == "xz") {
+            return QIcon(":/filetypes/txz.ico");
         } else if (suffix == "iso") {
             return QIcon(":/filetypes/iso.ico");
-        } else if (suffix == "img") {
+        } else if (suffix == "img" || suffix == "bin") {
             return QIcon(":/filetypes/img.ico");
         } else if (suffix == "cab") {
             return QIcon(":/filetypes/cab.ico");
         } else if (suffix == "cpio") {
             return QIcon(":/filetypes/cpio.ico");
-        } else if (suffix == "ar") {
+        } else if (suffix == "ar" || suffix == "a") {
             return QIcon(":/filetypes/ar.ico");
         } else if (suffix == "zst" || suffix == "lzma" || suffix == "lzh" || suffix == "ace") {
             return QIcon(":/filetypes/archive.ico");

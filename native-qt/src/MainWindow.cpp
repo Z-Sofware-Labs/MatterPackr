@@ -250,7 +250,7 @@ void MainWindow::createCentralGrid() {
   m_emptyWidget = new QWidget(m_tableView->viewport());
   auto *emptyLayout = new QVBoxLayout(m_emptyWidget);
   emptyLayout->setAlignment(Qt::AlignCenter);
-  emptyLayout->setSpacing(10);
+  emptyLayout->setSpacing(12);
 
   auto *lblIcon = new QLabel(m_emptyWidget);
   lblIcon->setAlignment(Qt::AlignCenter);
@@ -266,18 +266,13 @@ void MainWindow::createCentralGrid() {
   }
   emptyLayout->addWidget(lblIcon);
 
-  auto *lblTitle = new QLabel(tr("Archive is empty"), m_emptyWidget);
-  lblTitle->setAlignment(Qt::AlignCenter);
-  lblTitle->setStyleSheet("font-size: 15px; font-weight: bold; margin-top: 4px;");
-  emptyLayout->addWidget(lblTitle);
-
-  auto *lblText =
-      new QLabel(tr("Drop files here or click Add to add files to archive"),
+  m_lblEmptyText =
+      new QLabel(tr("Create a new or open an existing archive to begin."),
                  m_emptyWidget);
-  lblText->setAlignment(Qt::AlignCenter);
-  lblText->setStyleSheet(
-      "font-size: 12px; font-weight: 500; color: #9ca3af; margin-top: 2px;");
-  emptyLayout->addWidget(lblText);
+  m_lblEmptyText->setAlignment(Qt::AlignCenter);
+  m_lblEmptyText->setStyleSheet(
+      "font-size: 13px; font-weight: 500; color: #9ca3af; margin-top: 4px;");
+  emptyLayout->addWidget(m_lblEmptyText);
 
   // Connect model signals
   connect(m_model, &ArchiveModel::folderChanged, this, [this](const QString &) {
@@ -332,19 +327,27 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 
 void MainWindow::updateEmptyStateVisibility() {
   bool hasFiles = m_model->rowCount() > 0;
+  bool hasArchive = !m_currentArchivePath.isEmpty();
   if (m_emptyWidget) {
     m_emptyWidget->setVisible(!hasFiles);
     if (!hasFiles && m_tableView && m_tableView->viewport()) {
       m_emptyWidget->setGeometry(m_tableView->viewport()->rect());
     }
+    if (m_lblEmptyText) {
+      if (!hasArchive) {
+        m_lblEmptyText->setText(tr("Create a new or open an existing archive to begin."));
+      } else {
+        m_lblEmptyText->setText(tr("Archive is empty. Drop files here or click Add to add files to archive."));
+      }
+    }
   }
 
   if (m_actCloseArchive)
-    m_actCloseArchive->setEnabled(hasFiles);
+    m_actCloseArchive->setEnabled(hasFiles || hasArchive);
   if (m_actSaveAs)
-    m_actSaveAs->setEnabled(hasFiles);
+    m_actSaveAs->setEnabled(hasFiles || hasArchive);
   if (m_actProperties)
-    m_actProperties->setEnabled(hasFiles);
+    m_actProperties->setEnabled(hasFiles || hasArchive);
   if (m_actAdd)
     m_actAdd->setEnabled(true);
   if (m_actExtract)
@@ -571,12 +574,39 @@ void MainWindow::updateStatusBarStats() {
 }
 
 void MainWindow::updateWindowTitle() {
-  QString displayName =
-      m_currentArchivePath.isEmpty()
-          ? "NEW_ARCHIVE.ZIP"
-          : QFileInfo(m_currentArchivePath).fileName().toUpper();
+  if (m_currentArchivePath.isEmpty()) {
+    setWindowTitle(tr("MatterPackr"));
+    setWindowIcon(QIcon(":/app.png"));
+  } else {
+    QString displayName = QFileInfo(m_currentArchivePath).fileName().toUpper();
+    setWindowTitle(QString("MatterPackr · %1").arg(displayName));
+    setWindowIcon(getArchiveTypeIcon(m_currentArchivePath));
+  }
+}
 
-  setWindowTitle(QString("MatterPackr · %1").arg(displayName));
+QIcon MainWindow::getArchiveTypeIcon(const QString &filePath) const {
+  if (filePath.isEmpty()) {
+    return QIcon(":/app.png");
+  }
+  QString lowerPath = filePath.toLower();
+  if (lowerPath.endsWith(".tar.gz") || lowerPath.endsWith(".tgz")) return QIcon(":/filetypes/tgz.ico");
+  if (lowerPath.endsWith(".tar.bz2") || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tbz")) return QIcon(":/filetypes/tbz2.ico");
+  if (lowerPath.endsWith(".tar.xz") || lowerPath.endsWith(".txz")) return QIcon(":/filetypes/txz.ico");
+
+  QString ext = QFileInfo(filePath).suffix().toLower();
+  if (ext == "zip" || ext == "zipx") return QIcon(":/filetypes/zip.ico");
+  if (ext == "7z") return QIcon(":/filetypes/7z.ico");
+  if (ext == "rar") return QIcon(":/filetypes/rar.ico");
+  if (ext == "tar") return QIcon(":/filetypes/tar.ico");
+  if (ext == "gz" || ext == "gzip") return QIcon(":/filetypes/gz.ico");
+  if (ext == "bz2" || ext == "bzip2") return QIcon(":/filetypes/bz2.ico");
+  if (ext == "xz") return QIcon(":/filetypes/txz.ico");
+  if (ext == "iso") return QIcon(":/filetypes/iso.ico");
+  if (ext == "img" || ext == "bin") return QIcon(":/filetypes/img.ico");
+  if (ext == "cab") return QIcon(":/filetypes/cab.ico");
+  if (ext == "cpio") return QIcon(":/filetypes/cpio.ico");
+  if (ext == "ar" || ext == "a") return QIcon(":/filetypes/ar.ico");
+  return QIcon(":/filetypes/archive.ico");
 }
 
 void MainWindow::onNewArchive() {
@@ -1476,7 +1506,8 @@ void MainWindow::updateFolderTree() {
 
   // Root node: All files (WinZip flat view shortcut)
   auto *allItem = new QTreeWidgetItem(m_folderTree);
-  allItem->setText(0, QString("🗜️  %1 (All Files)").arg(archiveName));
+  allItem->setText(0, QString("%1 (All Files)").arg(archiveName));
+  allItem->setIcon(0, getArchiveTypeIcon(m_currentArchivePath));
   allItem->setData(0, Qt::UserRole, "__ALL__");
   allItem->setToolTip(0, tr("Click to switch to WinZip Classic flat view"));
 

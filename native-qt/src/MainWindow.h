@@ -85,6 +85,7 @@ private:
     void updateEmptyStateVisibility();
     void updateStatusBarStats();
     void updateWindowTitle();
+    QIcon getArchiveTypeIcon(const QString &filePath) const;
     void applyTheme(const QString &mode);
 
     void updateFolderTree();
@@ -107,6 +108,7 @@ private:
     ArchiveSortProxyModel *m_proxyModel = nullptr;
     ArchiveTableView *m_tableView = nullptr;
     QWidget *m_emptyWidget = nullptr;
+    QLabel *m_lblEmptyText = nullptr;
 
     // View Navigation & Two-Pane Explorer Tree
     QSplitter *m_splitter = nullptr;
