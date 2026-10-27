@@ -1,4 +1,4 @@
-# MatterPackr 3.0.1 — Native Qt 6 Desktop Edition
+# MatterPackr 3.0.2 — Native Qt 6 Desktop Edition
 
 This directory contains the complete, native C++20 / Qt 6 source code for **MatterPackr**, delivering true native multi-threaded compression throughput, hardware AES-NI encryption, and native OS desktop integration.
 

@@ -881,7 +881,7 @@ export default function App() {
           onWizard={() => setActiveDialog('wizard')}
           onTipOfDay={() => setActiveDialog('tip')}
           onAbout={() => setActiveDialog('about')}
-          onCheckForUpdates={() => showNotification('MatterPackr v3.0.1 is up to date!', 'info')}
+          onCheckForUpdates={() => showNotification('MatterPackr v3.0.2 is up to date!', 'info')}
           onExportQtProject={handleExportQtProject}
           hasArchive={Boolean(archive.name)}
           hasSelection={selectedFileIds.length > 0}
