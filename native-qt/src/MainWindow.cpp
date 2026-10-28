@@ -61,6 +61,15 @@ MainWindow::MainWindow(QWidget *parent)
 
   // Load backend options (checkboxes, theme, viewMode, folder tree state)
   QSettings settings("MatterPackr", "MatterPackr");
+
+  // Restore main window geometry and window state (size, position, maximized state)
+  if (settings.contains("geometry")) {
+    restoreGeometry(settings.value("geometry").toByteArray());
+  }
+  if (settings.contains("windowState")) {
+    restoreState(settings.value("windowState").toByteArray());
+  }
+
   m_model->setShowCheckboxes(settings.value("showCheckboxes", false).toBool());
   applyTheme(settings.value("themeMode", "dark").toString());
 
@@ -329,6 +338,11 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     return;
   }
   QSettings settings("MatterPackr", "MatterPackr");
+
+  // Save main window geometry and window state
+  settings.setValue("geometry", saveGeometry());
+  settings.setValue("windowState", saveState());
+
   bool isVisible = m_treeContainer && m_treeContainer->isVisible() &&
                    (m_splitter->sizes().value(0, 0) > 10);
   settings.setValue("folderTreeVisible", isVisible);

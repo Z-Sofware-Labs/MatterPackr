@@ -120,18 +120,14 @@ void UpdateManager::onReleaseInfoFetched() {
     QString currentVersion = qApp->applicationVersion();
     bool newer = isNewerVersion(tagName, currentVersion);
     if (!newer) {
-        auto reply = QMessageBox::question(
+        QMessageBox::information(
             m_parent, tr("Check for Updates"),
             tr("MatterPackr is currently up to date!\n\n"
                "Current version: %1\n"
                "Latest version: %2\n\n"
-               "Would you like to re-download and reinstall the latest package anyway?")
-            .arg(currentVersion, tagName),
-            QMessageBox::Yes | QMessageBox::No,
-            QMessageBox::No);
-        if (reply != QMessageBox::Yes) {
-            return;
-        }
+               "No update is available.")
+            .arg(currentVersion, tagName));
+        return;
     }
 
     // Match platform asset across Windows, macOS, and Linux
