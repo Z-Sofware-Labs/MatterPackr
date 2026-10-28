@@ -1,0 +1,8 @@
+Package: matterpackr
+Version: 3.0.5
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Z Software Labs <contact@zsoftwarelabs.com>
+Description: MatterPackr High-Performance Compression & Archive Utility
+ Modern, fast, and multi-threaded desktop compression and archive tool built with Qt 6.
