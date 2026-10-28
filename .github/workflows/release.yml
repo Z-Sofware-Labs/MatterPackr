@@ -18,11 +18,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
-            artifact-name: MatterPackr-v3.0.5-linux-x86_64.tar.gz
+            artifact-pattern: 'MatterPackr-v3.0.5-linux-*'
           - os: macos-latest
-            artifact-name: MatterPackr-v3.0.5-macos-universal.zip
+            artifact-pattern: 'MatterPackr-v3.0.5-macos-*'
           - os: windows-latest
-            artifact-name: MatterPackr-v3.0.5-windows-x64-Setup.exe
+            artifact-pattern: 'MatterPackr-v3.0.5-windows-*'
 
     steps:
       - name: Checkout repository
@@ -50,11 +50,11 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install Linux Build Dependencies
+      - name: Install Linux Build Dependencies & Packaging Tools
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libgl1-mesa-dev libxkbcommon-dev libx11-xcb1 libglu1-mesa-dev
+          sudo apt-get install -y build-essential libgl1-mesa-dev libxkbcommon-dev libx11-xcb1 libglu1-mesa-dev dpkg-dev rpm
 
       - name: Setup macOS OpenGL / AGL Compatibility
         if: matrix.os == 'macos-latest'
@@ -80,23 +80,31 @@ jobs:
           Copy-Item native-qt/build/MatterPackr.exe packaging/windows/dist/
           windeployqt --release --no-translations --compiler-runtime packaging/windows/dist/MatterPackr.exe
           cd packaging/windows
-          makensis /DPRODUCT_VERSION=3.0.5 "/DOUTFILE=$PWD/../../${{ matrix.artifact-name }}" installer.nsi
+          makensis /DPRODUCT_VERSION=3.0.5 "/DOUTFILE=$PWD/../../MatterPackr-v3.0.5-windows-x64-Setup.exe" installer.nsi
           cd ../..
 
-      # Package macOS
-      - name: Package macOS App Bundle
+      # Package macOS (.dmg & .zip)
+      - name: Package macOS App Bundle (.dmg & .zip)
         if: matrix.os == 'macos-latest'
         run: |
           mkdir -p native-qt/build/MatterPackr.app/Contents/Resources
           # Copy pre-generated ICNS filetype and app icons
           cp native-qt/resources/macos/*.icns native-qt/build/MatterPackr.app/Contents/Resources/
           plutil -replace CFBundleIconFile -string "MatterPackr.icns" native-qt/build/MatterPackr.app/Contents/Info.plist
-          macdeployqt native-qt/build/MatterPackr.app -always-overwrite
-          ditto -c -k --keepParent native-qt/build/MatterPackr.app ${{ matrix.artifact-name }}
+          
+          # Deploy Qt dependencies and generate DMG
+          macdeployqt native-qt/build/MatterPackr.app -dmg -always-overwrite
+          
+          # macdeployqt creates native-qt/build/MatterPackr.dmg
+          if [ -f native-qt/build/MatterPackr.dmg ]; then
+            cp native-qt/build/MatterPackr.dmg MatterPackr-v3.0.5-macos-universal.dmg
+          fi
+          
+          # Also package ZIP containing the .app bundle
+          ditto -c -k --keepParent native-qt/build/MatterPackr.app MatterPackr-v3.0.5-macos-universal.zip
 
-
-      # Package Linux
-      - name: Package Linux Binary
+      # Package Linux (.tar.gz, .deb, and .rpm)
+      - name: Package Linux Binaries (.tar.gz, .deb, .rpm)
         if: matrix.os == 'ubuntu-22.04'
         run: |
           mkdir -p dist/MatterPackr/share/applications dist/MatterPackr/share/icons/hicolor/256x256/apps dist/MatterPackr/share/icons/hicolor/256x256/mimetypes dist/MatterPackr/bin
@@ -104,26 +112,95 @@ jobs:
           cp native-qt/resources/app.png dist/MatterPackr/share/icons/hicolor/256x256/apps/matterpackr.png
           cp packaging/linux/matterpackr.desktop dist/MatterPackr/share/applications/
           cp packaging/linux/icons/hicolor/256x256/mimetypes/*.png dist/MatterPackr/share/icons/hicolor/256x256/mimetypes/
-          # Keep binary in root of dist/MatterPackr for direct portable execution
+          # Direct portable execution bundle
           cp native-qt/build/MatterPackr dist/MatterPackr/
           cp native-qt/resources/app.png dist/MatterPackr/matterpackr.png
           cp packaging/linux/install.sh dist/MatterPackr/
           cp packaging/linux/uninstall.sh dist/MatterPackr/
           chmod +x dist/MatterPackr/install.sh dist/MatterPackr/uninstall.sh
-          tar -czvf ${{ matrix.artifact-name }} -C dist MatterPackr
+          
+          # 1. Portable tar.gz
+          tar -czvf MatterPackr-v3.0.5-linux-x86_64.tar.gz -C dist MatterPackr
 
+          # 2. Debian package (.deb)
+          DEB_ROOT="dist/deb_root"
+          mkdir -p "$DEB_ROOT/DEBIAN"
+          mkdir -p "$DEB_ROOT/usr/bin"
+          mkdir -p "$DEB_ROOT/usr/share/applications"
+          mkdir -p "$DEB_ROOT/usr/share/icons/hicolor/256x256/apps"
+          mkdir -p "$DEB_ROOT/usr/share/icons/hicolor/256x256/mimetypes"
+          
+          cp native-qt/build/MatterPackr "$DEB_ROOT/usr/bin/MatterPackr"
+          chmod 755 "$DEB_ROOT/usr/bin/MatterPackr"
+          cp packaging/linux/matterpackr.desktop "$DEB_ROOT/usr/share/applications/"
+          cp native-qt/resources/app.png "$DEB_ROOT/usr/share/icons/hicolor/256x256/apps/matterpackr.png"
+          cp packaging/linux/icons/hicolor/256x256/mimetypes/*.png "$DEB_ROOT/usr/share/icons/hicolor/256x256/mimetypes/"
+          
+          cat << 'EOF' > "$DEB_ROOT/DEBIAN/control"
+Package: matterpackr
+Version: 3.0.5
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Z Software Labs <contact@zsoftwarelabs.com>
+Description: MatterPackr High-Performance Compression & Archive Utility
+ Modern, fast, and multi-threaded desktop compression and archive tool built with Qt 6.
+EOF
+          dpkg-deb --build --root-owner-group "$DEB_ROOT" MatterPackr-v3.0.5-linux-amd64.deb
 
-      - name: Upload Artifact
+          # 3. RedHat package (.rpm)
+          RPM_TOP="$PWD/dist/rpmbuild"
+          mkdir -p "$RPM_TOP"/BUILD "$RPM_TOP"/RPMS "$RPM_TOP"/SOURCES "$RPM_TOP"/SPECS "$RPM_TOP"/SRPMS
+          
+          cat << EOF > "$RPM_TOP/SPECS/matterpackr.spec"
+Name:           matterpackr
+Version:        3.0.5
+Release:        1%{?dist}
+Summary:        Modern Multi-Threaded Compression & Archive Utility
+License:        Proprietary
+URL:            https://github.com/Z-Sofware-Labs/MatterPackr
+AutoReqProv:    no
+
+%description
+Modern, fast, and multi-threaded desktop compression and archive tool built with Qt 6.
+
+%install
+mkdir -p %{buildroot}/usr/bin
+mkdir -p %{buildroot}/usr/share/applications
+mkdir -p %{buildroot}/usr/share/icons/hicolor/256x256/apps
+mkdir -p %{buildroot}/usr/share/icons/hicolor/256x256/mimetypes
+
+install -m 755 $PWD/native-qt/build/MatterPackr %{buildroot}/usr/bin/MatterPackr
+install -m 644 $PWD/packaging/linux/matterpackr.desktop %{buildroot}/usr/share/applications/matterpackr.desktop
+install -m 644 $PWD/native-qt/resources/app.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/matterpackr.png
+cp $PWD/packaging/linux/icons/hicolor/256x256/mimetypes/*.png %{buildroot}/usr/share/icons/hicolor/256x256/mimetypes/
+
+%files
+/usr/bin/MatterPackr
+/usr/share/applications/matterpackr.desktop
+/usr/share/icons/hicolor/256x256/apps/matterpackr.png
+/usr/share/icons/hicolor/256x256/mimetypes/*.png
+
+%changelog
+* Wed Oct 28 2026 Z Software Labs - 3.0.5-1
+- Release version 3.0.5
+EOF
+          rpmbuild --define "_topdir $RPM_TOP" -bb "$RPM_TOP/SPECS/matterpackr.spec"
+          cp "$RPM_TOP"/RPMS/*/*.rpm MatterPackr-v3.0.5-linux-x86_64.rpm
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact-name }}
-          path: ${{ matrix.artifact-name }}
+          name: artifacts-${{ matrix.os }}
+          path: |
+            MatterPackr-v3.0.5-*
 
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: ${{ matrix.artifact-name }}
+          files: |
+            MatterPackr-v3.0.5-*
           generate_release_notes: true
           draft: false
           prerelease: false
@@ -140,19 +217,19 @@ jobs:
       - name: Download Windows Setup Installer
         uses: actions/download-artifact@v4
         with:
-          name: MatterPackr-v3.0.5-windows-x64-Setup.exe
+          name: artifacts-windows-latest
           path: artifacts
 
       - name: Download Linux Archive
         uses: actions/download-artifact@v4
         with:
-          name: MatterPackr-v3.0.5-linux-x86_64.tar.gz
+          name: artifacts-ubuntu-22.04
           path: artifacts
 
       - name: Download macOS Archive
         uses: actions/download-artifact@v4
         with:
-          name: MatterPackr-v3.0.5-macos-universal.zip
+          name: artifacts-macos-latest
           path: artifacts
 
       - name: Setup Node.js
