@@ -21,6 +21,7 @@
 #include <QMessageBox>
 #include <QMenu>
 #include <QClipboard>
+#include <QGuiApplication>
 #include <QKeyEvent>
 
 #ifdef Q_OS_WIN
