@@ -15,10 +15,10 @@ mkdir -p %{buildroot}/usr/share/applications
 mkdir -p %{buildroot}/usr/share/icons/hicolor/256x256/apps
 mkdir -p %{buildroot}/usr/share/icons/hicolor/256x256/mimetypes
 
-install -m 755 $PWD/native-qt/build/MatterPackr %{buildroot}/usr/bin/MatterPackr
-install -m 644 $PWD/packaging/linux/matterpackr.desktop %{buildroot}/usr/share/applications/matterpackr.desktop
-install -m 644 $PWD/native-qt/resources/app.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/matterpackr.png
-cp $PWD/packaging/linux/icons/hicolor/256x256/mimetypes/*.png %{buildroot}/usr/share/icons/hicolor/256x256/mimetypes/
+install -m 755 %{workspace_root}/native-qt/build/MatterPackr %{buildroot}/usr/bin/MatterPackr
+install -m 644 %{workspace_root}/packaging/linux/matterpackr.desktop %{buildroot}/usr/share/applications/matterpackr.desktop
+install -m 644 %{workspace_root}/native-qt/resources/app.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/matterpackr.png
+cp %{workspace_root}/packaging/linux/icons/hicolor/256x256/mimetypes/*.png %{buildroot}/usr/share/icons/hicolor/256x256/mimetypes/
 
 %files
 /usr/bin/MatterPackr

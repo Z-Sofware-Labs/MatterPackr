@@ -139,7 +139,7 @@ jobs:
           mkdir -p "$RPM_TOP/BUILD" "$RPM_TOP/RPMS" "$RPM_TOP/SOURCES" "$RPM_TOP/SPECS" "$RPM_TOP/SRPMS"
           cp packaging/linux/matterpackr.spec "$RPM_TOP/SPECS/matterpackr.spec"
           
-          rpmbuild --define "_topdir $RPM_TOP" -bb "$RPM_TOP/SPECS/matterpackr.spec"
+          rpmbuild --define "_topdir $RPM_TOP" --define "workspace_root $PWD" -bb "$RPM_TOP/SPECS/matterpackr.spec"
           cp "$RPM_TOP"/RPMS/*/*.rpm MatterPackr-v3.0.5-linux-x86_64.rpm
 
       - name: Upload Artifacts
