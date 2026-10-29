@@ -18,11 +18,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
-            artifact-pattern: 'MatterPackr-v3.0.5-linux-*'
+            artifact-pattern: 'MatterPackr-v3.0.6-linux-*'
           - os: macos-latest
-            artifact-pattern: 'MatterPackr-v3.0.5-macos-*'
+            artifact-pattern: 'MatterPackr-v3.0.6-macos-*'
           - os: windows-latest
-            artifact-pattern: 'MatterPackr-v3.0.5-windows-*'
+            artifact-pattern: 'MatterPackr-v3.0.6-windows-*'
 
     steps:
       - name: Checkout repository
@@ -79,7 +79,7 @@ jobs:
           Copy-Item native-qt/build/MatterPackr.exe packaging/windows/dist/
           windeployqt --release --no-translations --compiler-runtime packaging/windows/dist/MatterPackr.exe
           cd packaging/windows
-          makensis /DPRODUCT_VERSION=3.0.5 "/DOUTFILE=$PWD/../../MatterPackr-v3.0.5-windows-x64-Setup.exe" installer.nsi
+          makensis /DPRODUCT_VERSION=3.0.6 "/DOUTFILE=$PWD/../../MatterPackr-v3.0.6-windows-x64-Setup.exe" installer.nsi
           cd ../..
 
       # Package macOS (.dmg & .zip)
@@ -93,11 +93,11 @@ jobs:
           # Deploy Qt dependencies and generate DMG
           macdeployqt native-qt/build/MatterPackr.app -dmg -always-overwrite
           if [ -f native-qt/build/MatterPackr.dmg ]; then
-            cp native-qt/build/MatterPackr.dmg MatterPackr-v3.0.5-macos-universal.dmg
+            cp native-qt/build/MatterPackr.dmg MatterPackr-v3.0.6-macos-universal.dmg
           fi
           
           # Also package ZIP containing the .app bundle
-          ditto -c -k --keepParent native-qt/build/MatterPackr.app MatterPackr-v3.0.5-macos-universal.zip
+          ditto -c -k --keepParent native-qt/build/MatterPackr.app MatterPackr-v3.0.6-macos-universal.zip
 
       # Package Linux (.tar.gz, .deb, and .rpm)
       - name: Package Linux Binaries (.tar.gz, .deb, .rpm)
@@ -115,7 +115,7 @@ jobs:
           chmod +x dist/MatterPackr/install.sh dist/MatterPackr/uninstall.sh
           
           # 1. Portable tar.gz
-          tar -czvf MatterPackr-v3.0.5-linux-x86_64.tar.gz -C dist MatterPackr
+          tar -czvf MatterPackr-v3.0.6-linux-x86_64.tar.gz -C dist MatterPackr
 
           # 2. Debian package (.deb)
           DEB_ROOT="dist/deb_root"
@@ -132,7 +132,7 @@ jobs:
           cp packaging/linux/icons/hicolor/256x256/mimetypes/*.png "$DEB_ROOT/usr/share/icons/hicolor/256x256/mimetypes/"
           cp packaging/linux/control "$DEB_ROOT/DEBIAN/control"
           
-          dpkg-deb --build --root-owner-group "$DEB_ROOT" MatterPackr-v3.0.5-linux-amd64.deb
+          dpkg-deb --build --root-owner-group "$DEB_ROOT" MatterPackr-v3.0.6-linux-amd64.deb
 
           # 3. RedHat package (.rpm)
           RPM_TOP="$PWD/dist/rpmbuild"
@@ -140,21 +140,21 @@ jobs:
           cp packaging/linux/matterpackr.spec "$RPM_TOP/SPECS/matterpackr.spec"
           
           rpmbuild --define "_topdir $RPM_TOP" --define "workspace_root $PWD" -bb "$RPM_TOP/SPECS/matterpackr.spec"
-          cp "$RPM_TOP"/RPMS/*/*.rpm MatterPackr-v3.0.5-linux-x86_64.rpm
+          cp "$RPM_TOP"/RPMS/*/*.rpm MatterPackr-v3.0.6-linux-x86_64.rpm
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.os }}
           path: |
-            MatterPackr-v3.0.5-*
+            MatterPackr-v3.0.6-*
 
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            MatterPackr-v3.0.5-*
+            MatterPackr-v3.0.6-*
           generate_release_notes: true
           draft: false
           prerelease: false
@@ -198,32 +198,32 @@ jobs:
         run: |
           mkdir -p release-assets
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            WIN_FILE="artifacts/MatterPackr-v3.0.5-windows-x64-Setup.exe"
-            npx @tauri-apps/cli signer sign --app-version 3.0.5 "$WIN_FILE"
+            WIN_FILE="artifacts/MatterPackr-v3.0.6-windows-x64-Setup.exe"
+            npx @tauri-apps/cli signer sign --app-version 3.0.6 "$WIN_FILE"
             WIN_SIG=$(cat "${WIN_FILE}.sig")
-            cp "$WIN_FILE" "artifacts/MatterPackr_3.0.5_x64-setup.exe"
-            cp "${WIN_FILE}.sig" "artifacts/MatterPackr_3.0.5_x64-setup.exe.sig"
+            cp "$WIN_FILE" "artifacts/MatterPackr_3.0.6_x64-setup.exe"
+            cp "${WIN_FILE}.sig" "artifacts/MatterPackr_3.0.6_x64-setup.exe.sig"
 
-            LINUX_FILE="artifacts/MatterPackr-v3.0.5-linux-x86_64.tar.gz"
-            npx @tauri-apps/cli signer sign --app-version 3.0.5 "$LINUX_FILE"
+            LINUX_FILE="artifacts/MatterPackr-v3.0.6-linux-x86_64.tar.gz"
+            npx @tauri-apps/cli signer sign --app-version 3.0.6 "$LINUX_FILE"
             LINUX_SIG=$(cat "${LINUX_FILE}.sig")
-            cp "$LINUX_FILE" "artifacts/MatterPackr_3.0.5_amd64.tar.gz"
-            cp "${LINUX_FILE}.sig" "artifacts/MatterPackr_3.0.5_amd64.tar.gz.sig"
+            cp "$LINUX_FILE" "artifacts/MatterPackr_3.0.6_amd64.tar.gz"
+            cp "${LINUX_FILE}.sig" "artifacts/MatterPackr_3.0.6_amd64.tar.gz.sig"
 
-            MAC_FILE="artifacts/MatterPackr-v3.0.5-macos-universal.zip"
+            MAC_FILE="artifacts/MatterPackr-v3.0.6-macos-universal.zip"
             MAC_SIG=""
             if [ -f "$MAC_FILE" ]; then
-              npx @tauri-apps/cli signer sign --app-version 3.0.5 "$MAC_FILE"
+              npx @tauri-apps/cli signer sign --app-version 3.0.6 "$MAC_FILE"
               MAC_SIG=$(cat "${MAC_FILE}.sig")
             fi
 
             PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-            python3 packaging/generate_manifest.py "3.0.5" "$PUB_DATE" "$WIN_SIG" "$LINUX_SIG" "$MAC_SIG"
+            python3 packaging/generate_manifest.py "3.0.6" "$PUB_DATE" "$WIN_SIG" "$LINUX_SIG" "$MAC_SIG"
 
             cp artifacts/*.sig release-assets/
-            cp artifacts/MatterPackr_3.0.5_*.exe release-assets/ 2>/dev/null || true
-            cp artifacts/MatterPackr_3.0.5_*.tar.gz release-assets/ 2>/dev/null || true
+            cp artifacts/MatterPackr_3.0.6_*.exe release-assets/ 2>/dev/null || true
+            cp artifacts/MatterPackr_3.0.6_*.tar.gz release-assets/ 2>/dev/null || true
             cp latest.json release-assets/
           fi
 
