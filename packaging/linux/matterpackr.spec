@@ -1,5 +1,5 @@
 Name:           matterpackr
-Version:        3.0.6
+Version:        3.0.7
 Release:        1%{?dist}
 Summary:        Modern Multi-Threaded Compression & Archive Utility
 License:        Proprietary
@@ -27,5 +27,5 @@ cp %{workspace_root}/packaging/linux/icons/hicolor/256x256/mimetypes/*.png %{bui
 /usr/share/icons/hicolor/256x256/mimetypes/*.png
 
 %changelog
-* Wed Oct 28 2026 Z Software Labs - 3.0.6-1
-- Release version 3.0.6
+* Wed Oct 28 2026 Z Software Labs - 3.0.7-1
+- Release version 3.0.7

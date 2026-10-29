@@ -16,10 +16,12 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
 
 private:
     void updateRubberBandSelection(const QRect &rect);
 
+    QPixmap m_watermarkPixmap;
     QPoint m_dragStartPos;
     QPoint m_currentDragPos;
     bool m_isRubberBanding = false;
