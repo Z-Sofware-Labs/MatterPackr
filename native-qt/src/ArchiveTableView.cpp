@@ -11,22 +11,30 @@ ArchiveTableView::ArchiveTableView(QWidget *parent)
 
     QPixmap raw(":/app.png");
     if (!raw.isNull()) {
-        m_watermarkPixmap = raw.scaled(280, 280, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        QPixmap scaled = raw.scaled(280, 280, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        QPixmap transparent(scaled.size());
+        transparent.fill(Qt::transparent);
+        QPainter p(&transparent);
+        p.setOpacity(0.06);
+        p.drawPixmap(0, 0, scaled);
+        p.end();
+        m_watermarkPixmap = transparent;
     }
 }
 
 void ArchiveTableView::paintEvent(QPaintEvent *event) {
     // Paint lower-right enlarged washed-out watermark on viewport background
     if (!m_watermarkPixmap.isNull()) {
-        QPainter p(viewport());
-        p.setRenderHint(QPainter::Antialiasing);
-        p.setRenderHint(QPainter::SmoothPixmapTransform);
-        p.setOpacity(0.06);
-
         int margin = 16;
         int x = viewport()->width() - m_watermarkPixmap.width() - margin;
         int y = viewport()->height() - m_watermarkPixmap.height() - margin;
-        p.drawPixmap(x, y, m_watermarkPixmap);
+        QRect wmRect(x, y, m_watermarkPixmap.width(), m_watermarkPixmap.height());
+
+        // Fast clip test: only draw if watermark intersects the repaint region
+        if (event->rect().intersects(wmRect)) {
+            QPainter p(viewport());
+            p.drawPixmap(x, y, m_watermarkPixmap);
+        }
     }
 
     QTableView::paintEvent(event);

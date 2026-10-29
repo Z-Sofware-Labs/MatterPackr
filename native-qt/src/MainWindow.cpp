@@ -257,6 +257,24 @@ void MainWindow::createCentralGrid() {
   header->setHighlightSections(false);
   header->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
   header->setFixedHeight(24);
+  header->setSectionsMovable(true);
+
+  // Default column widths before restoring custom layout
+  m_tableView->setColumnWidth(ArchiveModel::ColFilename, 220);
+  m_tableView->setColumnWidth(ArchiveModel::ColType, 110);
+  m_tableView->setColumnWidth(ArchiveModel::ColModified, 150);
+  m_tableView->setColumnWidth(ArchiveModel::ColSize, 85);
+  m_tableView->setColumnWidth(ArchiveModel::ColRatio, 65);
+  m_tableView->setColumnWidth(ArchiveModel::ColPacked, 85);
+  m_tableView->setColumnWidth(ArchiveModel::ColCrc32, 85);
+  m_tableView->setColumnWidth(ArchiveModel::ColEncryption, 95);
+  m_tableView->setColumnWidth(ArchiveModel::ColPath, 160);
+
+  // Restore saved column widths and order
+  QSettings colSettings("MatterPackr", "MatterPackr");
+  if (colSettings.contains("columnState")) {
+    header->restoreState(colSettings.value("columnState").toByteArray());
+  }
 
   connect(m_tableView->selectionModel(), &QItemSelectionModel::selectionChanged,
           this, &MainWindow::onSelectionChanged);
@@ -342,6 +360,11 @@ void MainWindow::closeEvent(QCloseEvent *event) {
   // Save main window geometry and window state
   settings.setValue("geometry", saveGeometry());
   settings.setValue("windowState", saveState());
+
+  // Save table column widths, positions, and sort state
+  if (m_tableView && m_tableView->horizontalHeader()) {
+    settings.setValue("columnState", m_tableView->horizontalHeader()->saveState());
+  }
 
   bool isVisible = m_treeContainer && m_treeContainer->isVisible() &&
                    (m_splitter->sizes().value(0, 0) > 10);
@@ -589,9 +612,13 @@ void MainWindow::updateStatusBarStats() {
   QString selText;
   if (selCount > 0) {
     qint64 selBytes = 0;
-    for (const auto &idx : selection) {
-      int srcRow = m_proxyModel->mapToSource(idx).row();
-      selBytes += m_model->itemAt(srcRow).size;
+    if (selCount == totalCount) {
+      selBytes = totalBytes;
+    } else {
+      for (const auto &idx : selection) {
+        int srcRow = m_proxyModel->mapToSource(idx).row();
+        selBytes += m_model->itemAt(srcRow).size;
+      }
     }
     selText = tr("%1 items selected (%2) | Total %3 items (%4)")
                   .arg(selCount)

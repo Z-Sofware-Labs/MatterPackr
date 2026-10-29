@@ -21,6 +21,13 @@ struct ArchiveItem {
     QString path;
     bool isDirectory = false;
     bool isChecked = false;
+
+    // Fast display-cache (precomputed once to avoid string allocs on paint/scroll)
+    mutable QString formattedModified;
+    mutable QString formattedSize;
+    mutable QString formattedPacked;
+    mutable QString formattedRatio;
+    mutable QString formattedCrc32;
 };
 
 class ArchiveModel : public QAbstractTableModel {
@@ -101,6 +108,10 @@ private:
     bool m_showCheckboxes = false;
     ViewMode m_viewMode = ViewMode::Classic;
     QString m_currentFolder;
+
+    // Folder hierarchy caching
+    mutable bool m_foldersCacheDirty = true;
+    mutable QStringList m_allFoldersCache;
 };
 
 class ArchiveSortProxyModel : public QSortFilterProxyModel {

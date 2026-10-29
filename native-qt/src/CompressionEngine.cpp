@@ -49,6 +49,9 @@ void CompressionEngine::startCompression(const CompressionConfig &config) {
         if (totalBytes == 0) totalBytes = 1; // avoid division by zero
         qint64 processedBytes = 0;
 
+        QElapsedTimer progressThrottleTimer;
+        progressThrottleTimer.start();
+
         for (int i = 0; i < config.sourceFiles.size(); ++i) {
             if (m_isCancelled.loadRelaxed()) {
                 QMetaObject::invokeMethod(this, [this]() {
@@ -71,7 +74,7 @@ void CompressionEngine::startCompression(const CompressionConfig &config) {
             emit fileProgress(fi.fileName(), 0);
 
             // Chunked streaming simulation with high-throughput multi-threading
-            qint64 chunkSize = qMax<qint64>(64 * 1024, config.chunkSize);
+            qint64 chunkSize = qMax<qint64>(256 * 1024, config.chunkSize);
             while (fileProcessed < fileSize) {
                 if (m_isCancelled.loadRelaxed()) return;
 
@@ -79,17 +82,25 @@ void CompressionEngine::startCompression(const CompressionConfig &config) {
                 fileProcessed += toProcess;
                 processedBytes += toProcess;
 
-                // Yield small work slice
-                QThread::usleep(500);
+                // Yield briefly on single-threaded runs to avoid thread starvation
+                if (config.threadCount <= 1) {
+                    QThread::yieldCurrentThread();
+                }
 
-                int filePercent = fileSize > 0 ? static_cast<int>((fileProcessed * 100) / fileSize) : 100;
-                int overallPercent = static_cast<int>((processedBytes * 100) / totalBytes);
+                bool isDone = (fileProcessed >= fileSize);
+                // Throttle cross-thread signal emission to ~30-60 FPS (every 30ms) or on completion
+                if (isDone || progressThrottleTimer.elapsed() >= 30) {
+                    progressThrottleTimer.restart();
 
-                qint64 elapsedMs = m_timer.elapsed();
-                double throughput = elapsedMs > 0 ? (processedBytes / (1024.0 * 1024.0)) / (elapsedMs / 1000.0) : 0.0;
+                    int filePercent = fileSize > 0 ? static_cast<int>((fileProcessed * 100) / fileSize) : 100;
+                    int overallPercent = static_cast<int>((processedBytes * 100) / totalBytes);
 
-                emit fileProgress(fi.fileName(), filePercent);
-                emit progressUpdated(overallPercent, processedBytes, totalBytes, throughput);
+                    qint64 elapsedMs = m_timer.elapsed();
+                    double throughput = elapsedMs > 0 ? (processedBytes / (1024.0 * 1024.0)) / (elapsedMs / 1000.0) : 0.0;
+
+                    emit fileProgress(fi.fileName(), filePercent);
+                    emit progressUpdated(overallPercent, processedBytes, totalBytes, throughput);
+                }
             }
         }
 

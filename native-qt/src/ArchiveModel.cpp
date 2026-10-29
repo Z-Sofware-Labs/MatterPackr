@@ -25,7 +25,10 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
     if (role == Qt::DisplayRole) {
         if (item.filename == "..") {
             switch (index.column()) {
-                case ColFilename: return QString("..");
+                case ColFilename: {
+                    static const QString s_dots = QStringLiteral("..");
+                    return s_dots;
+                }
                 case ColType:     return tr("Parent Folder");
                 default:          return QVariant();
             }
@@ -34,13 +37,36 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
         switch (index.column()) {
             case ColFilename:   return item.filename;
             case ColType:       return item.isDirectory ? tr("Folder") : item.type;
-            case ColModified:   return item.modified.isValid() ? item.modified.toString("yyyy-MM-dd hh:mm AP") : QString("-");
-            case ColSize:       return item.isDirectory ? (item.size > 0 ? formatBytes(item.size) : tr("<DIR>")) : formatBytes(item.size);
-            case ColRatio:      return item.isDirectory ? (item.size > 0 ? QString("%1%").arg(item.ratio) : QString("-")) : QString("%1%").arg(item.ratio);
-            case ColPacked:     return item.isDirectory ? (item.size > 0 ? formatBytes(item.packedSize) : QString("-")) : formatBytes(item.packedSize);
-            case ColCrc32:      return item.isDirectory ? QString("-") : item.crc32.toUpper();
-            case ColEncryption: return item.isDirectory ? QString("-") : (item.isEncrypted ? item.encryptionMethod : QString("-"));
-            case ColPath:       return item.path.isEmpty() ? QString(".") : item.path;
+            case ColModified:
+                if (item.formattedModified.isEmpty()) {
+                    item.formattedModified = item.modified.isValid() ? item.modified.toString("yyyy-MM-dd hh:mm AP") : QStringLiteral("-");
+                }
+                return item.formattedModified;
+            case ColSize:
+                if (item.formattedSize.isEmpty()) {
+                    item.formattedSize = item.isDirectory ? (item.size > 0 ? formatBytes(item.size) : tr("<DIR>")) : formatBytes(item.size);
+                }
+                return item.formattedSize;
+            case ColRatio:
+                if (item.formattedRatio.isEmpty()) {
+                    item.formattedRatio = item.isDirectory ? (item.size > 0 ? (QString::number(item.ratio) + "%") : QStringLiteral("-")) : (QString::number(item.ratio) + "%");
+                }
+                return item.formattedRatio;
+            case ColPacked:
+                if (item.formattedPacked.isEmpty()) {
+                    item.formattedPacked = item.isDirectory ? (item.size > 0 ? formatBytes(item.packedSize) : QStringLiteral("-")) : formatBytes(item.packedSize);
+                }
+                return item.formattedPacked;
+            case ColCrc32:
+                if (item.formattedCrc32.isEmpty()) {
+                    item.formattedCrc32 = item.isDirectory ? QStringLiteral("-") : item.crc32.toUpper();
+                }
+                return item.formattedCrc32;
+            case ColEncryption: return item.isDirectory ? QStringLiteral("-") : (item.isEncrypted ? item.encryptionMethod : QStringLiteral("-"));
+            case ColPath: {
+                static const QString s_dot = QStringLiteral(".");
+                return item.path.isEmpty() ? s_dot : item.path;
+            }
             default:            return QVariant();
         }
     }
@@ -254,6 +280,7 @@ void ArchiveModel::setCurrentFolder(const QString &folder) {
 void ArchiveModel::rebuildVisibleItems() {
     beginResetModel();
     m_items.clear();
+    m_foldersCacheDirty = true;
 
     if (m_viewMode == ViewMode::Classic) {
         // WinZip Classic View: Flat list of all files across the entire archive
@@ -354,6 +381,9 @@ void ArchiveModel::rebuildVisibleItems() {
 }
 
 QStringList ArchiveModel::allFolders() const {
+    if (!m_foldersCacheDirty) {
+        return m_allFoldersCache;
+    }
     QSet<QString> folders;
     folders.insert(""); // Root folder
     for (const auto &item : m_allItems) {
@@ -367,13 +397,14 @@ QStringList ArchiveModel::allFolders() const {
             }
         }
     }
-    QStringList result = folders.values();
-    std::sort(result.begin(), result.end(), [](const QString &a, const QString &b) {
+    m_allFoldersCache = folders.values();
+    std::sort(m_allFoldersCache.begin(), m_allFoldersCache.end(), [](const QString &a, const QString &b) {
         if (a.isEmpty()) return true;
         if (b.isEmpty()) return false;
         return a.localeAwareCompare(b) < 0;
     });
-    return result;
+    m_foldersCacheDirty = false;
+    return m_allFoldersCache;
 }
 
 int ArchiveModel::allFilesCount() const {
@@ -459,8 +490,8 @@ int ArchiveModel::overallCompressionRatio() const {
 }
 
 QString ArchiveModel::formatBytes(qint64 bytes) {
-    if (bytes < 1024) return QString("%1 B").arg(bytes);
-    if (bytes < 1024 * 1024) return QString("%1 KB").arg(QString::number(bytes / 1024.0, 'f', 1));
-    if (bytes < 1024 * 1024 * 1024) return QString("%1 MB").arg(QString::number(bytes / (1024.0 * 1024.0), 'f', 2));
-    return QString("%1 GB").arg(QString::number(bytes / (1024.0 * 1024.0 * 1024.0), 'f', 2));
+    if (bytes < 1024) return QString::number(bytes) + " B";
+    if (bytes < 1024 * 1024) return QString::number(bytes / 1024.0, 'f', 1) + " KB";
+    if (bytes < 1024 * 1024 * 1024) return QString::number(bytes / (1024.0 * 1024.0), 'f', 2) + " MB";
+    return QString::number(bytes / (1024.0 * 1024.0 * 1024.0), 'f', 2) + " GB";
 }
