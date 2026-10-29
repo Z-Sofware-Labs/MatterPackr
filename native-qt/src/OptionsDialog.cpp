@@ -671,7 +671,7 @@ void OptionsDialog::registerFileAssociations(const QStringList &extensions) {
               "1\\shell\\open\\command")
           .arg(appExeName),
       QSettings::NativeFormat);
-  appShellSettings.setValue(".", QString("\"%1\" \"%%1\"").arg(winAppPath));
+  appShellSettings.setValue(".", QString("\"%1\" \"%1\"").arg(winAppPath, "%1"));
 
   for (const auto &fmt : supportedFormats) {
     bool isEnabled = extensions.contains(fmt.ext.trimmed().toLower());
@@ -697,7 +697,7 @@ void OptionsDialog::registerFileAssociations(const QStringList &extensions) {
       progIdSettings.setValue(".", fmt.description);
       progIdSettings.setValue("DefaultIcon/.", iconVal);
       progIdSettings.setValue("shell/open/command/.",
-                              QString("\"%1\" \"%%1\"").arg(winAppPath));
+                              QString("\"%1\" \"%1\"").arg(winAppPath, "%1"));
 
       // Capabilities FileAssociations
       QSettings capAssoc(
