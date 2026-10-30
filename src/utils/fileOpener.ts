@@ -145,9 +145,43 @@ export function openInDefaultOSApp(file: ArchiveFile): void {
   } else if (typeof file.content === 'string') {
     blob = new Blob([file.content], { type: mimeType });
   } else {
-    // If empty or binary without buffered bytes, create dummy placeholder with proper format
-    const sampleText = `[MatterPackr 2.0 Extracted File: ${file.name}]\nUncompressed Size: ${file.size} bytes\nCRC-32: ${file.crc32}\n`;
-    blob = new Blob([sampleText], { type: mimeType });
+    // If empty or binary without buffered bytes, synthesize valid content matching file extension
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (['jpg', 'jpeg', 'png', 'webp', 'bmp'].includes(ext)) {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(0, 0, 640, 480);
+          ctx.fillStyle = '#38bdf8';
+          ctx.font = 'bold 22px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(file.name, 320, 220);
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '14px sans-serif';
+          ctx.fillText(`MatterPackr Preview • Size: ${file.size} bytes`, 320, 260);
+        }
+        const dataUrl = canvas.toDataURL(ext.includes('png') ? 'image/png' : 'image/jpeg');
+        const b64 = dataUrl.split(',')[1];
+        const binary = atob(b64);
+        const u8 = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          u8[i] = binary.charCodeAt(i);
+        }
+        blob = new Blob([u8], { type: mimeType });
+      } catch {
+        blob = new Blob([`[MatterPackr Extracted Image: ${file.name}]`], { type: 'text/plain' });
+      }
+    } else if (ext === 'svg') {
+      const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect width="100%" height="100%" fill="#1e293b"/><text x="50%" y="50%" fill="#38bdf8" font-size="20" font-family="sans-serif" font-weight="bold" text-anchor="middle">${file.name}</text></svg>`;
+      blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    } else {
+      const sampleText = `[MatterPackr Extracted File: ${file.name}]\nUncompressed Size: ${file.size} bytes\nCRC-32: ${file.crc32}\n`;
+      blob = new Blob([sampleText], { type: mimeType });
+    }
   }
 
   const url = URL.createObjectURL(blob);

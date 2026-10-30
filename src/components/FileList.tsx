@@ -4,6 +4,29 @@ import { formatNumber } from '../utils/crc32';
 import { FileTypeIcon, getFriendlyFileTypeName } from './FileTypeIcons';
 import { AppLogoIcon } from './PlatformIcons';
 
+export type ColumnKey =
+  | 'name'
+  | 'type'
+  | 'date'
+  | 'size'
+  | 'ratio'
+  | 'packedSize'
+  | 'crc32'
+  | 'encryption'
+  | 'path';
+
+export interface ColumnDefinition {
+  key: ColumnKey;
+  label: string;
+  defaultWidth: number;
+  minWidth: number;
+  align: 'left' | 'right' | 'center';
+  sortField?: SortField;
+}
+
+const STORAGE_KEY_ORDER = 'matterpackr_column_order';
+const STORAGE_KEY_WIDTHS = 'matterpackr_column_widths';
+
 interface FileListProps {
   os: PlatformOS;
   files: ArchiveFile[];
@@ -20,6 +43,18 @@ interface FileListProps {
 }
 
 type SortField = 'name' | 'type' | 'date' | 'size' | 'ratio' | 'packedSize' | 'crc32' | 'path';
+
+export const DEFAULT_COLUMNS: ColumnDefinition[] = [
+  { key: 'name', label: 'Filename', defaultWidth: 220, minWidth: 120, align: 'left', sortField: 'name' },
+  { key: 'type', label: 'Type', defaultWidth: 110, minWidth: 60, align: 'left', sortField: 'type' },
+  { key: 'date', label: 'Modified', defaultWidth: 140, minWidth: 80, align: 'left', sortField: 'date' },
+  { key: 'size', label: 'Size', defaultWidth: 90, minWidth: 60, align: 'right', sortField: 'size' },
+  { key: 'ratio', label: 'Ratio', defaultWidth: 70, minWidth: 50, align: 'right', sortField: 'ratio' },
+  { key: 'packedSize', label: 'Packed', defaultWidth: 90, minWidth: 60, align: 'right', sortField: 'packedSize' },
+  { key: 'crc32', label: 'CRC-32', defaultWidth: 90, minWidth: 60, align: 'center', sortField: 'crc32' },
+  { key: 'encryption', label: 'Encryption', defaultWidth: 95, minWidth: 70, align: 'center' },
+  { key: 'path', label: 'Path', defaultWidth: 160, minWidth: 80, align: 'left', sortField: 'path' },
+];
 
 export const FileList: React.FC<FileListProps> = ({
   os,
@@ -46,6 +81,162 @@ export const FileList: React.FC<FileListProps> = ({
   const [selectedFolder, setSelectedFolder] = useState<string>('__ALL__');
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
+  // Column Position and Size Persistence
+  const [columnOrder, setColumnOrder] = useState<ColumnKey[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_ORDER);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const validKeys = DEFAULT_COLUMNS.map((c) => c.key);
+          const filtered = parsed.filter((k: unknown) => typeof k === 'string' && validKeys.includes(k as ColumnKey)) as ColumnKey[];
+          const missing = validKeys.filter((k) => !filtered.includes(k));
+          return [...filtered, ...missing];
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return DEFAULT_COLUMNS.map((c) => c.key);
+  });
+
+  const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>(() => {
+    const defaults = DEFAULT_COLUMNS.reduce((acc, col) => {
+      acc[col.key] = col.defaultWidth;
+      return acc;
+    }, {} as Record<ColumnKey, number>);
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_WIDTHS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return { ...defaults, ...parsed };
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return defaults;
+  });
+
+  const [draggedColKey, setDraggedColKey] = useState<ColumnKey | null>(null);
+  const [dropTargetColKey, setDropTargetColKey] = useState<ColumnKey | null>(null);
+  const dragOccurredRef = useRef<boolean>(false);
+  const resizingColRef = useRef<{
+    key: ColumnKey;
+    startX: number;
+    startWidth: number;
+    minWidth: number;
+  } | null>(null);
+
+  const handleColumnDragStart = (key: ColumnKey, e: React.DragEvent) => {
+    dragOccurredRef.current = true;
+    setDraggedColKey(key);
+    e.dataTransfer.setData('text/plain', key);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleColumnDragOver = (key: ColumnKey, e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dropTargetColKey !== key) {
+      setDropTargetColKey(key);
+    }
+  };
+
+  const handleColumnDrop = (targetKey: ColumnKey, e: React.DragEvent) => {
+    e.preventDefault();
+    if (!draggedColKey || draggedColKey === targetKey) {
+      setDraggedColKey(null);
+      setDropTargetColKey(null);
+      setTimeout(() => { dragOccurredRef.current = false; }, 50);
+      return;
+    }
+    const newOrder = [...columnOrder];
+    const srcIndex = newOrder.indexOf(draggedColKey);
+    const destIndex = newOrder.indexOf(targetKey);
+    if (srcIndex !== -1 && destIndex !== -1) {
+      newOrder.splice(srcIndex, 1);
+      newOrder.splice(destIndex, 0, draggedColKey);
+      setColumnOrder(newOrder);
+      try {
+        localStorage.setItem(STORAGE_KEY_ORDER, JSON.stringify(newOrder));
+      } catch {}
+    }
+    setDraggedColKey(null);
+    setDropTargetColKey(null);
+    setTimeout(() => { dragOccurredRef.current = false; }, 50);
+  };
+
+  const handleColumnDragEnd = () => {
+    setDraggedColKey(null);
+    setDropTargetColKey(null);
+    setTimeout(() => { dragOccurredRef.current = false; }, 50);
+  };
+
+  const handleStartResize = (key: ColumnKey, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const colDef = DEFAULT_COLUMNS.find((c) => c.key === key);
+    const minWidth = colDef ? colDef.minWidth : 50;
+    const startWidth = columnWidths[key] || (colDef ? colDef.defaultWidth : 100);
+
+    resizingColRef.current = {
+      key,
+      startX: e.clientX,
+      startWidth,
+      minWidth,
+    };
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizingColRef.current) return;
+      const deltaX = moveEvent.clientX - resizingColRef.current.startX;
+      const newWidth = Math.max(
+        resizingColRef.current.minWidth,
+        resizingColRef.current.startWidth + deltaX
+      );
+      setColumnWidths((prev) => ({
+        ...prev,
+        [resizingColRef.current!.key]: newWidth,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      if (resizingColRef.current) {
+        setColumnWidths((latest) => {
+          try {
+            localStorage.setItem(STORAGE_KEY_WIDTHS, JSON.stringify(latest));
+          } catch {}
+          return latest;
+        });
+      }
+      resizingColRef.current = null;
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleResetColumnWidth = (key: ColumnKey) => {
+    const colDef = DEFAULT_COLUMNS.find((c) => c.key === key);
+    if (!colDef) return;
+    setColumnWidths((prev) => {
+      const updated = { ...prev, [key]: colDef.defaultWidth };
+      try {
+        localStorage.setItem(STORAGE_KEY_WIDTHS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
   // Auto-focus input and trigger flash when filter is opened
   useEffect(() => {
     if (showFilter) {
@@ -63,11 +254,92 @@ export const FileList: React.FC<FileListProps> = ({
   }, [showFilter]);
 
   const handleHeaderClick = (field: SortField) => {
+    if (dragOccurredRef.current || resizingColRef.current) return;
     if (sortField === field) {
       setSortAsc(!sortAsc);
     } else {
       setSortField(field);
       setSortAsc(true);
+    }
+  };
+
+  const renderCellContent = (file: ArchiveFile, key: ColumnKey, isSelected: boolean) => {
+    switch (key) {
+      case 'name':
+        return (
+          <div className="flex items-center gap-2 overflow-hidden">
+            <FileTypeIcon
+              fileName={file.name}
+              isDirectory={file.isDirectory}
+              isEncrypted={file.encrypted}
+              os={os}
+              size={18}
+            />
+            <span className="font-medium tracking-tight truncate">{file.name}</span>
+          </div>
+        );
+      case 'type':
+        return (
+          <span className="truncate text-[11px] text-neutral-600 dark:text-neutral-400">
+            {file.type || getFriendlyFileTypeName(file.name)}
+          </span>
+        );
+      case 'date':
+        return (
+          <span className="font-mono tabular-nums text-[11px] opacity-80 whitespace-nowrap">
+            {file.date} {file.time}
+          </span>
+        );
+      case 'size':
+        return (
+          <span className="font-mono tabular-nums text-[11px] whitespace-nowrap">
+            {formatNumber(file.size)}
+          </span>
+        );
+      case 'ratio':
+        return (
+          <span className="font-mono tabular-nums text-[11px] whitespace-nowrap">
+            {file.ratio}%
+          </span>
+        );
+      case 'packedSize':
+        return (
+          <span className="font-mono tabular-nums text-[11px] whitespace-nowrap">
+            {formatNumber(file.packedSize)}
+          </span>
+        );
+      case 'crc32':
+        return (
+          <span className="font-mono tabular-nums text-[11px] opacity-90 whitespace-nowrap">
+            {file.crc32}
+          </span>
+        );
+      case 'encryption':
+        return file.encrypted ? (
+          <span
+            className={`px-1.5 py-0.5 rounded-md font-semibold text-[10px] ${
+              isSelected
+                ? 'bg-white/20 text-white'
+                : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300'
+            }`}
+          >
+            {file.encryptionMethod === 'aes-256'
+              ? 'AES-256'
+              : file.encryptionMethod === 'aes-128'
+              ? 'AES-128'
+              : 'Zip 2.0'}
+          </span>
+        ) : (
+          <span className="opacity-30">-</span>
+        );
+      case 'path':
+        return (
+          <span className="font-mono text-[11px] opacity-60 truncate">
+            {file.path || '.'}
+          </span>
+        );
+      default:
+        return null;
     }
   };
 
@@ -576,7 +848,7 @@ export const FileList: React.FC<FileListProps> = ({
             </div>
           )}
 
-          <table className="w-full border-collapse text-left text-xs font-sans">
+          <table className="border-collapse text-left text-xs font-sans table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
             {/* Table Header */}
             <thead className="sticky top-0 z-10 bg-neutral-100/90 dark:bg-neutral-800/90 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300">
               <tr>
@@ -593,81 +865,61 @@ export const FileList: React.FC<FileListProps> = ({
                     />
                   </th>
                 )}
-                <th
-                  onClick={() => handleHeaderClick('name')}
-                  className="px-3 py-2 cursor-pointer font-semibold hover:text-black dark:hover:text-white transition-colors whitespace-nowrap min-w-[200px]"
-                >
-                  <div className="flex items-center justify-between">
-                    <span>Filename</span>
-                    {sortField === 'name' && <span className="text-blue-500">{sortAsc ? '▲' : '▼'}</span>}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleHeaderClick('type')}
-                  className="px-3 py-2 cursor-pointer font-semibold hover:text-black dark:hover:text-white transition-colors whitespace-nowrap min-w-[120px]"
-                >
-                  <div className="flex items-center justify-between">
-                    <span>Type</span>
-                    {sortField === 'type' && <span className="text-blue-500">{sortAsc ? '▲' : '▼'}</span>}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleHeaderClick('date')}
-                  className="px-3 py-2 cursor-pointer font-semibold hover:text-black dark:hover:text-white transition-colors whitespace-nowrap min-w-[95px]"
-                >
-                  <div className="flex items-center justify-between">
-                    <span>Modified</span>
-                    {sortField === 'date' && <span className="text-blue-500">{sortAsc ? '▲' : '▼'}</span>}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleHeaderClick('size')}
-                  className="px-3 py-2 cursor-pointer font-semibold hover:text-black dark:hover:text-white transition-colors whitespace-nowrap text-right min-w-[85px]"
-                >
-                  <div className="flex items-center justify-end gap-1">
-                    <span>Size</span>
-                    {sortField === 'size' && <span className="text-blue-500">{sortAsc ? '▲' : '▼'}</span>}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleHeaderClick('ratio')}
-                  className="px-3 py-2 cursor-pointer font-semibold hover:text-black dark:hover:text-white transition-colors whitespace-nowrap text-right min-w-[70px]"
-                >
-                  <div className="flex items-center justify-end gap-1">
-                    <span>Ratio</span>
-                    {sortField === 'ratio' && <span className="text-blue-500">{sortAsc ? '▲' : '▼'}</span>}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleHeaderClick('packedSize')}
-                  className="px-3 py-2 cursor-pointer font-semibold hover:text-black dark:hover:text-white transition-colors whitespace-nowrap text-right min-w-[85px]"
-                >
-                  <div className="flex items-center justify-end gap-1">
-                    <span>Packed</span>
-                    {sortField === 'packedSize' && <span className="text-blue-500">{sortAsc ? '▲' : '▼'}</span>}
-                  </div>
-                </th>
-                <th
-                  onClick={() => handleHeaderClick('crc32')}
-                  className="px-3 py-2 cursor-pointer font-semibold hover:text-black dark:hover:text-white transition-colors whitespace-nowrap text-center min-w-[85px]"
-                >
-                  <div className="flex items-center justify-center gap-1">
-                    <span>CRC-32</span>
-                    {sortField === 'crc32' && <span className="text-blue-500">{sortAsc ? '▲' : '▼'}</span>}
-                  </div>
-                </th>
-                <th className="px-3 py-2 cursor-default font-semibold whitespace-nowrap text-center min-w-[90px]">
-                  Encryption
-                </th>
-                <th
-                  onClick={() => handleHeaderClick('path')}
-                  className="px-3 py-2 cursor-pointer font-semibold hover:text-black dark:hover:text-white transition-colors whitespace-nowrap min-w-[110px]"
-                >
-                  <div className="flex items-center justify-between">
-                    <span>Path</span>
-                    {sortField === 'path' && <span className="text-blue-500">{sortAsc ? '▲' : '▼'}</span>}
-                  </div>
-                </th>
+                {columnOrder.map((colKey) => {
+                  const colDef = DEFAULT_COLUMNS.find((c) => c.key === colKey);
+                  if (!colDef) return null;
+                  const width = columnWidths[colKey] || colDef.defaultWidth;
+                  const isDropTarget = dropTargetColKey === colKey;
+                  const isDragging = draggedColKey === colKey;
+
+                  return (
+                    <th
+                      key={colKey}
+                      draggable
+                      onDragStart={(e) => handleColumnDragStart(colKey, e)}
+                      onDragOver={(e) => handleColumnDragOver(colKey, e)}
+                      onDrop={(e) => handleColumnDrop(colKey, e)}
+                      onDragEnd={handleColumnDragEnd}
+                      onClick={() => {
+                        if (colDef.sortField) handleHeaderClick(colDef.sortField);
+                      }}
+                      style={{ width: `${width}px`, minWidth: `${colDef.minWidth}px` }}
+                      className={`relative px-3 py-2 select-none group font-semibold whitespace-nowrap transition-colors ${
+                        colDef.sortField ? 'cursor-pointer hover:text-black dark:hover:text-white' : 'cursor-default'
+                      } ${isDragging ? 'opacity-40' : ''} ${
+                        isDropTarget ? 'border-l-2 border-blue-500 bg-blue-50/50 dark:bg-blue-900/30' : ''
+                      }`}
+                      title={`${colDef.label} (Drag to reorder, drag right border to resize, double-click border to reset)`}
+                    >
+                      <div
+                        className={`flex items-center ${
+                          colDef.align === 'right'
+                            ? 'justify-end gap-1'
+                            : colDef.align === 'center'
+                            ? 'justify-center gap-1'
+                            : 'justify-between'
+                        }`}
+                      >
+                        <span className="truncate">{colDef.label}</span>
+                        {colDef.sortField && sortField === colDef.sortField && (
+                          <span className="text-blue-500 shrink-0">{sortAsc ? '▲' : '▼'}</span>
+                        )}
+                      </div>
+
+                      {/* Column Resize Handle */}
+                      <div
+                        onMouseDown={(e) => handleStartResize(colKey, e)}
+                        onClick={(e) => e.stopPropagation()}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          handleResetColumnWidth(colKey);
+                        }}
+                        className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-blue-500/50 active:bg-blue-600 transition-colors z-20"
+                        title="Drag to resize, double click to reset"
+                      />
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
 
@@ -707,75 +959,27 @@ export const FileList: React.FC<FileListProps> = ({
                         </td>
                       )}
 
-                      {/* Name / Filename */}
-                      <td className="px-3 py-1.5 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <FileTypeIcon
-                            fileName={file.name}
-                            isDirectory={file.isDirectory}
-                            isEncrypted={file.encrypted}
-                            os={os}
-                            size={18}
-                          />
-                          <span className="font-medium tracking-tight">{file.name}</span>
-                        </div>
-                      </td>
+                      {columnOrder.map((colKey) => {
+                        const colDef = DEFAULT_COLUMNS.find((c) => c.key === colKey);
+                        if (!colDef) return null;
+                        const width = columnWidths[colKey] || colDef.defaultWidth;
+                        const alignmentClass =
+                          colDef.align === 'right'
+                            ? 'text-right'
+                            : colDef.align === 'center'
+                            ? 'text-center'
+                            : 'text-left';
 
-                      {/* Type */}
-                      <td className="px-3 py-1.5 whitespace-nowrap text-[11px] text-neutral-600 dark:text-neutral-400">
-                        {file.type || getFriendlyFileTypeName(file.name)}
-                      </td>
-
-                      {/* Date */}
-                      <td className="px-3 py-1.5 whitespace-nowrap font-mono tabular-nums text-[11px] opacity-80">
-                        {file.date} {file.time}
-                      </td>
-
-                      {/* Size */}
-                      <td className="px-3 py-1.5 whitespace-nowrap font-mono tabular-nums text-right text-[11px]">
-                        {formatNumber(file.size)}
-                      </td>
-
-                      {/* Ratio */}
-                      <td className="px-3 py-1.5 whitespace-nowrap font-mono tabular-nums text-right text-[11px]">
-                        {file.ratio}%
-                      </td>
-
-                      {/* Packed */}
-                      <td className="px-3 py-1.5 whitespace-nowrap font-mono tabular-nums text-right text-[11px]">
-                        {formatNumber(file.packedSize)}
-                      </td>
-
-                      {/* CRC-32 */}
-                      <td className="px-3 py-1.5 whitespace-nowrap font-mono tabular-nums text-center text-[11px] opacity-90">
-                        {file.crc32}
-                      </td>
-
-                      {/* Encryption */}
-                      <td className="px-3 py-1.5 whitespace-nowrap text-center text-[10.5px]">
-                        {file.encrypted ? (
-                          <span
-                            className={`px-1.5 py-0.5 rounded-md font-semibold text-[10px] ${
-                              isSelected
-                                ? 'bg-white/20 text-white'
-                                : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300'
-                            }`}
+                        return (
+                          <td
+                            key={colKey}
+                            style={{ width: `${width}px`, minWidth: `${colDef.minWidth}px` }}
+                            className={`px-3 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis ${alignmentClass}`}
                           >
-                            {file.encryptionMethod === 'aes-256'
-                              ? 'AES-256'
-                              : file.encryptionMethod === 'aes-128'
-                              ? 'AES-128'
-                              : 'Zip 2.0'}
-                          </span>
-                        ) : (
-                          <span className="opacity-30">-</span>
-                        )}
-                      </td>
-
-                      {/* Path */}
-                      <td className="px-3 py-1.5 whitespace-nowrap font-mono text-[11px] opacity-60">
-                        {file.path || '.'}
-                      </td>
+                            {renderCellContent(file, colKey, isSelected)}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })}
