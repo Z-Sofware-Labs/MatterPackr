@@ -19,7 +19,7 @@ SetCompressor /SOLID "lzma"
 
 !define PRODUCT_NAME "MatterPackr"
 !ifndef PRODUCT_VERSION
-  !define PRODUCT_VERSION "3.0.10"
+  !define PRODUCT_VERSION "3.0.11"
 !endif
 !define PRODUCT_PUBLISHER "Z Software Labs"
 !define PRODUCT_WEB_SITE "https://github.com/Z-Sofware-Labs/MatterPackr"
@@ -27,7 +27,7 @@ SetCompressor /SOLID "lzma"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 
 !ifndef OUTFILE
-  !define OUTFILE "MatterPackr-v3.0.10-windows-x64-Setup.exe"
+  !define OUTFILE "MatterPackr-v3.0.11-windows-x64-Setup.exe"
 !endif
 
 Name "${PRODUCT_NAME}"

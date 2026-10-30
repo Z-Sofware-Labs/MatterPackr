@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 
 export const CMAKE_LISTS_TXT = `cmake_minimum_required(VERSION 3.20)
-project(MatterPackr VERSION 3.0.10 LANGUAGES CXX)
+project(MatterPackr VERSION 3.0.11 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -1000,7 +1000,7 @@ void MainWindow::onOptions() {
 
 void MainWindow::onAbout() {
     QMessageBox::about(this, tr("About MatterPackr"),
-                       tr("<h3>MatterPackr 3.0.10</h3>"
+                       tr("<h3>MatterPackr 3.0.11</h3>"
                           "<p>Native Qt 6 Multi-Threaded Compression & Archive Architecture.</p>"
                           "<p>Features AES-256 encryption, QThreadPool chunking, and cross-platform desktop UI.</p>"));
 }
@@ -1023,7 +1023,7 @@ int main(int argc, char *argv[]) {
 
     QApplication app(argc, argv);
     app.setApplicationName("MatterPackr");
-    app.setApplicationVersion("3.0.10");
+    app.setApplicationVersion("3.0.11");
     app.setOrganizationName("MatterPackr Core Engineering");
 
     // Set application icon from embedded Qt resources
@@ -1043,7 +1043,7 @@ int main(int argc, char *argv[]) {
 }
 `;
 
-export const README_MD = `# MatterPackr 3.0.10 — Native Qt 6 Desktop Edition
+export const README_MD = `# MatterPackr 3.0.11 — Native Qt 6 Desktop Edition
 
 Complete, production-ready native C++20 / Qt 6 source code for **MatterPackr**.
 

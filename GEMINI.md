@@ -18,3 +18,4 @@
 > The Windows shell command formatted in `OptionsDialog.cpp` MUST ALWAYS retain the exact argument placeholders:
 > `QString("\"%1\" \"%2\"").arg(winAppPath, "%1")`
 > Never reduce or alter this to `QString("\"%1\" \"%1\"")` as Qt's multi-arg replacement will substitute `winAppPath` into both slots, corrupting file association arguments in the Windows registry.
+
