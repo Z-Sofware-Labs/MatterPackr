@@ -39,10 +39,10 @@ cmake --build $buildDir
 if ($LASTEXITCODE -eq 0) {
     Write-Host "`nBuild succeeded: $buildDir/MatterPackr.exe" -ForegroundColor Green
 
-    # Ensure Qt plugins and runtime are deployed
+    # Ensure Qt plugins and runtime are deployed (exclude redundant software OpenGL rasterizer and system D3D compiler)
     $windeploy = "C:\Qt\6.12.0\mingw_64\bin\windeployqt.exe"
     if (Test-Path $windeploy) {
-        & $windeploy --svg --no-translations --compiler-runtime "$buildDir/MatterPackr.exe" | Out-Null
+        & $windeploy --svg --no-translations --compiler-runtime --no-opengl-sw --no-system-d3d-compiler "$buildDir/MatterPackr.exe" | Out-Null
     }
 
     # Keep compilation database updated for VS Code / IDE
