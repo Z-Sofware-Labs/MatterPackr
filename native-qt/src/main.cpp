@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
 
     QApplication app(argc, argv);
     app.setApplicationName("MatterPackr");
-    app.setApplicationVersion("3.0.8");
+    app.setApplicationVersion("3.0.9");
     app.setOrganizationName("MatterPackr Core Engineering");
 
     // Set application icon from embedded Qt resources
