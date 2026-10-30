@@ -4,6 +4,12 @@
 ; 1. MultiUser installation (All Users / Machine-Wide vs Current User)
 ; 2. Sequential wizard flow (Welcome -> License -> Mode -> Directory -> Associations -> Install -> Finish)
 ; 3. File type association selection with icons and Windows Explorer integration
+;
+; ATTENTION / AI INSTRUCTION:
+; DO NOT MODIFY THIS FILE UNLESS GIVEN EXPLICIT PERMISSION BY THE USER.
+; NEVER add registry deletion commands touching UserChoice or FileExts, as
+; doing so triggers antivirus heuristic false positives (e.g. Trojan:Win32/Bearfoos).
+; Keep all file associations strictly within standard Windows Classes/Capabilities.
 ; ==============================================================================
 
 Unicode true
