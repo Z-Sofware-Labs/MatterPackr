@@ -233,15 +233,9 @@ FunctionEnd
     WriteRegStr SHCTX "Software\Classes\.${Ext}\DefaultIcon" "" "$INSTDIR\icons\filetypes\${IconName},0"
   ${EndIf}
 
-  ; 3. Windows Capabilities & Registered Applications
+  ; 3. Windows Standard Capabilities & Registered Applications (Official Microsoft standard)
   WriteRegStr SHCTX "Software\${PRODUCT_NAME}\Capabilities\FileAssociations" ".${Ext}" "${ProgId}"
   WriteRegStr SHCTX "Software\Classes\Applications\${MAIN_EXE_NAME}\SupportedTypes" ".${Ext}" ""
-
-  ; 4. Clear cached UserChoice in HKCU so Windows 10/11 activates MatterPackr as default
-  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.${Ext}\UserChoice"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.${Ext}\OpenWithProgids" "${ProgId}" ""
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.${Ext}\OpenWithList" "a" "${MAIN_EXE_NAME}"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.${Ext}\OpenWithList" "MRUList" "a"
 !macroend
 
 !macro UnregisterExt Ext ProgId
@@ -254,7 +248,6 @@ FunctionEnd
   DeleteRegKey SHCTX "Software\Classes\${ProgId}"
   DeleteRegValue SHCTX "Software\${PRODUCT_NAME}\Capabilities\FileAssociations" ".${Ext}"
   DeleteRegValue SHCTX "Software\Classes\Applications\${MAIN_EXE_NAME}\SupportedTypes" ".${Ext}"
-  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.${Ext}\OpenWithProgids" "${ProgId}"
 !macroend
 
 ; ==============================================================================
