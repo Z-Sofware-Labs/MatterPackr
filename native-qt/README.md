@@ -12,6 +12,13 @@ This directory contains the complete, native C++20 / Qt 6 source code for **Matt
    - **Windows**: MSVC 2019/2022 or MinGW 11+
    - **macOS**: Clang / Xcode Command Line Tools
    - **Linux**: GCC 11+ or Clang 13+
+4. **libarchive command-line engine**:
+   - Windows: `tar.exe` from the Windows installation (bsdtar/libarchive)
+   - macOS/Linux: `tar` with libarchive support
+
+The native open and extract workflows invoke this engine through `QProcess`. If it
+is unavailable, MatterPackr reports an operation error instead of fabricating
+archive entries or extracted file contents.
 
 ---
 

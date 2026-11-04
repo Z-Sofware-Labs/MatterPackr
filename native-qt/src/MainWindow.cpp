@@ -33,6 +33,8 @@
 #include <QFileOpenEvent>
 #include <QProcess>
 #include <QDir>
+#include <QRegularExpression>
+#include <algorithm>
 #include <functional>
 
 #ifdef Q_OS_WIN
@@ -43,6 +45,106 @@
 #include <shellapi.h>
 #include <dwmapi.h>
 #endif
+
+namespace {
+
+bool isSafeArchiveEntryPath(const QString &entryPath) {
+  const QString normalized = QDir::cleanPath(entryPath).replace('\\', '/');
+  if (normalized.isEmpty() || normalized == "." || normalized.startsWith('/')
+      || normalized.contains(QRegularExpression(QStringLiteral("^[A-Za-z]:/")))
+      || normalized.startsWith("//")) {
+    return false;
+  }
+
+  const QStringList parts = normalized.split('/', Qt::SkipEmptyParts);
+  return !std::any_of(parts.cbegin(), parts.cend(),
+                      [](const QString &part) { return part == ".."; });
+}
+
+QString archiveEntryPath(const ArchiveItem &item) {
+  const QString path = item.path.isEmpty()
+      ? item.filename
+      : item.path + "/" + item.filename;
+  return QDir::cleanPath(path).replace('\\', '/');
+}
+
+bool runArchiveCommand(const QStringList &arguments, QByteArray *standardOutput,
+                       QString *errorMessage) {
+  QProcess process;
+  process.start(QStringLiteral("tar"), arguments);
+  if (!process.waitForStarted(5000)) {
+    if (errorMessage) {
+      *errorMessage = QObject::tr("The system archive engine (tar/libarchive) could not be started.");
+    }
+    return false;
+  }
+  if (!process.waitForFinished(-1)) {
+    process.kill();
+    process.waitForFinished();
+    if (errorMessage) {
+      *errorMessage = QObject::tr("The archive operation timed out or was interrupted.");
+    }
+    return false;
+  }
+
+  if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+    if (errorMessage) {
+      const QString details = QString::fromLocal8Bit(process.readAllStandardError()).trimmed();
+      *errorMessage = details.isEmpty()
+          ? QObject::tr("The archive engine rejected the operation.")
+          : details;
+    }
+    return false;
+  }
+
+  if (standardOutput) {
+    *standardOutput = process.readAllStandardOutput();
+  }
+  return true;
+}
+
+QVector<ArchiveItem> listArchiveEntries(const QString &archivePath, QString *errorMessage) {
+  QByteArray output;
+  if (!runArchiveCommand({QStringLiteral("-tf"), archivePath}, &output, errorMessage)) {
+    return {};
+  }
+
+  QVector<ArchiveItem> items;
+  const QStringList names = QString::fromLocal8Bit(output).split(
+      QRegularExpression(QStringLiteral("[\r\n]+")), Qt::SkipEmptyParts);
+  int id = 0;
+  for (const QString &rawName : names) {
+    const QString entryPath = rawName.trimmed().replace('\\', '/');
+    if (!isSafeArchiveEntryPath(entryPath)) {
+      if (errorMessage) {
+        *errorMessage = QObject::tr("The archive contains an unsafe path: %1").arg(entryPath);
+      }
+      return {};
+    }
+
+    const bool isDirectory = entryPath.endsWith('/');
+    const QString cleanPath = QDir::cleanPath(entryPath);
+    const int separator = cleanPath.lastIndexOf('/');
+    const QString filename = separator >= 0 ? cleanPath.mid(separator + 1) : cleanPath;
+    const QString directory = separator >= 0 ? cleanPath.left(separator) : QString();
+    const int dot = filename.lastIndexOf('.');
+    const QString type = isDirectory
+        ? QObject::tr("Folder")
+        : (dot > 0 ? filename.mid(dot + 1).toUpper() : QObject::tr("File"));
+
+    ArchiveItem item;
+    item.id = QStringLiteral("entry-%1").arg(++id);
+    item.filename = filename;
+    item.type = type;
+    item.path = directory;
+    item.isDirectory = isDirectory;
+    item.crc32 = QStringLiteral("-");
+    items.append(item);
+  }
+  return items;
+}
+
+}
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_engine(new CompressionEngine(this)) {
@@ -791,39 +893,17 @@ void MainWindow::openArchiveFile(const QString &filename) {
   // Populate archive files with hierarchical folders
   m_model->clear();
 
-  QVector<ArchiveItem> sampleFiles = {
-      {"1", "README.md", "MD", QDateTime::currentDateTime().addDays(-1), 4096,
-       1228, 70, "0x98A1B2C3", false, "None", "", false},
+  QString errorMessage;
+  const QVector<ArchiveItem> archiveItems =
+      listArchiveEntries(m_currentArchivePath, &errorMessage);
+  if (archiveItems.isEmpty() && !errorMessage.isEmpty()) {
+    m_currentArchivePath.clear();
+    updateWindowTitle();
+    QMessageBox::warning(this, tr("Open Archive Failed"), errorMessage);
+    return;
+  }
 
-      {"2", "Architecture_Overview.pdf", "PDF",
-       QDateTime::currentDateTime().addDays(-3), 458752, 321126, 30,
-       "0x4F12D3E4", false, "None", "docs", false},
-      {"3", "Release_Notes_v3.0.txt", "TXT",
-       QDateTime::currentDateTime().addDays(-2), 14336, 4300, 70, "0x89C1D2E3",
-       false, "None", "docs", false},
-
-      {"4", "libdeflate_engine_x64.dll", "DLL",
-       QDateTime::currentDateTime().addDays(-5), 1245184, 622592, 50,
-       "0x12A3B4C5", false, "None", "bin", false},
-      {"5", "quantum_vectors_dataset.bin", "BIN",
-       QDateTime::currentDateTime().addDays(-10), 8388608, 4194304, 50,
-       "0x67E8F9A0", false, "None", "bin", false},
-
-      {"6", "logo_brand_assets.svg", "SVG",
-       QDateTime::currentDateTime().addDays(-4), 65536, 16384, 75, "0xA1B2C3D4",
-       false, "None", "assets", false},
-      {"7", "app_icon_256.png", "PNG", QDateTime::currentDateTime().addDays(-6),
-       32768, 24576, 25, "0xB2C3D4E5", false, "None", "assets/icons", false},
-
-      {"8", "main.cpp", "CPP", QDateTime::currentDateTime().addDays(-1), 8192,
-       2457, 70, "0xC3D4E5F6", false, "None", "src", false},
-      {"9", "MainWindow.cpp", "CPP", QDateTime::currentDateTime().addDays(-1),
-       26624, 7987, 70, "0xD4E5F6A7", false, "None", "src/ui", false},
-      {"10", "CompressionEngine.cpp", "CPP",
-       QDateTime::currentDateTime().addDays(-2), 18432, 5529, 70, "0xE5F6A7B8",
-       false, "None", "src/core", false}};
-
-  m_model->setItems(sampleFiles);
+  m_model->setItems(archiveItems);
   updateFolderTree();
   updateViewModeUI();
   updateEmptyStateVisibility();
@@ -831,7 +911,7 @@ void MainWindow::openArchiveFile(const QString &filename) {
 
   statusBar()->showMessage(tr("Opened archive: %1 (%2 items)")
                                .arg(QFileInfo(filename).fileName())
-                               .arg(sampleFiles.size()),
+                               .arg(archiveItems.size()),
                            3000);
 }
 
@@ -1203,8 +1283,47 @@ void MainWindow::onExtractFiles() {
   if (dir.isEmpty())
     return;
 
+  QStringList entriesToExtract;
+  const auto selectedRows = m_tableView->selectionModel()->selectedRows();
+  if (selectedRows.isEmpty()) {
+    for (const ArchiveItem &item : m_model->allItems()) {
+      const QString entryPath = archiveEntryPath(item);
+      if (!item.filename.isEmpty() && isSafeArchiveEntryPath(entryPath)) {
+        entriesToExtract.append(entryPath);
+      }
+    }
+  } else {
+    for (const QModelIndex &proxyIndex : selectedRows) {
+      const QModelIndex sourceIndex = m_proxyModel->mapToSource(proxyIndex);
+      if (!sourceIndex.isValid())
+        continue;
+      const ArchiveItem &item = m_model->itemAt(sourceIndex.row());
+      const QString entryPath = archiveEntryPath(item);
+      if (!item.filename.isEmpty() && isSafeArchiveEntryPath(entryPath)) {
+        entriesToExtract.append(entryPath);
+      }
+    }
+  }
+
+  if (entriesToExtract.isEmpty()) {
+    QMessageBox::warning(this, tr("Extraction Failed"),
+                         tr("No safe archive entries were selected for extraction."));
+    return;
+  }
+
+  QStringList arguments{QStringLiteral("-xf"), m_currentArchivePath,
+                        QStringLiteral("-C"), dir};
+  if (!selectedRows.isEmpty())
+    arguments.append(entriesToExtract);
+
+  QString errorMessage;
+  if (!runArchiveCommand(arguments, nullptr, &errorMessage)) {
+    QMessageBox::warning(this, tr("Extraction Failed"), errorMessage);
+    return;
+  }
+
   statusBar()->showMessage(
-      tr("Extracted %1 files to %2").arg(m_model->rowCount()).arg(dir), 3500);
+      tr("Extracted %1 item(s) to %2").arg(entriesToExtract.size()).arg(dir), 3500);
 }
 
 void MainWindow::onCheckOut() {
