@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
-project(MatterPackr VERSION 3.0.12 LANGUAGES CXX)
+project(MatterPackr VERSION 3.0.13 LANGUAGES C CXX)
+
+include(CTest)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,12 +25,76 @@ find_package(Qt6 6.2 REQUIRED COMPONENTS
     Svg
 )
 
-# Optional system libarchive / zlib if available
+include(FetchContent)
+
+option(MATTERPACKR_USE_SYSTEM_LIBARCHIVE
+       "Use a preinstalled libarchive instead of fetching the pinned source"
+       OFF)
+
+option(MATTERPACKR_ENABLE_7Z
+       "Fetch the pinned 7-Zip SDK for encrypted 7Z creation"
+       ON)
+
 find_package(ZLIB QUIET)
+if(NOT ZLIB_FOUND AND MINGW)
+    get_filename_component(MATTERPACKR_MINGW_BIN
+        "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    get_filename_component(MATTERPACKR_MINGW_ROOT
+        "${MATTERPACKR_MINGW_BIN}/.." ABSOLUTE)
+    find_path(ZLIB_INCLUDE_DIR zlib.h
+        HINTS "${MATTERPACKR_MINGW_ROOT}/x86_64-w64-mingw32/include")
+    find_library(ZLIB_LIBRARY NAMES z zlib
+        HINTS "${MATTERPACKR_MINGW_ROOT}/x86_64-w64-mingw32/lib")
+    if(ZLIB_INCLUDE_DIR AND ZLIB_LIBRARY)
+        set(ZLIB_FOUND TRUE CACHE BOOL "ZLIB found in the active MinGW toolchain" FORCE)
+        if(NOT TARGET ZLIB::ZLIB)
+            add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
+            set_target_properties(ZLIB::ZLIB PROPERTIES
+                IMPORTED_LOCATION "${ZLIB_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${ZLIB_INCLUDE_DIR}")
+        endif()
+    endif()
+endif()
+
+if(MATTERPACKR_USE_SYSTEM_LIBARCHIVE)
+    find_path(LIBARCHIVE_INCLUDE_DIR archive.h REQUIRED)
+    find_library(LIBARCHIVE_LIBRARY NAMES archive libarchive REQUIRED)
+    add_library(MatterPackr::Archive UNKNOWN IMPORTED)
+    set_target_properties(MatterPackr::Archive PROPERTIES
+        IMPORTED_LOCATION "${LIBARCHIVE_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${LIBARCHIVE_INCLUDE_DIR}"
+    )
+else()
+    set(ENABLE_TEST OFF CACHE BOOL "" FORCE)
+    set(ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    set(ENABLE_WERROR OFF CACHE BOOL "" FORCE)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(ENABLE_NETTLE OFF CACHE BOOL "" FORCE)
+    set(ENABLE_OPENSSL OFF CACHE BOOL "" FORCE)
+    set(ENABLE_LIBXML2 OFF CACHE BOOL "" FORCE)
+    set(ENABLE_EXPAT OFF CACHE BOOL "" FORCE)
+    set(ENABLE_PCREPOSIX OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        libarchive
+        URL https://github.com/libarchive/libarchive/releases/download/v3.7.7/libarchive-3.7.7.tar.gz
+        URL_HASH SHA256=4cc540a3e9a1eebdefa1045d2e4184831100667e6d7d5b315bb1cbc951f8ddff
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    FetchContent_MakeAvailable(libarchive)
+    add_library(MatterPackr::Archive ALIAS archive_static)
+endif()
+
+find_path(LIBZIP_INCLUDE_DIR zip.h)
+find_library(LIBZIP_LIBRARY NAMES zip libzip)
+if(LIBZIP_INCLUDE_DIR AND LIBZIP_LIBRARY)
+    set(MATTERPACKR_HAS_LIBZIP TRUE)
+endif()
 
 set(SOURCES
     src/main.cpp
     src/MainWindow.cpp
+    src/ArchiveBackend.cpp
+    src/SevenZipBackend.cpp
     src/ArchiveTableView.cpp
     src/ArchiveModel.cpp
     src/CompressionEngine.cpp
@@ -36,6 +102,7 @@ set(SOURCES
     src/AboutDialog.cpp
     src/UpdateManager.cpp
     src/CheckOutDialog.cpp
+    src/NewArchiveDialog.cpp
     src/FavoritesDialog.cpp
     resources.qrc
 )
@@ -46,6 +113,7 @@ endif()
 
 set(HEADERS
     src/MainWindow.h
+    src/ArchiveBackend.h
     src/ArchiveTableView.h
     src/ArchiveModel.h
     src/CompressionEngine.h
@@ -53,6 +121,7 @@ set(HEADERS
     src/AboutDialog.h
     src/UpdateManager.h
     src/CheckOutDialog.h
+    src/NewArchiveDialog.h
     src/FavoritesDialog.h
 )
 
@@ -73,6 +142,87 @@ target_link_libraries(MatterPackr PRIVATE
 if(ZLIB_FOUND)
     target_link_libraries(MatterPackr PRIVATE ZLIB::ZLIB)
     target_compile_definitions(MatterPackr PRIVATE HAVE_ZLIB)
+endif()
+
+target_link_libraries(MatterPackr PRIVATE MatterPackr::Archive)
+target_compile_definitions(MatterPackr PRIVATE MATTERPACKR_HAS_LIBARCHIVE)
+
+if(MATTERPACKR_HAS_LIBZIP)
+    target_include_directories(MatterPackr PRIVATE ${LIBZIP_INCLUDE_DIR})
+    target_link_libraries(MatterPackr PRIVATE ${LIBZIP_LIBRARY})
+    target_compile_definitions(MatterPackr PRIVATE MATTERPACKR_HAS_LIBZIP)
+endif()
+
+if(MATTERPACKR_ENABLE_7Z)
+    FetchContent_Declare(
+        sevenzip_sdk
+        GIT_REPOSITORY https://github.com/ip7z/7zip.git
+        GIT_TAG b88c6bc09339de32f7d18bbab900686b244f42ba
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(sevenzip_sdk)
+    file(GLOB_RECURSE MATTERPACKR_7Z_SDK_SOURCES CONFIGURE_DEPENDS
+        "${sevenzip_sdk_SOURCE_DIR}/CPP/Common/*.cpp"
+        "${sevenzip_sdk_SOURCE_DIR}/CPP/Windows/*.cpp"
+        "${sevenzip_sdk_SOURCE_DIR}/CPP/7zip/Common/*.cpp"
+        "${sevenzip_sdk_SOURCE_DIR}/CPP/7zip/Archive/Common/*.cpp"
+        "${sevenzip_sdk_SOURCE_DIR}/CPP/7zip/Archive/7z/*.cpp"
+        "${sevenzip_sdk_SOURCE_DIR}/CPP/7zip/Compress/*.cpp"
+        "${sevenzip_sdk_SOURCE_DIR}/CPP/7zip/Crypto/*.cpp"
+        "${sevenzip_sdk_SOURCE_DIR}/C/*.c"
+    )
+    list(FILTER MATTERPACKR_7Z_SDK_SOURCES EXCLUDE REGEX
+        ".*/(7zVersion\\.rc|resource\\.rc)$")
+    list(FILTER MATTERPACKR_7Z_SDK_SOURCES EXCLUDE REGEX
+        ".*/C/Util/.*")
+    add_library(MatterPackrSevenZip STATIC
+        ${MATTERPACKR_7Z_SDK_SOURCES}
+        src/SevenZipSdkFactory.cpp
+        src/SevenZipSdkGlobals.cpp
+    )
+    target_include_directories(MatterPackrSevenZip PRIVATE
+        ${sevenzip_sdk_SOURCE_DIR}/C
+        ${sevenzip_sdk_SOURCE_DIR}/CPP
+    )
+    target_compile_definitions(MatterPackrSevenZip PRIVATE
+        Z7_EXTERNAL_CODECS
+        Z7_7Z_SET_PROPERTIES
+        MATTERPACKR_HAS_7Z_SDK
+    )
+    target_link_libraries(MatterPackr PRIVATE MatterPackrSevenZip)
+    target_include_directories(MatterPackr PRIVATE
+        ${sevenzip_sdk_SOURCE_DIR}/C
+        ${sevenzip_sdk_SOURCE_DIR}/CPP
+    )
+    target_compile_definitions(MatterPackr PRIVATE MATTERPACKR_HAS_7Z_SDK)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(MatterPackr7zSmoke
+        tests/SevenZipSmoke.cpp
+        src/ArchiveBackend.cpp
+        src/SevenZipBackend.cpp
+    )
+    target_include_directories(MatterPackr7zSmoke PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_compile_definitions(MatterPackr7zSmoke PRIVATE
+        MATTERPACKR_HAS_LIBARCHIVE
+    )
+    target_link_libraries(MatterPackr7zSmoke PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        MatterPackr::Archive
+    )
+    if(MATTERPACKR_ENABLE_7Z)
+        target_include_directories(MatterPackr7zSmoke PRIVATE
+            ${sevenzip_sdk_SOURCE_DIR}/C
+            ${sevenzip_sdk_SOURCE_DIR}/CPP
+        )
+        target_compile_definitions(MatterPackr7zSmoke PRIVATE MATTERPACKR_HAS_7Z_SDK)
+        target_link_libraries(MatterPackr7zSmoke PRIVATE MatterPackrSevenZip)
+    endif()
+    add_test(NAME MatterPackr7zSmoke COMMAND MatterPackr7zSmoke)
 endif()
 
 if(WIN32)
@@ -108,4 +258,8 @@ include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
 if(ipo_supported)
     set_property(TARGET MatterPackr PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    if(MATTERPACKR_ENABLE_7Z)
+        set_property(TARGET MatterPackrSevenZip PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE FALSE)
+        set_property(TARGET MatterPackr PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE FALSE)
+    endif()
 endif()

@@ -7,6 +7,7 @@
 #include <QIcon>
 #include <QPixmap>
 #include <QApplication>
+#include <QColor>
 
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
@@ -20,21 +21,22 @@ AboutDialog::AboutDialog(QWidget *parent)
     : QDialog(parent) {
     setWindowTitle(tr("About MatterPackr"));
     setModal(true);
-    setFixedSize(440, 520);
+    setMinimumSize(440, 520);
+    setWindowFlags(windowFlags() | Qt::WindowMinimizeButtonHint
+                   | Qt::WindowMaximizeButtonHint);
 
-    QPalette pal = palette();
-    pal.setColor(QPalette::Window, QColor(0x18, 0x19, 0x20));
-    pal.setColor(QPalette::Base, QColor(0x16, 0x17, 0x1c));
-    pal.setColor(QPalette::WindowText, QColor(0xe5, 0xe7, 0xeb));
-    setPalette(pal);
     setAutoFillBackground(true);
 
 #ifdef Q_OS_WIN
     HWND hwnd = reinterpret_cast<HWND>(winId());
     if (hwnd) {
-        BOOL darkMode = TRUE;
-        if (FAILED(DwmSetWindowAttribute(hwnd, 20, &darkMode, sizeof(darkMode)))) {
-            DwmSetWindowAttribute(hwnd, 19, &darkMode, sizeof(darkMode));
+        const bool darkMode =
+            qApp->property("matterpackrTheme").toString() != QStringLiteral("light");
+        const BOOL useDarkMode = darkMode ? TRUE : FALSE;
+        if (FAILED(DwmSetWindowAttribute(hwnd, 20, &useDarkMode,
+                                         sizeof(useDarkMode)))) {
+            DwmSetWindowAttribute(hwnd, 19, &useDarkMode,
+                                  sizeof(useDarkMode));
         }
     }
 #endif
@@ -43,6 +45,27 @@ AboutDialog::AboutDialog(QWidget *parent)
 }
 
 void AboutDialog::setupUi() {
+    const bool darkMode =
+        qApp->property("matterpackrTheme").toString() != QStringLiteral("light");
+    const QString windowColor = darkMode ? QStringLiteral("#181920")
+                                         : QStringLiteral("#f8fafc");
+    const QString textColor = darkMode ? QStringLiteral("#e5e7eb")
+                                       : QStringLiteral("#1e293b");
+    const QString mutedColor = darkMode ? QStringLiteral("#9ca3af")
+                                        : QStringLiteral("#64748b");
+    const QString inputColor = darkMode ? QStringLiteral("#16171c")
+                                        : QStringLiteral("#ffffff");
+    const QString borderColor = darkMode ? QStringLiteral("#4b516b")
+                                         : QStringLiteral("#94a3b8");
+    setStyleSheet(QStringLiteral(
+        "QDialog { background-color: %1; color: %2; }"
+        "QLabel { color: %2; }"
+        "QTextEdit { background-color: %3; color: %2; border: 1px solid %4;"
+        " border-radius: 6px; padding: 8px; }"
+        "QPushButton { color: %2; background-color: %3; border: 1px solid %4;"
+        " border-radius: 4px; padding: 5px 12px; }")
+        .arg(windowColor, textColor, inputColor, borderColor));
+
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(24, 20, 24, 20);
     layout->setSpacing(8);
@@ -65,13 +88,16 @@ void AboutDialog::setupUi() {
 
     auto *lblVersion = new QLabel(tr("Version %1").arg(qApp->applicationVersion()), this);
     lblVersion->setAlignment(Qt::AlignCenter);
-    lblVersion->setStyleSheet("font-size: 12px; color: #6b7280;");
+    lblVersion->setStyleSheet(
+        QStringLiteral("font-size: 12px; color: %1;").arg(mutedColor));
     layout->addWidget(lblVersion);
 
     // 3. Copyright
     auto *lblCopyright = new QLabel(tr("Copyright © 2026 Z Software Labs. All rights reserved."), this);
     lblCopyright->setAlignment(Qt::AlignCenter);
-    lblCopyright->setStyleSheet("font-size: 11px; color: #9ca3af; margin-top: 2px;");
+    lblCopyright->setStyleSheet(
+        QStringLiteral("font-size: 11px; color: %1; margin-top: 2px;")
+            .arg(mutedColor));
     layout->addWidget(lblCopyright);
 
     // 4. Description
@@ -95,17 +121,11 @@ void AboutDialog::setupUi() {
     // 6. Scrollable License text box with MIT + Third-Party Credits
     auto *txtLicense = new QTextEdit(this);
     txtLicense->setReadOnly(true);
-    txtLicense->setStyleSheet(
-        "QTextEdit { "
-        "  font-family: Consolas, 'Courier New', monospace; "
-        "  font-size: 10pt; "
-        "  line-height: 1.4; "
-        "  background-color: palette(base); "
-        "  border: 1px solid palette(mid); "
-        "  border-radius: 6px; "
-        "  padding: 8px; "
-        "}"
-    );
+    txtLicense->setStyleSheet(QStringLiteral(
+        "QTextEdit { font-family: Consolas, 'Courier New', monospace;"
+        " font-size: 10pt; line-height: 1.4; background-color: %1;"
+        " color: %2; border: 1px solid %3; border-radius: 6px; padding: 8px; }")
+        .arg(inputColor, textColor, borderColor));
 
     const QString licenseHtml = QString(
         "<p style='margin-bottom: 8px;'>Permission is hereby granted, free of charge, to any person obtaining a copy "

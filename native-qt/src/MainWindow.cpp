@@ -1,9 +1,11 @@
 #include "MainWindow.h"
+#include "NewArchiveDialog.h"
 #include "AboutDialog.h"
 #include "OptionsDialog.h"
 #include "CheckOutDialog.h"
 #include "FavoritesDialog.h"
 #include "UpdateManager.h"
+#include "ArchiveBackend.h"
 #include <QApplication>
 #include <QStyleFactory>
 #include <QCloseEvent>
@@ -17,6 +19,7 @@
 #include <QHBoxLayout>
 #include <QMap>
 #include <QMessageBox>
+#include <QInputDialog>
 #include <QResizeEvent>
 #include <QSettings>
 #include <QThread>
@@ -64,6 +67,15 @@ bool isSafeArchiveEntryPath(const QString &entryPath) {
                       [](const QString &part) { return part == ".."; });
 }
 
+bool isRemovedDeveloperArchive(const QString &path) {
+  const QString lower = path.toLower();
+  return lower.endsWith(QStringLiteral(".tar.bz2"))
+      || lower.endsWith(QStringLiteral(".tbz2"))
+      || lower.endsWith(QStringLiteral(".tbz"))
+      || lower.endsWith(QStringLiteral(".tar.xz"))
+      || lower.endsWith(QStringLiteral(".txz"));
+}
+
 QString archiveEntryPath(const ArchiveItem &item) {
   const QString path = item.path.isEmpty()
       ? item.filename
@@ -72,6 +84,14 @@ QString archiveEntryPath(const ArchiveItem &item) {
 }
 
 using OperationCancel = std::shared_ptr<std::atomic_bool>;
+
+bool isEncryptionError(const QString &errorMessage) {
+  const QString normalized = errorMessage.toLower();
+  return normalized.contains(QStringLiteral("encrypted"))
+      || normalized.contains(QStringLiteral("password"))
+      || normalized.contains(QStringLiteral("passphrase"))
+      || normalized.contains(QStringLiteral("encryption"));
+}
 
 bool runArchiveCommand(const QStringList &arguments, QByteArray *standardOutput,
                        QString *errorMessage, const OperationCancel &cancel = {}) {
@@ -119,81 +139,39 @@ bool runArchiveCommand(const QStringList &arguments, QByteArray *standardOutput,
 
 QVector<ArchiveItem> listArchiveEntries(const QString &archivePath, QString *errorMessage,
                                          const OperationCancel &cancel = {}) {
-  QByteArray output;
-  if (!runArchiveCommand({QStringLiteral("-tvf"), archivePath}, &output, errorMessage,
-                         cancel)) {
+#ifdef MATTERPACKR_HAS_LIBARCHIVE
+  if (cancel && cancel->load()) {
+    if (errorMessage)
+      *errorMessage = QObject::tr("The archive operation was cancelled.");
     return {};
   }
-
-  QVector<ArchiveItem> items;
-  const QStringList lines = QString::fromLocal8Bit(output).split(
-      QRegularExpression(QStringLiteral("[\r\n]+")), Qt::SkipEmptyParts);
-  int id = 0;
-  const QRegularExpression detailPattern(
-      QStringLiteral("^\\S+\\s+\\S+\\s+\\S+\\s+(\\d+)\\s+"
-                     "([A-Za-z]{3}\\s+\\d{1,2}\\s+(?:\\d{2}:\\d{2}|\\d{4}))\\s+(.+)$"));
-  for (const QString &rawLine : lines) {
-    const QString line = rawLine.trimmed();
-    const QRegularExpressionMatch match = detailPattern.match(line);
-    if (!match.hasMatch()) {
-      if (errorMessage)
-        *errorMessage = QObject::tr("The archive engine returned unreadable metadata.");
-      return {};
-    }
-
-    const QString entryPath = match.captured(3).replace('\\', '/');
-    if (!isSafeArchiveEntryPath(entryPath)) {
-      if (errorMessage) {
-        *errorMessage = QObject::tr("The archive contains an unsafe path: %1").arg(entryPath);
-      }
-      return {};
-    }
-
-    const bool isDirectory = entryPath.endsWith('/');
-    const QString cleanPath = QDir::cleanPath(entryPath);
-    if (cleanPath == ".")
-      continue;
-    const int separator = cleanPath.lastIndexOf('/');
-    const QString filename = separator >= 0 ? cleanPath.mid(separator + 1) : cleanPath;
-    const QString directory = separator >= 0 ? cleanPath.left(separator) : QString();
-    const int dot = filename.lastIndexOf('.');
-    const QString type = isDirectory
-        ? QObject::tr("Folder")
-        : (dot > 0 ? filename.mid(dot + 1).toUpper() : QObject::tr("File"));
-    const qint64 size = match.captured(1).toLongLong();
-    const QString dateText = match.captured(2);
-    QDateTime modified = QLocale::c().toDateTime(dateText, "MMM d hh:mm");
-    if (!modified.isValid())
-      modified = QLocale::c().toDateTime(dateText, "MMM d yyyy");
-    if (modified.isValid() && dateText.count(' ') == 2
-        && dateText.contains(QRegularExpression(QStringLiteral("\\d{2}:\\d{2}$")))) {
-      modified.setDate(QDate(QDate::currentDate().year(), modified.date().month(),
-                             modified.date().day()));
-    }
-
-    ArchiveItem item;
-    item.id = QStringLiteral("entry-%1").arg(++id);
-    item.filename = filename;
-    item.type = type;
-    item.modified = modified;
-    item.size = size;
-    item.path = directory;
-    item.isDirectory = isDirectory;
-    item.packedSize = 0;
-    item.ratio = 0;
-    item.crc32 = QStringLiteral("-");
-    items.append(item);
-  }
-  return items;
+  QVector<ArchiveItem> nativeItems;
+  if (!ArchiveBackend::listEntries(archivePath, &nativeItems, errorMessage))
+    return {};
+  return nativeItems;
+#else
+  if (errorMessage)
+    *errorMessage = QObject::tr("The bundled libarchive backend is unavailable.");
+  return {};
+#endif
 }
 
-bool createEmptyArchive(const QString &archivePath, QString *errorMessage,
+bool createEmptyArchive(const QString &archivePath,
+                        const ArchiveBackend::ArchiveOptions &options,
+                        QString *errorMessage,
                         const OperationCancel &cancel = {}) {
+#ifdef MATTERPACKR_HAS_LIBARCHIVE
+  if (archivePath.toLower().endsWith(QStringLiteral(".7z"))) {
+    if (!options.password.isEmpty())
+      return ArchiveBackend::createEncrypted7z(archivePath, {}, options,
+                                               errorMessage, cancel);
+    return ArchiveBackend::create7z(archivePath, {}, errorMessage, cancel);
+  }
+  return ArchiveBackend::createEmpty(archivePath, errorMessage, cancel);
+#else
   const QString lowerPath = archivePath.toLower();
   if (lowerPath.endsWith(".7z") || lowerPath.endsWith(".tar.gz")
-      || lowerPath.endsWith(".tgz") || lowerPath.endsWith(".tar.bz2")
-      || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tar.xz")
-      || lowerPath.endsWith(".txz")) {
+      || lowerPath.endsWith(".tgz")) {
     if (errorMessage) {
       *errorMessage = QObject::tr(
           "This native archive writer currently supports ZIP and uncompressed TAR files.");
@@ -212,15 +190,17 @@ bool createEmptyArchive(const QString &archivePath, QString *errorMessage,
   return runArchiveCommand({QStringLiteral("-cf"), archivePath,
                              QStringLiteral("-T"), emptyList.fileName()},
                             nullptr, errorMessage, cancel);
+#endif
 }
 
 bool addFilesToArchive(const QString &archivePath, const QStringList &files,
                        QString *errorMessage, const OperationCancel &cancel = {}) {
+#ifdef MATTERPACKR_HAS_LIBARCHIVE
+  return ArchiveBackend::addFiles(archivePath, files, errorMessage, cancel);
+#else
   const QString lowerPath = archivePath.toLower();
   if (lowerPath.endsWith(".7z") || lowerPath.endsWith(".tar.gz")
-      || lowerPath.endsWith(".tgz") || lowerPath.endsWith(".tar.bz2")
-      || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tar.xz")
-      || lowerPath.endsWith(".txz")) {
+      || lowerPath.endsWith(".tgz")) {
     if (errorMessage) {
       *errorMessage = QObject::tr(
           "Adding files currently supports ZIP and uncompressed TAR files.");
@@ -235,16 +215,18 @@ bool addFilesToArchive(const QString &archivePath, const QStringList &files,
               << fileInfo.fileName();
   }
   return runArchiveCommand(arguments, nullptr, errorMessage, cancel);
+#endif
 }
 
 bool removeEntriesFromArchive(const QString &archivePath,
                               const QStringList &entryPaths,
                               QString *errorMessage, const OperationCancel &cancel = {}) {
+#ifdef MATTERPACKR_HAS_LIBARCHIVE
+  return ArchiveBackend::removeEntries(archivePath, entryPaths, errorMessage, cancel);
+#else
   const QString lowerPath = archivePath.toLower();
   if (lowerPath.endsWith(".7z") || lowerPath.endsWith(".tar.gz")
-      || lowerPath.endsWith(".tgz") || lowerPath.endsWith(".tar.bz2")
-      || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tar.xz")
-      || lowerPath.endsWith(".txz")) {
+      || lowerPath.endsWith(".tgz")) {
     if (errorMessage) {
       *errorMessage = QObject::tr(
           "Deleting files currently supports ZIP and uncompressed TAR files.");
@@ -327,6 +309,7 @@ bool removeEntriesFromArchive(const QString &archivePath,
 
   QFile::remove(backupPath);
   return true;
+#endif
 }
 
 bool verifyArchiveContents(const QString &archivePath, QString *errorMessage,
@@ -348,6 +331,11 @@ bool verifyArchiveContents(const QString &archivePath, QString *errorMessage,
     return false;
   }
 
+#ifdef MATTERPACKR_HAS_LIBARCHIVE
+  if (ArchiveBackend::extractEntries(archivePath, staging.path(), {},
+                                     errorMessage, cancel))
+    return true;
+#endif
   return runArchiveCommand({QStringLiteral("-xf"), archivePath,
                             QStringLiteral("-C"), staging.path()},
                            nullptr, errorMessage, cancel);
@@ -608,6 +596,9 @@ void MainWindow::createCentralGrid() {
           this, &MainWindow::onSelectionChanged);
   connect(m_tableView, &QTableView::doubleClicked, this,
           &MainWindow::onTableDoubleClicked);
+  m_tableView->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(m_tableView, &QWidget::customContextMenuRequested, this,
+          &MainWindow::onTableContextMenuRequested);
 
   tableLayout->addWidget(m_tableView);
   m_splitter->addWidget(m_tableContainer);
@@ -751,11 +742,14 @@ void MainWindow::updateEmptyStateVisibility() {
   if (m_actProperties)
     m_actProperties->setEnabled(hasFiles || hasArchive);
   if (m_actTestIntegrity)
-    m_actTestIntegrity->setEnabled(hasArchive);
+    m_actTestIntegrity->setEnabled(
+        hasArchive && ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canTest);
   if (m_actAdd)
-    m_actAdd->setEnabled(true);
+    m_actAdd->setEnabled(
+        hasArchive && ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canAdd);
   if (m_actExtract)
-    m_actExtract->setEnabled(hasFiles);
+    m_actExtract->setEnabled(
+        hasFiles && ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canExtract);
   if (m_actCheckOut)
     m_actCheckOut->setEnabled(hasFiles);
   if (m_actSelectAll)
@@ -1022,7 +1016,8 @@ void MainWindow::updateStatusBarStats() {
 
   bool hasSelection = selCount > 0;
   if (m_actDelete)
-    m_actDelete->setEnabled(hasSelection);
+    m_actDelete->setEnabled(
+        hasSelection && ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canRemove);
   if (m_actView)
     m_actView->setEnabled(hasSelection);
 }
@@ -1048,8 +1043,6 @@ QIcon MainWindow::getArchiveTypeIcon(const QString &filePath) const {
   QString ext;
   QString lowerPath = filePath.toLower();
   if (lowerPath.endsWith(".tar.gz") || lowerPath.endsWith(".tgz")) ext = "tgz";
-  else if (lowerPath.endsWith(".tar.bz2") || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tbz")) ext = "tbz2";
-  else if (lowerPath.endsWith(".tar.xz") || lowerPath.endsWith(".txz")) ext = "txz";
   else {
     int dotIdx = filePath.lastIndexOf('.');
     if (dotIdx != -1) {
@@ -1076,11 +1069,8 @@ QIcon MainWindow::getArchiveTypeIcon(const QString &filePath) const {
   else if (ext == "rar") result = getCustomIcon("rar");
   else if (ext == "tar") result = getCustomIcon("tar");
   else if (ext == "tgz") result = getCustomIcon("tgz");
-  else if (ext == "tbz2") result = getCustomIcon("tbz2");
-  else if (ext == "txz") result = getCustomIcon("txz");
   else if (ext == "gz" || ext == "gzip") result = getCustomIcon("gz");
   else if (ext == "bz2" || ext == "bzip2") result = getCustomIcon("bz2");
-  else if (ext == "xz") result = getCustomIcon("txz");
   else if (ext == "iso") result = getCustomIcon("iso");
   else if (ext == "img" || ext == "bin") result = getCustomIcon("img");
   else if (ext == "cab") result = getCustomIcon("cab");
@@ -1101,16 +1091,54 @@ void MainWindow::onNewArchive() {
   QString filename = QFileDialog::getSaveFileName(
       this, tr("Create New Archive"), QString(),
       tr("ZIP Archives (*.zip);;7-Zip Archives (*.7z);;TAR Archives "
-         "(*.tar);;All Files (*.*)"));
+         "(*.tar *.tar.gz *.tgz);;All Files (*.*)"));
   if (filename.isEmpty())
     return;
 
+  NewArchiveDialog setupDialog(filename, this);
+  if (setupDialog.exec() != QDialog::Accepted)
+    return;
+  const QString format = setupDialog.format();
+  QString archiveBaseName = filename;
+  const QStringList knownSuffixes = {
+      QStringLiteral(".tar.gz"), QStringLiteral(".tgz"),
+      QStringLiteral(".zip"), QStringLiteral(".7z"),
+      QStringLiteral(".tar")};
+  for (const QString &suffix : knownSuffixes) {
+    if (archiveBaseName.endsWith(suffix, Qt::CaseInsensitive)) {
+      archiveBaseName.chop(suffix.size());
+      break;
+    }
+  }
+  const QString selectedSuffix =
+      format == QStringLiteral("zip") ? QStringLiteral(".zip")
+      : format == QStringLiteral("7z") ? QStringLiteral(".7z")
+      : format == QStringLiteral("tar.gz") ? QStringLiteral(".tar.gz")
+                                            : QStringLiteral(".tar");
+  filename = archiveBaseName + selectedSuffix;
+  const QStringList files = setupDialog.files();
+  ArchiveBackend::ArchiveOptions archiveOptions;
+  archiveOptions.password = setupDialog.password();
+
   setArchiveOperationActive(true, tr("Creating archive..."));
   const OperationCancel cancel = m_archiveOperationCancel;
-  QtConcurrent::run([this, filename, cancel]() {
+  QtConcurrent::run([this, filename, format, files, archiveOptions, cancel]() {
     QString errorMessage;
-    const bool success = createEmptyArchive(filename, &errorMessage, cancel);
-    QMetaObject::invokeMethod(this, [this, filename, success, errorMessage]() {
+    bool success = false;
+    if (format == QStringLiteral("7z")) {
+      success = archiveOptions.password.isEmpty()
+          ? ArchiveBackend::create7z(filename, files, &errorMessage, cancel)
+          : ArchiveBackend::createEncrypted7z(filename, files, archiveOptions,
+                                               &errorMessage, cancel);
+    } else if (format == QStringLiteral("zip")) {
+      success = ArchiveBackend::createZip(filename, files, archiveOptions,
+                                          &errorMessage, cancel);
+    } else {
+      success = ArchiveBackend::createEmpty(filename, &errorMessage, cancel);
+      if (success && !files.isEmpty())
+        success = addFilesToArchive(filename, files, &errorMessage, cancel);
+    }
+    QMetaObject::invokeMethod(this, [this, filename, archiveOptions, success, errorMessage]() {
       setArchiveOperationActive(false);
       if (!success) {
         QMessageBox::warning(this, tr("Create Archive Failed"), errorMessage);
@@ -1118,8 +1146,8 @@ void MainWindow::onNewArchive() {
       }
       m_model->clear();
       m_currentArchivePath = filename;
-      m_isCurrentEncrypted = false;
-      m_currentPassword.clear();
+      m_isCurrentEncrypted = !archiveOptions.password.isEmpty();
+      m_currentPassword = archiveOptions.password;
       updateWindowTitle();
       updateEmptyStateVisibility();
       updateStatusBarStats();
@@ -1135,8 +1163,8 @@ void MainWindow::onOpenArchive() {
 
   QString filename = QFileDialog::getOpenFileName(
       this, tr("Open Archive"), QString(),
-      tr("Supported Archives (*.zip *.7z *.tar *.tar.gz *.tgz *.gz *.tar.bz2 "
-         "*.tbz2 *.tar.xz *.txz *.rar *.iso *.cab *.img *.cpio *.ar);;All "
+      tr("Supported Archives (*.zip *.7z *.tar *.tar.gz *.tgz *.gz "
+         "*.rar *.iso *.cab *.img *.cpio *.ar);;All "
          "Files (*.*)"));
   if (filename.isEmpty())
     return;
@@ -1165,6 +1193,12 @@ void MainWindow::openArchiveFile(const QString &filename) {
   }
 
   const QString archivePath = fileInfo.exists() ? fileInfo.absoluteFilePath() : path;
+  if (isRemovedDeveloperArchive(archivePath)) {
+    QMessageBox::information(
+        this, tr("Archive Format Not Supported"),
+        tr("BZip2 and XZ-compressed TAR archives are not supported by MatterPackr."));
+    return;
+  }
   setArchiveOperationActive(true, tr("Opening archive..."));
   const OperationCancel cancel = m_archiveOperationCancel;
   QtConcurrent::run([this, archivePath, cancel]() {
@@ -1174,7 +1208,13 @@ void MainWindow::openArchiveFile(const QString &filename) {
     QMetaObject::invokeMethod(this, [this, archivePath, archiveItems, errorMessage]() {
       setArchiveOperationActive(false);
       if (archiveItems.isEmpty() && !errorMessage.isEmpty()) {
-        QMessageBox::warning(this, tr("Open Archive Failed"), errorMessage);
+        const QString message = isEncryptionError(errorMessage)
+            ? tr("This archive is encrypted, but the installed tar/libarchive engine "
+                 "does not support password-protected archive access. "
+                 "Install a compatible archive engine before opening it.\n\n%1")
+                  .arg(errorMessage)
+            : errorMessage;
+        QMessageBox::warning(this, tr("Open Archive Failed"), message);
         return;
       }
       m_currentArchivePath = archivePath;
@@ -1204,8 +1244,8 @@ void MainWindow::onAddCurrentToFavorites() {
 void MainWindow::onAddFavoriteFromDisk() {
   QString filename = QFileDialog::getOpenFileName(
       this, tr("Add Archive to Favorites"), QString(),
-      tr("Supported Archives (*.zip *.7z *.tar *.tar.gz *.tgz *.gz *.tar.bz2 "
-         "*.tbz2 *.tar.xz *.txz *.rar *.iso *.cab *.img *.cpio *.ar);;All Files (*.*)"));
+      tr("Supported Archives (*.zip *.7z *.tar *.tar.gz *.tgz *.gz "
+         "*.rar *.iso *.cab *.img *.cpio *.ar);;All Files (*.*)"));
   if (filename.isEmpty())
     return;
 
@@ -1398,7 +1438,7 @@ void MainWindow::onSaveArchiveAs() {
   if (filename.isEmpty())
     return;
 
-  if (QFileInfo::canonicalFilePath(m_currentArchivePath)
+  if (QFileInfo(m_currentArchivePath).canonicalFilePath()
           != QFileInfo(filename).canonicalFilePath()
       && !QFile::copy(m_currentArchivePath, filename)) {
     QMessageBox::warning(this, tr("Save Archive Failed"),
@@ -1556,6 +1596,12 @@ void MainWindow::onArchiveProperties() {
 void MainWindow::onAddFiles() {
   if (m_archiveOperationActive)
     return;
+  if (m_isCurrentEncrypted) {
+    QMessageBox::information(
+        this, tr("Encrypted Archive"),
+        tr("Adding files to an encrypted 7Z archive is not available yet."));
+    return;
+  }
   QStringList files = QFileDialog::getOpenFileNames(
       this, tr("Add Files to Archive"), QString(), tr("All Files (*.*)"));
   if (files.isEmpty())
@@ -1633,17 +1679,23 @@ void MainWindow::onExtractFiles() {
     return;
   }
 
-  QStringList arguments{QStringLiteral("-xf"), m_currentArchivePath,
-                        QStringLiteral("-C"), dir};
-  if (!selectedRows.isEmpty())
-    arguments.append(entriesToExtract);
-
   const QStringList entries = entriesToExtract;
+  const QString archivePath = m_currentArchivePath;
   setArchiveOperationActive(true, tr("Extracting files..."));
   const OperationCancel cancel = m_archiveOperationCancel;
-  QtConcurrent::run([this, arguments, entries, dir, cancel]() {
+  QtConcurrent::run([this, archivePath, entries, dir, cancel]() {
     QString errorMessage;
-    const bool success = runArchiveCommand(arguments, nullptr, &errorMessage, cancel);
+    bool success = false;
+#ifdef MATTERPACKR_HAS_LIBARCHIVE
+    success = ArchiveBackend::extractEntries(
+        archivePath, dir, entries, &errorMessage, cancel);
+#endif
+    if (!success && errorMessage.isEmpty()) {
+      QStringList arguments{QStringLiteral("-xf"), archivePath,
+                            QStringLiteral("-C"), dir};
+      arguments.append(entries);
+      success = runArchiveCommand(arguments, nullptr, &errorMessage, cancel);
+    }
     QMetaObject::invokeMethod(this, [this, entries, dir, success, errorMessage]() {
       setArchiveOperationActive(false);
       if (!success) {
@@ -1835,6 +1887,12 @@ bool MainWindow::promptAndCleanUpCheckOut() {
 void MainWindow::onDeleteFiles() {
   if (m_archiveOperationActive)
     return;
+  if (m_isCurrentEncrypted) {
+    QMessageBox::information(
+        this, tr("Encrypted Archive"),
+        tr("Removing files from an encrypted 7Z archive is not available yet."));
+    return;
+  }
   auto selection = m_tableView->selectionModel()->selectedRows();
   if (selection.isEmpty())
     return;
@@ -2065,6 +2123,46 @@ void MainWindow::onViewFile() {
 
 void MainWindow::onSelectAllEntries() { m_tableView->selectAll(); }
 
+void MainWindow::onTableContextMenuRequested(const QPoint &position) {
+  if (!m_tableView || !m_tableView->selectionModel())
+    return;
+
+  const QModelIndex index = m_tableView->indexAt(position);
+  if (index.isValid() && !m_tableView->selectionModel()->isRowSelected(
+                             index.row(), QModelIndex())) {
+    m_tableView->selectRow(index.row());
+  }
+
+  QMenu menu(this);
+  if (m_actAdd)
+    menu.addAction(m_actAdd);
+  if (m_actExtract)
+    menu.addAction(m_actExtract);
+  if (m_actView)
+    menu.addAction(m_actView);
+  if (m_actCheckOut)
+    menu.addAction(m_actCheckOut);
+  if (m_actDelete)
+    menu.addAction(m_actDelete);
+
+  if (!menu.isEmpty())
+    menu.addSeparator();
+  if (m_actSelectAll)
+    menu.addAction(m_actSelectAll);
+
+  if (!menu.isEmpty())
+    menu.addSeparator();
+  if (m_actProperties)
+    menu.addAction(m_actProperties);
+  if (m_actTestIntegrity)
+    menu.addAction(m_actTestIntegrity);
+  if (m_actSaveAs)
+    menu.addAction(m_actSaveAs);
+
+  if (!menu.isEmpty())
+    menu.exec(m_tableView->viewport()->mapToGlobal(position));
+}
+
 void MainWindow::applyTheme(const QString &mode) {
   QString activeMode = mode;
   if (activeMode == "device") {
@@ -2079,6 +2177,7 @@ void MainWindow::applyTheme(const QString &mode) {
   }
 
   bool isDark = (activeMode != "light");
+  qApp->setProperty("matterpackrTheme", isDark ? "dark" : "light");
   QString qssPath = isDark ? ":/style.qss" : ":/style-light.qss";
   QFile styleFile(qssPath);
   if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {

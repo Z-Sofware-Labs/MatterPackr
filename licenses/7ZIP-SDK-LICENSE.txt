@@ -1,0 +1,20 @@
+7-Zip SDK licensing notice
+==========================
+
+MatterPackr uses source components from the 7-Zip project for encrypted
+7Z archive creation.
+
+The official 7-Zip project and its source are available at:
+https://github.com/ip7z/7zip
+
+The 7-Zip project states that most of the 7z.dll code is licensed under the
+GNU LGPL, with additional BSD-licensed components and an unRAR license
+restriction for code derived from unRAR. Binary redistributions must include
+the related license information and notices.
+
+The standalone LZMA SDK is public domain. MatterPackr does not use these
+components to create RAR archives or recreate the proprietary RAR algorithm.
+
+The complete license text for the exact SDK revision must be shipped with
+release artifacts and is available from:
+https://www.7-zip.org/license.txt

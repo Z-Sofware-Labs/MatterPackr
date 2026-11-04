@@ -27,6 +27,7 @@ class QToolButton;
 class QLineEdit;
 class UpdateManager;
 class OptionsDialog;
+class NewArchiveDialog;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -82,6 +83,7 @@ private slots:
     // UI events
     void onSelectionChanged();
     void onTableDoubleClicked(const QModelIndex &index);
+    void onTableContextMenuRequested(const QPoint &position);
 
 private:
     void createActions();

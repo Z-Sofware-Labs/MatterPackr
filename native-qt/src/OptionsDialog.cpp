@@ -156,22 +156,19 @@ void OptionsDialog::showEvent(QShowEvent *event) {
 
 void OptionsDialog::initFileTypes() {
   m_fileTypes = {
-      // Read & Write (7 Formats)
-      {"zip", ".zip", "ZIP (Deflate / AES-256)", "ZIP Archive", "read_write",
-       "Deflate, BZip2, AES-256", ":/filetypes/zip.png"},
+      // Read & Write (5 Formats)
+      {"zip", ".zip", "ZIP (Deflate)", "ZIP Archive", "read_write",
+       "Deflate, BZip2; encryption requires a compatible archive engine",
+       ":/filetypes/zip.png"},
       {"7z", ".7z", "7z (LZMA / LZMA2)", "7-Zip Archive", "read_write",
-       "LZMA, LZMA2, PPMd, BCJ2", ":/filetypes/7z.png"},
+       "LZMA, LZMA2, PPMd, BCJ2; encryption requires a compatible archive engine",
+       ":/filetypes/7z.png"},
       {"tar", ".tar", "TAR (POSIX Container)", "Tape Archive (TAR)",
        "read_write", "POSIX ustar, pax, GNU tar", ":/filetypes/tar.png"},
       {"tar.gz", ".tar.gz", "TAR+GZIP (.tgz)", "Gzip Tarball (TAR+GZIP)",
        "read_write", "RFC 1952 Deflate stream", ":/filetypes/tgz.png"},
       {"gz", ".gz", "GZIP (Single Stream)", "GNU Zip (GZIP)", "read_write",
        "RFC 1952 single data stream", ":/filetypes/gz.png"},
-      {"tar.bz2", ".tar.bz2", "BZIP2+TAR (.tbz2)", "Bzip2 Tarball (BZIP2+TAR)",
-       "read_write", "Burrows-Wheeler block sorting", ":/filetypes/tbz2.png"},
-      {"tar.xz", ".tar.xz", "XZ+TAR (.txz)", "XZ Tarball (XZ+TAR)",
-       "read_write", "LZMA2 multi-stream compression", ":/filetypes/txz.png"},
-
       // Read Only (6 Formats)
       {"rar", ".rar", "RAR (unRAR v7.0)", "Roshal Archive", "read_only",
        "unRAR 7.0 (RAR 1.5–5.0+)", ":/filetypes/rar.png"},
@@ -578,22 +575,6 @@ void OptionsDialog::registerFileAssociations(const QStringList &extensions) {
        {"application/gzip", "application/x-gzip"},
        {"org.gnu.gnu-zip-archive"},
        {".gz"}},
-
-      {".tar.bz2",
-       "MatterPackrTBZ2",
-       "MatterPackr Bzip2 Tarball",
-       "application/x-bzip2",
-       {"application/x-bzip2", "application/x-bzip-compressed-tar"},
-       {"public.bzip2-archive"},
-       {".tar.bz2", ".tbz2", ".tbz"}},
-
-      {".tar.xz",
-       "MatterPackrTXZ",
-       "MatterPackr XZ Tarball",
-       "application/x-xz",
-       {"application/x-xz", "application/x-xz-compressed-tar"},
-       {"org.tukaani.xz-archive"},
-       {".tar.xz", ".txz"}},
 
       {".rar",
        "MatterPackrRAR",

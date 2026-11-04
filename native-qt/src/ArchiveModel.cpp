@@ -123,10 +123,6 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
         const QString lowerName = fn.toLower();
         if (lowerName.endsWith(".tar.gz") || lowerName.endsWith(".tgz")) {
             ext = "tgz";
-        } else if (lowerName.endsWith(".tar.bz2") || lowerName.endsWith(".tbz2") || lowerName.endsWith(".tbz")) {
-            ext = "tbz2";
-        } else if (lowerName.endsWith(".tar.xz") || lowerName.endsWith(".txz")) {
-            ext = "txz";
         }
 
         auto it = s_iconCache.constFind(ext);
@@ -148,11 +144,8 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
         else if (ext == "rar") resolved = loadCustomIcon("rar");
         else if (ext == "tar") resolved = loadCustomIcon("tar");
         else if (ext == "tgz") resolved = loadCustomIcon("tgz");
-        else if (ext == "tbz2") resolved = loadCustomIcon("tbz2");
-        else if (ext == "txz") resolved = loadCustomIcon("txz");
         else if (ext == "gz" || ext == "gzip") resolved = loadCustomIcon("gz");
         else if (ext == "bz2" || ext == "bzip2") resolved = loadCustomIcon("bz2");
-        else if (ext == "xz") resolved = loadCustomIcon("txz");
         else if (ext == "iso") resolved = loadCustomIcon("iso");
         else if (ext == "img" || ext == "bin") resolved = loadCustomIcon("img");
         else if (ext == "cab") resolved = loadCustomIcon("cab");

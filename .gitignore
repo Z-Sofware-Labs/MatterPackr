@@ -7,6 +7,7 @@ coverage/
 .env*
 !.env.example
 native-qt/build/
+native-qt/build-*/
 compile_commands.json
 .vscode/
 .clangd

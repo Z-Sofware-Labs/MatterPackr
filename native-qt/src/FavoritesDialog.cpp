@@ -173,16 +173,12 @@ QIcon FavoritesDialog::iconForPath(const QString &path) {
 
     QString lowerPath = path.toLower();
     if (lowerPath.endsWith(".tar.gz") || lowerPath.endsWith(".tgz")) return getCustomIcon("tgz");
-    if (lowerPath.endsWith(".tar.bz2") || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tbz")) return getCustomIcon("tbz2");
-    if (lowerPath.endsWith(".tar.xz") || lowerPath.endsWith(".txz")) return getCustomIcon("txz");
 
     QString ext = QFileInfo(path).suffix().toLower();
     if (ext == "zip" || ext == "zipx") return getCustomIcon("zip");
     if (ext == "7z") return getCustomIcon("7z");
     if (ext == "tar") return getCustomIcon("tar");
     if (ext == "gz" || ext == "gzip") return getCustomIcon("gz");
-    if (ext == "bz2" || ext == "bzip2") return getCustomIcon("bz2");
-    if (ext == "xz") return getCustomIcon("txz");
     if (ext == "rar") return getCustomIcon("rar");
     if (ext == "iso") return getCustomIcon("iso");
     if (ext == "cab") return getCustomIcon("cab");
@@ -438,8 +434,8 @@ void FavoritesDialog::onAddCurrent() {
 void FavoritesDialog::onAddFromDisk() {
     QString filename = QFileDialog::getOpenFileName(
         this, tr("Add Archive to Favorites"), QString(),
-        tr("Supported Archives (*.zip *.7z *.tar *.tar.gz *.tgz *.gz *.tar.bz2 "
-           "*.tbz2 *.tar.xz *.txz *.rar *.iso *.cab *.img *.cpio *.ar);;All Files (*.*)"));
+        tr("Supported Archives (*.zip *.7z *.tar *.tar.gz *.tgz *.gz "
+           "*.rar *.iso *.cab *.img *.cpio *.ar);;All Files (*.*)"));
     if (filename.isEmpty()) return;
 
     QString cleanPath = QDir::toNativeSeparators(filename);
