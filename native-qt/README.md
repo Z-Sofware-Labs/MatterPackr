@@ -20,6 +20,10 @@ The native open and extract workflows invoke this engine through `QProcess`. If 
 is unavailable, MatterPackr reports an operation error instead of fabricating
 archive entries or extracted file contents.
 
+Native archive creation and adding files currently support ZIP and uncompressed
+TAR files through the same engine. 7-Zip and compressed TAR creation require a
+future archive-writer integration and are rejected explicitly.
+
 ---
 
 ## Quick Build & Run

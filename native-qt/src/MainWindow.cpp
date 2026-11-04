@@ -17,7 +17,6 @@
 #include <QHBoxLayout>
 #include <QMap>
 #include <QMessageBox>
-#include <QRandomGenerator>
 #include <QResizeEvent>
 #include <QSettings>
 #include <QThread>
@@ -33,6 +32,7 @@
 #include <QFileOpenEvent>
 #include <QProcess>
 #include <QDir>
+#include <QTemporaryFile>
 #include <QRegularExpression>
 #include <algorithm>
 #include <functional>
@@ -124,6 +124,8 @@ QVector<ArchiveItem> listArchiveEntries(const QString &archivePath, QString *err
 
     const bool isDirectory = entryPath.endsWith('/');
     const QString cleanPath = QDir::cleanPath(entryPath);
+    if (cleanPath == ".")
+      continue;
     const int separator = cleanPath.lastIndexOf('/');
     const QString filename = separator >= 0 ? cleanPath.mid(separator + 1) : cleanPath;
     const QString directory = separator >= 0 ? cleanPath.left(separator) : QString();
@@ -142,6 +144,55 @@ QVector<ArchiveItem> listArchiveEntries(const QString &archivePath, QString *err
     items.append(item);
   }
   return items;
+}
+
+bool createEmptyArchive(const QString &archivePath, QString *errorMessage) {
+  const QString lowerPath = archivePath.toLower();
+  if (lowerPath.endsWith(".7z") || lowerPath.endsWith(".tar.gz")
+      || lowerPath.endsWith(".tgz") || lowerPath.endsWith(".tar.bz2")
+      || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tar.xz")
+      || lowerPath.endsWith(".txz")) {
+    if (errorMessage) {
+      *errorMessage = QObject::tr(
+          "This native archive writer currently supports ZIP and uncompressed TAR files.");
+    }
+    return false;
+  }
+
+  QTemporaryFile emptyList;
+  emptyList.setAutoRemove(true);
+  if (!emptyList.open()) {
+    if (errorMessage)
+      *errorMessage = QObject::tr("Could not prepare the new archive.");
+    return false;
+  }
+  emptyList.close();
+  return runArchiveCommand({QStringLiteral("-cf"), archivePath,
+                             QStringLiteral("-T"), emptyList.fileName()},
+                            nullptr, errorMessage);
+}
+
+bool addFilesToArchive(const QString &archivePath, const QStringList &files,
+                       QString *errorMessage) {
+  const QString lowerPath = archivePath.toLower();
+  if (lowerPath.endsWith(".7z") || lowerPath.endsWith(".tar.gz")
+      || lowerPath.endsWith(".tgz") || lowerPath.endsWith(".tar.bz2")
+      || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tar.xz")
+      || lowerPath.endsWith(".txz")) {
+    if (errorMessage) {
+      *errorMessage = QObject::tr(
+          "Adding files currently supports ZIP and uncompressed TAR files.");
+    }
+    return false;
+  }
+
+  QStringList arguments{QStringLiteral("-rf"), archivePath};
+  for (const QString &filePath : files) {
+    const QFileInfo fileInfo(filePath);
+    arguments << QStringLiteral("-C") << fileInfo.absolutePath()
+              << fileInfo.fileName();
+  }
+  return runArchiveCommand(arguments, nullptr, errorMessage);
 }
 
 }
@@ -841,6 +892,12 @@ void MainWindow::onNewArchive() {
   if (filename.isEmpty())
     return;
 
+  QString errorMessage;
+  if (!createEmptyArchive(filename, &errorMessage)) {
+    QMessageBox::warning(this, tr("Create Archive Failed"), errorMessage);
+    return;
+  }
+
   m_model->clear();
   m_currentArchivePath = filename;
   m_isCurrentEncrypted = false;
@@ -1122,6 +1179,14 @@ void MainWindow::onSaveArchiveAs() {
   if (filename.isEmpty())
     return;
 
+  if (QFileInfo::canonicalFilePath(m_currentArchivePath)
+          != QFileInfo(filename).canonicalFilePath()
+      && !QFile::copy(m_currentArchivePath, filename)) {
+    QMessageBox::warning(this, tr("Save Archive Failed"),
+                         tr("Could not copy the archive to:\n%1").arg(filename));
+    return;
+  }
+
   m_currentArchivePath = filename;
   updateWindowTitle();
   statusBar()->showMessage(
@@ -1243,30 +1308,28 @@ void MainWindow::onAddFiles() {
   if (files.isEmpty())
     return;
 
-  for (const QString &filepath : files) {
-    QFileInfo fi(filepath);
-    qint64 size = fi.size();
-    qint64 compSize = static_cast<qint64>(size * 0.65);
-    int ratio = 35;
-
-    ArchiveItem item{
-        QString::number(QRandomGenerator::global()->generate()),
-        fi.fileName(),
-        fi.suffix().toUpper(),
-        fi.lastModified(),
-        size,
-        compSize,
-        ratio,
-        QString("0x%1")
-            .arg(QRandomGenerator::global()->generate(), 8, 16, QChar('0'))
-            .toUpper(),
-        m_isCurrentEncrypted,
-        m_isCurrentEncrypted ? "AES-256" : "None",
-        "",
-        false};
-    m_model->addItem(item);
+  if (m_currentArchivePath.isEmpty() || !QFile::exists(m_currentArchivePath)) {
+    QMessageBox::warning(this, tr("Add Files Failed"),
+                         tr("Create or open an archive before adding files."));
+    return;
   }
 
+  QString errorMessage;
+  if (!addFilesToArchive(m_currentArchivePath, files, &errorMessage)) {
+    QMessageBox::warning(this, tr("Add Files Failed"), errorMessage);
+    return;
+  }
+
+  const QVector<ArchiveItem> archiveItems =
+      listArchiveEntries(m_currentArchivePath, &errorMessage);
+  if (archiveItems.isEmpty() && !errorMessage.isEmpty()) {
+    QMessageBox::warning(this, tr("Add Files Failed"), errorMessage);
+    return;
+  }
+
+  m_model->setItems(archiveItems);
+  updateFolderTree();
+  updateViewModeUI();
   updateEmptyStateVisibility();
   updateStatusBarStats();
 
