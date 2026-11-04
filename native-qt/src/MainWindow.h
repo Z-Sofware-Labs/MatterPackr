@@ -15,6 +15,9 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QPushButton>
+#include <QProgressDialog>
+#include <memory>
+#include <atomic>
 #include "ArchiveModel.h"
 #include "ArchiveTableView.h"
 #include "CompressionEngine.h"
@@ -52,6 +55,7 @@ private slots:
     void onCloseArchive();
     void onSaveArchiveAs();
     void onArchiveProperties();
+    void onTestArchiveIntegrity();
 
     // Actions menu
     void onAddFiles();
@@ -94,6 +98,8 @@ private:
     void updateFolderTree();
     void updateNavBar();
     void updateViewModeUI();
+    void setArchiveOperationActive(bool active, const QString &message = QString());
+    void cancelArchiveOperation();
     void highlightCurrentFolderInTree();
     void onFolderTreeItemClicked(QTreeWidgetItem *item, int column);
     void onNavUpClicked();
@@ -134,6 +140,7 @@ private:
     QAction *m_actCloseArchive = nullptr;
     QAction *m_actSaveAs = nullptr;
     QAction *m_actProperties = nullptr;
+    QAction *m_actTestIntegrity = nullptr;
 
     QAction *m_actAdd = nullptr;
     QAction *m_actExtract = nullptr;
@@ -167,4 +174,7 @@ private:
     CompressionEngine *m_engine = nullptr;
     UpdateManager *m_updateManager = nullptr;
     QAction *m_actCheckForUpdates = nullptr;
+    bool m_archiveOperationActive = false;
+    std::shared_ptr<std::atomic_bool> m_archiveOperationCancel;
+    QProgressDialog *m_archiveProgress = nullptr;
 };

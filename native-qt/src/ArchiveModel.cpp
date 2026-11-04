@@ -49,12 +49,16 @@ QVariant ArchiveModel::data(const QModelIndex &index, int role) const {
                 return item.formattedSize;
             case ColRatio:
                 if (item.formattedRatio.isEmpty()) {
-                    item.formattedRatio = item.isDirectory ? (item.size > 0 ? (QString::number(item.ratio) + "%") : QStringLiteral("-")) : (QString::number(item.ratio) + "%");
+                    item.formattedRatio = item.packedSize > 0
+                        ? (QString::number(item.ratio) + "%")
+                        : QStringLiteral("-");
                 }
                 return item.formattedRatio;
             case ColPacked:
                 if (item.formattedPacked.isEmpty()) {
-                    item.formattedPacked = item.isDirectory ? (item.size > 0 ? formatBytes(item.packedSize) : QStringLiteral("-")) : formatBytes(item.packedSize);
+                    item.formattedPacked = item.packedSize > 0
+                        ? formatBytes(item.packedSize)
+                        : QStringLiteral("-");
                 }
                 return item.formattedPacked;
             case ColCrc32:

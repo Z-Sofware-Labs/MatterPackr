@@ -28,11 +28,14 @@
 #include <QWidgetAction>
 #include <QPushButton>
 #include <QLineEdit>
+#include <QLocale>
 #include <QKeyEvent>
 #include <QFileOpenEvent>
 #include <QProcess>
+#include <QtConcurrent>
 #include <QDir>
 #include <QTemporaryFile>
+#include <QTemporaryDir>
 #include <QRegularExpression>
 #include <algorithm>
 #include <functional>
@@ -68,8 +71,10 @@ QString archiveEntryPath(const ArchiveItem &item) {
   return QDir::cleanPath(path).replace('\\', '/');
 }
 
+using OperationCancel = std::shared_ptr<std::atomic_bool>;
+
 bool runArchiveCommand(const QStringList &arguments, QByteArray *standardOutput,
-                       QString *errorMessage) {
+                       QString *errorMessage, const OperationCancel &cancel = {}) {
   QProcess process;
   process.start(QStringLiteral("tar"), arguments);
   if (!process.waitForStarted(5000)) {
@@ -78,11 +83,20 @@ bool runArchiveCommand(const QStringList &arguments, QByteArray *standardOutput,
     }
     return false;
   }
-  if (!process.waitForFinished(-1)) {
+  while (!process.waitForFinished(100)) {
+    if (cancel && cancel->load()) {
+      process.kill();
+      process.waitForFinished();
+      if (errorMessage)
+        *errorMessage = QObject::tr("The archive operation was cancelled.");
+      return false;
+    }
+  }
+  if (cancel && cancel->load()) {
     process.kill();
     process.waitForFinished();
     if (errorMessage) {
-      *errorMessage = QObject::tr("The archive operation timed out or was interrupted.");
+      *errorMessage = QObject::tr("The archive operation was cancelled.");
     }
     return false;
   }
@@ -103,18 +117,31 @@ bool runArchiveCommand(const QStringList &arguments, QByteArray *standardOutput,
   return true;
 }
 
-QVector<ArchiveItem> listArchiveEntries(const QString &archivePath, QString *errorMessage) {
+QVector<ArchiveItem> listArchiveEntries(const QString &archivePath, QString *errorMessage,
+                                         const OperationCancel &cancel = {}) {
   QByteArray output;
-  if (!runArchiveCommand({QStringLiteral("-tf"), archivePath}, &output, errorMessage)) {
+  if (!runArchiveCommand({QStringLiteral("-tvf"), archivePath}, &output, errorMessage,
+                         cancel)) {
     return {};
   }
 
   QVector<ArchiveItem> items;
-  const QStringList names = QString::fromLocal8Bit(output).split(
+  const QStringList lines = QString::fromLocal8Bit(output).split(
       QRegularExpression(QStringLiteral("[\r\n]+")), Qt::SkipEmptyParts);
   int id = 0;
-  for (const QString &rawName : names) {
-    const QString entryPath = rawName.trimmed().replace('\\', '/');
+  const QRegularExpression detailPattern(
+      QStringLiteral("^\\S+\\s+\\S+\\s+\\S+\\s+(\\d+)\\s+"
+                     "([A-Za-z]{3}\\s+\\d{1,2}\\s+(?:\\d{2}:\\d{2}|\\d{4}))\\s+(.+)$"));
+  for (const QString &rawLine : lines) {
+    const QString line = rawLine.trimmed();
+    const QRegularExpressionMatch match = detailPattern.match(line);
+    if (!match.hasMatch()) {
+      if (errorMessage)
+        *errorMessage = QObject::tr("The archive engine returned unreadable metadata.");
+      return {};
+    }
+
+    const QString entryPath = match.captured(3).replace('\\', '/');
     if (!isSafeArchiveEntryPath(entryPath)) {
       if (errorMessage) {
         *errorMessage = QObject::tr("The archive contains an unsafe path: %1").arg(entryPath);
@@ -133,20 +160,35 @@ QVector<ArchiveItem> listArchiveEntries(const QString &archivePath, QString *err
     const QString type = isDirectory
         ? QObject::tr("Folder")
         : (dot > 0 ? filename.mid(dot + 1).toUpper() : QObject::tr("File"));
+    const qint64 size = match.captured(1).toLongLong();
+    const QString dateText = match.captured(2);
+    QDateTime modified = QLocale::c().toDateTime(dateText, "MMM d hh:mm");
+    if (!modified.isValid())
+      modified = QLocale::c().toDateTime(dateText, "MMM d yyyy");
+    if (modified.isValid() && dateText.count(' ') == 2
+        && dateText.contains(QRegularExpression(QStringLiteral("\\d{2}:\\d{2}$")))) {
+      modified.setDate(QDate(QDate::currentDate().year(), modified.date().month(),
+                             modified.date().day()));
+    }
 
     ArchiveItem item;
     item.id = QStringLiteral("entry-%1").arg(++id);
     item.filename = filename;
     item.type = type;
+    item.modified = modified;
+    item.size = size;
     item.path = directory;
     item.isDirectory = isDirectory;
+    item.packedSize = 0;
+    item.ratio = 0;
     item.crc32 = QStringLiteral("-");
     items.append(item);
   }
   return items;
 }
 
-bool createEmptyArchive(const QString &archivePath, QString *errorMessage) {
+bool createEmptyArchive(const QString &archivePath, QString *errorMessage,
+                        const OperationCancel &cancel = {}) {
   const QString lowerPath = archivePath.toLower();
   if (lowerPath.endsWith(".7z") || lowerPath.endsWith(".tar.gz")
       || lowerPath.endsWith(".tgz") || lowerPath.endsWith(".tar.bz2")
@@ -169,11 +211,11 @@ bool createEmptyArchive(const QString &archivePath, QString *errorMessage) {
   emptyList.close();
   return runArchiveCommand({QStringLiteral("-cf"), archivePath,
                              QStringLiteral("-T"), emptyList.fileName()},
-                            nullptr, errorMessage);
+                            nullptr, errorMessage, cancel);
 }
 
 bool addFilesToArchive(const QString &archivePath, const QStringList &files,
-                       QString *errorMessage) {
+                       QString *errorMessage, const OperationCancel &cancel = {}) {
   const QString lowerPath = archivePath.toLower();
   if (lowerPath.endsWith(".7z") || lowerPath.endsWith(".tar.gz")
       || lowerPath.endsWith(".tgz") || lowerPath.endsWith(".tar.bz2")
@@ -192,7 +234,123 @@ bool addFilesToArchive(const QString &archivePath, const QStringList &files,
     arguments << QStringLiteral("-C") << fileInfo.absolutePath()
               << fileInfo.fileName();
   }
-  return runArchiveCommand(arguments, nullptr, errorMessage);
+  return runArchiveCommand(arguments, nullptr, errorMessage, cancel);
+}
+
+bool removeEntriesFromArchive(const QString &archivePath,
+                              const QStringList &entryPaths,
+                              QString *errorMessage, const OperationCancel &cancel = {}) {
+  const QString lowerPath = archivePath.toLower();
+  if (lowerPath.endsWith(".7z") || lowerPath.endsWith(".tar.gz")
+      || lowerPath.endsWith(".tgz") || lowerPath.endsWith(".tar.bz2")
+      || lowerPath.endsWith(".tbz2") || lowerPath.endsWith(".tar.xz")
+      || lowerPath.endsWith(".txz")) {
+    if (errorMessage) {
+      *errorMessage = QObject::tr(
+          "Deleting files currently supports ZIP and uncompressed TAR files.");
+    }
+    return false;
+  }
+
+  QTemporaryDir staging;
+  if (!staging.isValid()) {
+    if (errorMessage)
+      *errorMessage = QObject::tr("Could not prepare a temporary archive workspace.");
+    return false;
+  }
+
+  if (!runArchiveCommand({QStringLiteral("-xf"), archivePath,
+                          QStringLiteral("-C"), staging.path()},
+                         nullptr, errorMessage, cancel)) {
+    return false;
+  }
+
+  for (const QString &entryPath : entryPaths) {
+    if (cancel && cancel->load()) {
+      if (errorMessage)
+        *errorMessage = QObject::tr("The archive operation was cancelled.");
+      return false;
+    }
+    if (!isSafeArchiveEntryPath(entryPath))
+      continue;
+    const QString targetPath = QDir(staging.path()).filePath(entryPath);
+    QFileInfo targetInfo(targetPath);
+    if (targetInfo.isDir()) {
+      if (!QDir(targetPath).removeRecursively()) {
+        if (errorMessage)
+          *errorMessage = QObject::tr("Could not remove archive directory: %1")
+                              .arg(entryPath);
+        return false;
+      }
+    } else if (targetInfo.exists() && !QFile::remove(targetPath)) {
+      if (errorMessage)
+        *errorMessage = QObject::tr("Could not remove archive entry: %1")
+                            .arg(entryPath);
+      return false;
+    }
+  }
+
+  QTemporaryFile replacement;
+  replacement.setAutoRemove(false);
+  if (!replacement.open()) {
+    if (errorMessage)
+      *errorMessage = QObject::tr("Could not prepare the replacement archive.");
+    return false;
+  }
+  const QString replacementPath = replacement.fileName();
+  replacement.close();
+  QFile::remove(replacementPath);
+
+  if (!runArchiveCommand({QStringLiteral("-cf"), replacementPath,
+                          QStringLiteral("-C"), staging.path(),
+                          QStringLiteral(".")},
+                         nullptr, errorMessage, cancel)) {
+    QFile::remove(replacementPath);
+    return false;
+  }
+
+  const QString backupPath = archivePath + QStringLiteral(".matterpackr-backup");
+  QFile::remove(backupPath);
+  if (!QFile::rename(archivePath, backupPath)) {
+    QFile::remove(replacementPath);
+    if (errorMessage)
+      *errorMessage = QObject::tr("Could not safely replace the original archive.");
+    return false;
+  }
+
+  if (!QFile::rename(replacementPath, archivePath)) {
+    QFile::rename(backupPath, archivePath);
+    if (errorMessage)
+      *errorMessage = QObject::tr("Could not install the replacement archive.");
+    return false;
+  }
+
+  QFile::remove(backupPath);
+  return true;
+}
+
+bool verifyArchiveContents(const QString &archivePath, QString *errorMessage,
+                           const OperationCancel &cancel = {}) {
+  const QVector<ArchiveItem> entries =
+      listArchiveEntries(archivePath, errorMessage, cancel);
+  if (entries.isEmpty() && errorMessage && !errorMessage->isEmpty())
+    return false;
+  if (cancel && cancel->load()) {
+    if (errorMessage)
+      *errorMessage = QObject::tr("The archive operation was cancelled.");
+    return false;
+  }
+
+  QTemporaryDir staging;
+  if (!staging.isValid()) {
+    if (errorMessage)
+      *errorMessage = QObject::tr("Could not prepare a temporary integrity-test workspace.");
+    return false;
+  }
+
+  return runArchiveCommand({QStringLiteral("-xf"), archivePath,
+                            QStringLiteral("-C"), staging.path()},
+                           nullptr, errorMessage, cancel);
 }
 
 }
@@ -521,6 +679,11 @@ void MainWindow::resizeEvent(QResizeEvent *event) {
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {
+  if (m_archiveOperationActive) {
+    statusBar()->showMessage(tr("Please wait for the current archive operation to finish."));
+    event->ignore();
+    return;
+  }
   if (!promptAndCleanUpCheckOut()) {
     event->ignore();
     return;
@@ -587,6 +750,8 @@ void MainWindow::updateEmptyStateVisibility() {
     m_actSaveAs->setEnabled(hasFiles || hasArchive);
   if (m_actProperties)
     m_actProperties->setEnabled(hasFiles || hasArchive);
+  if (m_actTestIntegrity)
+    m_actTestIntegrity->setEnabled(hasArchive);
   if (m_actAdd)
     m_actAdd->setEnabled(true);
   if (m_actExtract)
@@ -597,6 +762,50 @@ void MainWindow::updateEmptyStateVisibility() {
     m_actSelectAll->setEnabled(hasFiles);
   if (m_actAddCurrentFavorite)
     m_actAddCurrentFavorite->setEnabled(!m_currentArchivePath.isEmpty());
+}
+
+void MainWindow::setArchiveOperationActive(bool active, const QString &message) {
+  m_archiveOperationActive = active;
+  if (active) {
+    m_archiveOperationCancel = std::make_shared<std::atomic_bool>(false);
+    m_archiveProgress = new QProgressDialog(message, tr("Cancel"), 0, 0, this);
+    m_archiveProgress->setWindowTitle(tr("MatterPackr"));
+    m_archiveProgress->setWindowModality(Qt::WindowModal);
+    m_archiveProgress->setAutoClose(false);
+    m_archiveProgress->setMinimumDuration(0);
+    connect(m_archiveProgress, &QProgressDialog::canceled,
+            this, &MainWindow::cancelArchiveOperation);
+    m_archiveProgress->show();
+  } else if (m_archiveProgress) {
+    m_archiveProgress->close();
+    m_archiveProgress->deleteLater();
+    m_archiveProgress = nullptr;
+    m_archiveOperationCancel.reset();
+  }
+  const QList<QAction *> actions = {
+      m_actNew, m_actOpen, m_actCloseArchive, m_actSaveAs, m_actProperties,
+      m_actTestIntegrity,
+      m_actAdd, m_actExtract, m_actCheckOut, m_actDelete, m_actView,
+      m_actSelectAll, m_actOptions, m_actAddCurrentFavorite};
+  for (QAction *action : actions) {
+    if (action)
+      action->setEnabled(!active);
+  }
+  for (QToolBar *toolBar : findChildren<QToolBar *>())
+    toolBar->setEnabled(!active);
+  if (!active)
+    updateEmptyStateVisibility();
+  if (!message.isEmpty())
+    statusBar()->showMessage(message);
+}
+
+void MainWindow::cancelArchiveOperation() {
+  if (m_archiveOperationCancel) {
+    m_archiveOperationCancel->store(true);
+    statusBar()->showMessage(tr("Cancelling archive operation..."));
+    if (m_archiveProgress)
+      m_archiveProgress->setLabelText(tr("Cancelling archive operation..."));
+  }
 }
 
 void MainWindow::createActions() {
@@ -622,6 +831,8 @@ void MainWindow::createMenus() {
   fileMenu->addSeparator();
   m_actProperties = fileMenu->addAction(tr("Archive Properties..."), this,
                                         &MainWindow::onArchiveProperties);
+  m_actTestIntegrity = fileMenu->addAction(
+      tr("Test Archive Integrity"), this, &MainWindow::onTestArchiveIntegrity);
 
   // =========================================================================
   // 2. ACTIONS MENU (Matches MenuBar.tsx)
@@ -882,6 +1093,8 @@ QIcon MainWindow::getArchiveTypeIcon(const QString &filePath) const {
 }
 
 void MainWindow::onNewArchive() {
+  if (m_archiveOperationActive)
+    return;
   if (!promptAndCleanUpCheckOut())
     return;
 
@@ -892,23 +1105,28 @@ void MainWindow::onNewArchive() {
   if (filename.isEmpty())
     return;
 
-  QString errorMessage;
-  if (!createEmptyArchive(filename, &errorMessage)) {
-    QMessageBox::warning(this, tr("Create Archive Failed"), errorMessage);
-    return;
-  }
-
-  m_model->clear();
-  m_currentArchivePath = filename;
-  m_isCurrentEncrypted = false;
-  m_currentPassword.clear();
-
-  updateWindowTitle();
-  updateEmptyStateVisibility();
-  updateStatusBarStats();
-
-  statusBar()->showMessage(
-      tr("Created new archive: %1").arg(QFileInfo(filename).fileName()), 3000);
+  setArchiveOperationActive(true, tr("Creating archive..."));
+  const OperationCancel cancel = m_archiveOperationCancel;
+  QtConcurrent::run([this, filename, cancel]() {
+    QString errorMessage;
+    const bool success = createEmptyArchive(filename, &errorMessage, cancel);
+    QMetaObject::invokeMethod(this, [this, filename, success, errorMessage]() {
+      setArchiveOperationActive(false);
+      if (!success) {
+        QMessageBox::warning(this, tr("Create Archive Failed"), errorMessage);
+        return;
+      }
+      m_model->clear();
+      m_currentArchivePath = filename;
+      m_isCurrentEncrypted = false;
+      m_currentPassword.clear();
+      updateWindowTitle();
+      updateEmptyStateVisibility();
+      updateStatusBarStats();
+      statusBar()->showMessage(
+          tr("Created new archive: %1").arg(QFileInfo(filename).fileName()), 3000);
+    });
+  });
 }
 
 void MainWindow::onOpenArchive() {
@@ -927,6 +1145,8 @@ void MainWindow::onOpenArchive() {
 }
 
 void MainWindow::openArchiveFile(const QString &filename) {
+  if (m_archiveOperationActive)
+    return;
   QString path = filename.trimmed();
   if (path.startsWith('"') && path.endsWith('"') && path.length() >= 2) {
     path = path.mid(1, path.length() - 2);
@@ -944,32 +1164,31 @@ void MainWindow::openArchiveFile(const QString &filename) {
     return;
   }
 
-  m_currentArchivePath = fileInfo.exists() ? fileInfo.absoluteFilePath() : path;
-  updateWindowTitle();
-
-  // Populate archive files with hierarchical folders
-  m_model->clear();
-
-  QString errorMessage;
-  const QVector<ArchiveItem> archiveItems =
-      listArchiveEntries(m_currentArchivePath, &errorMessage);
-  if (archiveItems.isEmpty() && !errorMessage.isEmpty()) {
-    m_currentArchivePath.clear();
-    updateWindowTitle();
-    QMessageBox::warning(this, tr("Open Archive Failed"), errorMessage);
-    return;
-  }
-
-  m_model->setItems(archiveItems);
-  updateFolderTree();
-  updateViewModeUI();
-  updateEmptyStateVisibility();
-  updateStatusBarStats();
-
-  statusBar()->showMessage(tr("Opened archive: %1 (%2 items)")
-                               .arg(QFileInfo(filename).fileName())
-                               .arg(archiveItems.size()),
-                           3000);
+  const QString archivePath = fileInfo.exists() ? fileInfo.absoluteFilePath() : path;
+  setArchiveOperationActive(true, tr("Opening archive..."));
+  const OperationCancel cancel = m_archiveOperationCancel;
+  QtConcurrent::run([this, archivePath, cancel]() {
+    QString errorMessage;
+    const QVector<ArchiveItem> archiveItems =
+        listArchiveEntries(archivePath, &errorMessage, cancel);
+    QMetaObject::invokeMethod(this, [this, archivePath, archiveItems, errorMessage]() {
+      setArchiveOperationActive(false);
+      if (archiveItems.isEmpty() && !errorMessage.isEmpty()) {
+        QMessageBox::warning(this, tr("Open Archive Failed"), errorMessage);
+        return;
+      }
+      m_currentArchivePath = archivePath;
+      m_model->setItems(archiveItems);
+      updateWindowTitle();
+      updateFolderTree();
+      updateViewModeUI();
+      updateEmptyStateVisibility();
+      updateStatusBarStats();
+      statusBar()->showMessage(tr("Opened archive: %1 (%2 items)")
+                                   .arg(QFileInfo(archivePath).fileName())
+                                   .arg(archiveItems.size()), 3000);
+    });
+  });
 }
 
 void MainWindow::onAddCurrentToFavorites() {
@@ -1193,6 +1412,38 @@ void MainWindow::onSaveArchiveAs() {
       tr("Archive saved as: %1").arg(QFileInfo(filename).fileName()), 3000);
 }
 
+void MainWindow::onTestArchiveIntegrity() {
+  if (m_archiveOperationActive || m_currentArchivePath.isEmpty())
+    return;
+  if (!QFile::exists(m_currentArchivePath)) {
+    QMessageBox::warning(this, tr("Integrity Test Failed"),
+                         tr("The current archive no longer exists."));
+    return;
+  }
+
+  const QString archivePath = m_currentArchivePath;
+  setArchiveOperationActive(true, tr("Testing archive integrity..."));
+  const OperationCancel cancel = m_archiveOperationCancel;
+  QtConcurrent::run([this, archivePath, cancel]() {
+    QString errorMessage;
+    const bool success = verifyArchiveContents(archivePath, &errorMessage, cancel);
+    QMetaObject::invokeMethod(this, [this, archivePath, success, errorMessage]() {
+      setArchiveOperationActive(false);
+      if (!success) {
+        QMessageBox::warning(
+            this, tr("Integrity Test Failed"),
+            tr("The archive could not be verified.\n\n%1").arg(errorMessage));
+        return;
+      }
+      QMessageBox::information(
+          this, tr("Integrity Test Passed"),
+          tr("The archive was read successfully and passed the integrity test:\n%1")
+              .arg(QFileInfo(archivePath).fileName()));
+      statusBar()->showMessage(tr("Archive integrity test passed."), 3500);
+    });
+  });
+}
+
 void MainWindow::onArchiveProperties() {
   QString targetPath = m_currentArchivePath;
   if (targetPath.isEmpty()) {
@@ -1303,6 +1554,8 @@ void MainWindow::onArchiveProperties() {
 }
 
 void MainWindow::onAddFiles() {
+  if (m_archiveOperationActive)
+    return;
   QStringList files = QFileDialog::getOpenFileNames(
       this, tr("Add Files to Archive"), QString(), tr("All Files (*.*)"));
   if (files.isEmpty())
@@ -1314,30 +1567,36 @@ void MainWindow::onAddFiles() {
     return;
   }
 
-  QString errorMessage;
-  if (!addFilesToArchive(m_currentArchivePath, files, &errorMessage)) {
-    QMessageBox::warning(this, tr("Add Files Failed"), errorMessage);
-    return;
-  }
-
-  const QVector<ArchiveItem> archiveItems =
-      listArchiveEntries(m_currentArchivePath, &errorMessage);
-  if (archiveItems.isEmpty() && !errorMessage.isEmpty()) {
-    QMessageBox::warning(this, tr("Add Files Failed"), errorMessage);
-    return;
-  }
-
-  m_model->setItems(archiveItems);
-  updateFolderTree();
-  updateViewModeUI();
-  updateEmptyStateVisibility();
-  updateStatusBarStats();
-
-  statusBar()->showMessage(tr("Added %1 file(s) to archive.").arg(files.size()),
-                           3000);
+  const QString archivePath = m_currentArchivePath;
+  setArchiveOperationActive(true, tr("Adding files to archive..."));
+  const OperationCancel cancel = m_archiveOperationCancel;
+  QtConcurrent::run([this, archivePath, files, cancel]() {
+    QString errorMessage;
+    bool success = addFilesToArchive(archivePath, files, &errorMessage, cancel);
+    QVector<ArchiveItem> archiveItems;
+    if (success)
+      archiveItems = listArchiveEntries(archivePath, &errorMessage, cancel);
+    if (archiveItems.isEmpty() && !errorMessage.isEmpty())
+      success = false;
+    QMetaObject::invokeMethod(this, [this, files, success, errorMessage, archiveItems]() {
+      setArchiveOperationActive(false);
+      if (!success) {
+        QMessageBox::warning(this, tr("Add Files Failed"), errorMessage);
+        return;
+      }
+      m_model->setItems(archiveItems);
+      updateFolderTree();
+      updateViewModeUI();
+      updateEmptyStateVisibility();
+      updateStatusBarStats();
+      statusBar()->showMessage(tr("Added %1 file(s) to archive.").arg(files.size()), 3000);
+    });
+  });
 }
 
 void MainWindow::onExtractFiles() {
+  if (m_archiveOperationActive)
+    return;
   if (m_model->rowCount() == 0)
     return;
 
@@ -1379,14 +1638,22 @@ void MainWindow::onExtractFiles() {
   if (!selectedRows.isEmpty())
     arguments.append(entriesToExtract);
 
-  QString errorMessage;
-  if (!runArchiveCommand(arguments, nullptr, &errorMessage)) {
-    QMessageBox::warning(this, tr("Extraction Failed"), errorMessage);
-    return;
-  }
-
-  statusBar()->showMessage(
-      tr("Extracted %1 item(s) to %2").arg(entriesToExtract.size()).arg(dir), 3500);
+  const QStringList entries = entriesToExtract;
+  setArchiveOperationActive(true, tr("Extracting files..."));
+  const OperationCancel cancel = m_archiveOperationCancel;
+  QtConcurrent::run([this, arguments, entries, dir, cancel]() {
+    QString errorMessage;
+    const bool success = runArchiveCommand(arguments, nullptr, &errorMessage, cancel);
+    QMetaObject::invokeMethod(this, [this, entries, dir, success, errorMessage]() {
+      setArchiveOperationActive(false);
+      if (!success) {
+        QMessageBox::warning(this, tr("Extraction Failed"), errorMessage);
+        return;
+      }
+      statusBar()->showMessage(
+          tr("Extracted %1 item(s) to %2").arg(entries.size()).arg(dir), 3500);
+    });
+  });
 }
 
 void MainWindow::onCheckOut() {
@@ -1566,6 +1833,8 @@ bool MainWindow::promptAndCleanUpCheckOut() {
 }
 
 void MainWindow::onDeleteFiles() {
+  if (m_archiveOperationActive)
+    return;
   auto selection = m_tableView->selectionModel()->selectedRows();
   if (selection.isEmpty())
     return;
@@ -1580,16 +1849,46 @@ void MainWindow::onDeleteFiles() {
   }
 
   QSet<QString> idsToRemove;
+  QStringList entryPaths;
   for (const auto &idx : selection) {
     int srcRow = m_proxyModel->mapToSource(idx).row();
-    idsToRemove.insert(m_model->itemAt(srcRow).id);
+    const ArchiveItem &item = m_model->itemAt(srcRow);
+    const QString entryPath = archiveEntryPath(item);
+    if (!isSafeArchiveEntryPath(entryPath)) {
+      QMessageBox::warning(this, tr("Delete Failed"),
+                           tr("The selected archive entry has an unsafe path."));
+      return;
+    }
+    idsToRemove.insert(item.id);
+    entryPaths.append(entryPath);
   }
-  m_model->removeRowsByIds(idsToRemove);
-  updateEmptyStateVisibility();
-  updateStatusBarStats();
 
-  statusBar()->showMessage(tr("Deleted %1 item(s).").arg(idsToRemove.size()),
-                           3000);
+  const QString archivePath = m_currentArchivePath;
+  const int removedCount = idsToRemove.size();
+  setArchiveOperationActive(true, tr("Deleting selected files..."));
+  const OperationCancel cancel = m_archiveOperationCancel;
+  QtConcurrent::run([this, archivePath, entryPaths, removedCount, cancel]() {
+    QString errorMessage;
+    bool success = removeEntriesFromArchive(archivePath, entryPaths, &errorMessage, cancel);
+    QVector<ArchiveItem> archiveItems;
+    if (success)
+      archiveItems = listArchiveEntries(archivePath, &errorMessage, cancel);
+    if (archiveItems.isEmpty() && !errorMessage.isEmpty())
+      success = false;
+    QMetaObject::invokeMethod(this, [this, removedCount, success, errorMessage, archiveItems]() {
+      setArchiveOperationActive(false);
+      if (!success) {
+        QMessageBox::warning(this, tr("Delete Failed"), errorMessage);
+        return;
+      }
+      m_model->setItems(archiveItems);
+      updateFolderTree();
+      updateViewModeUI();
+      updateEmptyStateVisibility();
+      updateStatusBarStats();
+      statusBar()->showMessage(tr("Deleted %1 item(s).").arg(removedCount), 3000);
+    });
+  });
 }
 
 void MainWindow::onViewFile() {
