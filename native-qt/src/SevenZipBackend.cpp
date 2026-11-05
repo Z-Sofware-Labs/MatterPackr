@@ -3,6 +3,7 @@
 #ifdef MATTERPACKR_HAS_7Z_SDK
 
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
 #include <QTemporaryFile>
 
@@ -25,6 +26,17 @@ UString sdkString(const QString &value) {
   const std::wstring wide = value.toStdWString();
   return UString(wide.c_str());
 }
+
+// CFSTR is wchar_t-based on Windows but char-based (filesystem encoding) on Unix.
+#ifdef _WIN32
+using SdkPath = std::wstring;
+SdkPath sdkPath(const QString &value) { return value.toStdWString(); }
+const wchar_t *sdkPathData(const SdkPath &path) { return path.c_str(); }
+#else
+using SdkPath = QByteArray;
+SdkPath sdkPath(const QString &value) { return QFile::encodeName(value); }
+const char *sdkPathData(const SdkPath &path) { return path.constData(); }
+#endif
 
 class DirectoryUpdateCallback final : public IArchiveUpdateCallback,
                                        public CMyUnknownImp {
@@ -96,8 +108,8 @@ public:
     if (item.directory)
       return S_OK;
     auto *fileStream = new CInFileStream();
-    const std::wstring path = item.source.toStdWString();
-    if (!fileStream->Open(path.c_str())) {
+    const SdkPath path = sdkPath(item.source);
+    if (!fileStream->Open(sdkPathData(path))) {
       static_cast<IInStream *>(fileStream)->Release();
       return E_FAIL;
     }
@@ -150,8 +162,8 @@ bool writeEncrypted7z(const QString &archivePath, const QStringList &files,
   }
 
   auto *output = new COutFileStream();
-  const std::wstring outputPath = replacementPath.toStdWString();
-  if (!output->Create_ALWAYS(outputPath.c_str())) {
+  const SdkPath outputPath = sdkPath(replacementPath);
+  if (!output->Create_ALWAYS(sdkPathData(outputPath))) {
     static_cast<IOutStream *>(output)->Release();
     QFile::remove(replacementPath);
     if (errorMessage)
