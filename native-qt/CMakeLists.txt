@@ -34,9 +34,15 @@ option(MATTERPACKR_USE_SYSTEM_LIBARCHIVE
        "Use a preinstalled libarchive instead of fetching the pinned source"
        OFF)
 
+if(WIN32)
+    set(MATTERPACKR_ENABLE_7Z_DEFAULT ON)
+else()
+    # The 7-Zip SDK sources used here are Windows-specific (DllMain, HINSTANCE, ...).
+    set(MATTERPACKR_ENABLE_7Z_DEFAULT OFF)
+endif()
 option(MATTERPACKR_ENABLE_7Z
-       "Fetch the pinned 7-Zip SDK for encrypted 7Z creation"
-       ON)
+       "Fetch the pinned 7-Zip SDK for encrypted 7Z creation (Windows only)"
+       ${MATTERPACKR_ENABLE_7Z_DEFAULT})
 
 find_package(ZLIB QUIET)
 if(NOT ZLIB_FOUND AND MINGW)
