@@ -184,11 +184,13 @@ if(MATTERPACKR_ENABLE_7Z)
         ".*/(7zVersion\\.rc|resource\\.rc)$")
     list(FILTER MATTERPACKR_7Z_SDK_SOURCES EXCLUDE REGEX
         ".*/C/Util/.*")
-    # DllExports2Compress.cpp declares DllMain unconditionally (Windows DLL only);
-    # DllExportsCompress.cpp is portable and provides the interface GUIDs.
+    # DllExports2Compress.cpp declares DllMain unconditionally (Windows DLL only).
+    # On Unix, DllExportsCompress.cpp also duplicates the codec registry that
+    # CreateCoder.cpp already defines, so SevenZipSdkGuids.cpp supplies the GUIDs.
     if(NOT WIN32)
         list(FILTER MATTERPACKR_7Z_SDK_SOURCES EXCLUDE REGEX
-            ".*/DllExports2Compress\\.cpp$")
+            ".*/DllExports2?Compress\\.cpp$")
+        list(APPEND MATTERPACKR_7Z_SDK_SOURCES src/SevenZipSdkGuids.cpp)
     endif()
     if(NOT WIN32)
         # Mirror the Unix source set used by 7-Zip's own makefile.gcc builds:
