@@ -27,6 +27,9 @@ find_package(Qt6 6.2 REQUIRED COMPONENTS
 
 include(FetchContent)
 
+# Newer CMake (4.x) rejects third-party projects declaring cmake_minimum_required < 3.5.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 option(MATTERPACKR_USE_SYSTEM_LIBARCHIVE
        "Use a preinstalled libarchive instead of fetching the pinned source"
        OFF)
