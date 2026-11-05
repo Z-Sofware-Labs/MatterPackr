@@ -37,11 +37,11 @@ option(MATTERPACKR_USE_SYSTEM_LIBARCHIVE
 if(WIN32)
     set(MATTERPACKR_ENABLE_7Z_DEFAULT ON)
 else()
-    # The 7-Zip SDK sources used here are Windows-specific (DllMain, HINSTANCE, ...).
-    set(MATTERPACKR_ENABLE_7Z_DEFAULT OFF)
+    # Experimental on Unix: builds the 7-Zip SDK with the portable file set.
+    set(MATTERPACKR_ENABLE_7Z_DEFAULT ON)
 endif()
 option(MATTERPACKR_ENABLE_7Z
-       "Fetch the pinned 7-Zip SDK for encrypted 7Z creation (Windows only)"
+       "Fetch the pinned 7-Zip SDK for encrypted 7Z creation"
        ${MATTERPACKR_ENABLE_7Z_DEFAULT})
 
 find_package(ZLIB QUIET)
@@ -184,11 +184,38 @@ if(MATTERPACKR_ENABLE_7Z)
         ".*/(7zVersion\\.rc|resource\\.rc)$")
     list(FILTER MATTERPACKR_7Z_SDK_SOURCES EXCLUDE REGEX
         ".*/C/Util/.*")
+    # DllExports2Compress.cpp declares DllMain unconditionally (Windows DLL only);
+    # DllExportsCompress.cpp is portable and provides the interface GUIDs.
+    if(NOT WIN32)
+        list(FILTER MATTERPACKR_7Z_SDK_SOURCES EXCLUDE REGEX
+            ".*/DllExports2Compress\\.cpp$")
+    endif()
+    if(NOT WIN32)
+        # Mirror the Unix source set used by 7-Zip's own makefile.gcc builds:
+        # keep only the portable CPP/Windows helpers and drop Win32-only UI/OS files.
+        list(FILTER MATTERPACKR_7Z_SDK_SOURCES EXCLUDE REGEX
+            ".*/CPP/Windows/.*")
+        set(MATTERPACKR_7Z_UNIX_WINDOWS_FILES
+            ErrorMsg FileDir FileFind FileIO FileLink FileName
+            PropVariant PropVariantConv PropVariantUtils
+            Synchronization System SystemInfo TimeUtils)
+        foreach(_name IN LISTS MATTERPACKR_7Z_UNIX_WINDOWS_FILES)
+            list(APPEND MATTERPACKR_7Z_SDK_SOURCES
+                "${sevenzip_sdk_SOURCE_DIR}/CPP/Windows/${_name}.cpp")
+        endforeach()
+        find_package(Threads REQUIRED)
+    endif()
     add_library(MatterPackrSevenZip STATIC
         ${MATTERPACKR_7Z_SDK_SOURCES}
         src/SevenZipSdkFactory.cpp
         src/SevenZipSdkGlobals.cpp
     )
+    if(NOT WIN32)
+        target_compile_definitions(MatterPackrSevenZip PRIVATE
+            _FILE_OFFSET_BITS=64 _LARGEFILE_SOURCE)
+        target_compile_options(MatterPackrSevenZip PRIVATE -w)
+        target_link_libraries(MatterPackrSevenZip PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
+    endif()
     target_include_directories(MatterPackrSevenZip PRIVATE
         ${sevenzip_sdk_SOURCE_DIR}/C
         ${sevenzip_sdk_SOURCE_DIR}/CPP
