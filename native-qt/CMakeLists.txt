@@ -44,7 +44,19 @@ option(MATTERPACKR_ENABLE_7Z
        "Fetch the pinned 7-Zip SDK for encrypted 7Z creation"
        ${MATTERPACKR_ENABLE_7Z_DEFAULT})
 
-find_package(ZLIB QUIET)
+if(WIN32 AND NOT MINGW)
+    # On Windows MSVC/Clang-cl, always fetch a clean static zlib to ensure ABI compatibility and deflate decompression
+    unset(ZLIB_FOUND CACHE)
+    unset(ZLIB_LIBRARY CACHE)
+    unset(ZLIB_LIBRARIES CACHE)
+    unset(ZLIB_INCLUDE_DIR CACHE)
+    unset(ZLIB_INCLUDE_DIRS CACHE)
+    unset(FIND_PACKAGE_MESSAGE_DETAILS_ZLIB CACHE)
+    set(ZLIB_FOUND FALSE)
+else()
+    find_package(ZLIB QUIET)
+endif()
+
 if(NOT ZLIB_FOUND AND MINGW)
     get_filename_component(MATTERPACKR_MINGW_BIN
         "${CMAKE_CXX_COMPILER}" DIRECTORY)
@@ -65,6 +77,40 @@ if(NOT ZLIB_FOUND AND MINGW)
     endif()
 endif()
 
+if(NOT ZLIB_FOUND)
+    set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(SKIP_INSTALL_ALL ON CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        zlib
+        URL https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz
+        URL_HASH SHA256=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    FetchContent_MakeAvailable(zlib)
+    set(ZLIB_FOUND TRUE CACHE BOOL "ZLIB fetched via FetchContent" FORCE)
+    set(ZLIB_INCLUDE_DIR "${zlib_SOURCE_DIR};${zlib_BINARY_DIR}" CACHE PATH "ZLIB include dir" FORCE)
+    set(ZLIB_INCLUDE_DIRS "${zlib_SOURCE_DIR};${zlib_BINARY_DIR}" CACHE PATH "ZLIB include dirs" FORCE)
+    if(TARGET zlibstatic)
+        set(ZLIB_LIBRARY zlibstatic CACHE STRING "ZLIB library" FORCE)
+        set(ZLIB_LIBRARIES zlibstatic CACHE STRING "ZLIB libraries" FORCE)
+        if(NOT TARGET ZLIB::ZLIB)
+            add_library(ZLIB::ZLIB ALIAS zlibstatic)
+        endif()
+    elseif(TARGET zlib)
+        set(ZLIB_LIBRARY zlib CACHE STRING "ZLIB library" FORCE)
+        set(ZLIB_LIBRARIES zlib CACHE STRING "ZLIB libraries" FORCE)
+        if(NOT TARGET ZLIB::ZLIB)
+            add_library(ZLIB::ZLIB ALIAS zlib)
+        endif()
+    endif()
+    if(WIN32)
+        set(ZLIB_WINAPI OFF CACHE INTERNAL "")
+        set(WITHOUT_ZLIB_DLL ON CACHE INTERNAL "")
+        set(ZLIB_DLL OFF CACHE INTERNAL "")
+    endif()
+endif()
+
 if(MATTERPACKR_USE_SYSTEM_LIBARCHIVE)
     find_path(LIBARCHIVE_INCLUDE_DIR archive.h REQUIRED)
     find_library(LIBARCHIVE_LIBRARY NAMES archive libarchive REQUIRED)
@@ -74,6 +120,7 @@ if(MATTERPACKR_USE_SYSTEM_LIBARCHIVE)
         INTERFACE_INCLUDE_DIRECTORIES "${LIBARCHIVE_INCLUDE_DIR}"
     )
 else()
+    set(ENABLE_ZLIB ON CACHE BOOL "" FORCE)
     set(ENABLE_TEST OFF CACHE BOOL "" FORCE)
     set(ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
     set(ENABLE_WERROR OFF CACHE BOOL "" FORCE)
