@@ -320,7 +320,13 @@ void ArchiveModel::rebuildVisibleItems() {
             const QString &itemPath = item.path;
 
             if (atRoot) {
-                if (itemPath.isEmpty()) {
+                if (item.isDirectory) {
+                    QString firstPart = itemPath.isEmpty() ? item.filename : (itemPath.contains('/') ? itemPath.left(itemPath.indexOf('/')) : itemPath);
+                    auto &stats = folderStatsMap[firstPart];
+                    if (!stats.latestMod.isValid() || item.modified > stats.latestMod) {
+                        stats.latestMod = item.modified;
+                    }
+                } else if (itemPath.isEmpty()) {
                     immediateFiles.append(item);
                 } else {
                     int slashIdx = itemPath.indexOf('/');
@@ -333,7 +339,22 @@ void ArchiveModel::rebuildVisibleItems() {
                     }
                 }
             } else {
-                if (itemPath == normCurrent) {
+                if (item.isDirectory) {
+                    if (itemPath == normCurrent) {
+                        auto &stats = folderStatsMap[item.filename];
+                        if (!stats.latestMod.isValid() || item.modified > stats.latestMod) {
+                            stats.latestMod = item.modified;
+                        }
+                    } else if (itemPath.startsWith(normCurrent) && itemPath.length() > normCurrentLen && itemPath.at(normCurrentLen) == '/') {
+                        QString relPath = itemPath.mid(normCurrentLen + 1);
+                        int slashIdx = relPath.indexOf('/');
+                        QString firstPart = (slashIdx == -1) ? relPath : relPath.left(slashIdx);
+                        auto &stats = folderStatsMap[firstPart];
+                        if (!stats.latestMod.isValid() || item.modified > stats.latestMod) {
+                            stats.latestMod = item.modified;
+                        }
+                    }
+                } else if (itemPath == normCurrent) {
                     immediateFiles.append(item);
                 } else if (itemPath.startsWith(normCurrent) && itemPath.length() > normCurrentLen && itemPath.at(normCurrentLen) == '/') {
                     QString relPath = itemPath.mid(normCurrentLen + 1);
@@ -362,7 +383,7 @@ void ArchiveModel::rebuildVisibleItems() {
             dirItem.filename = dirName;
             dirItem.type = "Folder";
             dirItem.isDirectory = true;
-            dirItem.path = atRoot ? dirName : (normCurrent + "/" + dirName);
+            dirItem.path = normCurrent;
             dirItem.size = stats.size;
             dirItem.packedSize = stats.packed;
             dirItem.ratio = stats.size > 0 ? static_cast<int>((1.0 - static_cast<double>(stats.packed) / stats.size) * 100.0) : 0;
@@ -384,6 +405,15 @@ QStringList ArchiveModel::allFolders() const {
     QSet<QString> folders;
     folders.insert(""); // Root folder
     for (const auto &item : m_allItems) {
+        if (item.isDirectory) {
+            QString fullDir = item.path.isEmpty() ? item.filename : (item.path + "/" + item.filename);
+            QStringList parts = fullDir.split('/');
+            QString curr;
+            for (const QString &part : parts) {
+                curr = curr.isEmpty() ? part : (curr + "/" + part);
+                folders.insert(curr);
+            }
+        }
         const QString &norm = item.path;
         if (!norm.isEmpty()) {
             QStringList parts = norm.split('/');

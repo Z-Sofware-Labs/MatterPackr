@@ -84,9 +84,11 @@ bool isRemovedDeveloperArchive(const QString &path) {
 }
 
 QString archiveEntryPath(const ArchiveItem &item) {
-  const QString path = item.path.isEmpty()
-      ? item.filename
-      : item.path + "/" + item.filename;
+  if (item.path.isEmpty())
+    return item.filename;
+  if (item.path == item.filename || item.path.endsWith("/" + item.filename))
+    return QDir::cleanPath(item.path).replace('\\', '/');
+  const QString path = item.path + "/" + item.filename;
   return QDir::cleanPath(path).replace('\\', '/');
 }
 
@@ -1778,31 +1780,39 @@ void MainWindow::onExtractFiles() {
     return;
 
   QStringList entriesToExtract;
-  const auto selectedRows = m_tableView->selectionModel()->selectedRows();
-  if (selectedRows.isEmpty()) {
-    for (const ArchiveItem &item : m_model->allItems()) {
-      const QString entryPath = archiveEntryPath(item);
-      if (!item.filename.isEmpty() && isSafeArchiveEntryPath(entryPath)) {
-        entriesToExtract.append(entryPath);
+  QModelIndexList selectedRows;
+  if (m_tableView->selectionModel()) {
+    QSet<int> rowSet;
+    const auto selectedIndexes = m_tableView->selectionModel()->selectedIndexes();
+    for (const auto &idx : selectedIndexes) {
+      if (!rowSet.contains(idx.row())) {
+        rowSet.insert(idx.row());
+        selectedRows.append(idx.siblingAtColumn(0));
       }
     }
+  }
+
+  if (selectedRows.isEmpty()) {
+    // No specific selection: extract all entries directly (empty entries signals extract all)
   } else {
     for (const QModelIndex &proxyIndex : selectedRows) {
       const QModelIndex sourceIndex = m_proxyModel->mapToSource(proxyIndex);
       if (!sourceIndex.isValid())
         continue;
       const ArchiveItem &item = m_model->itemAt(sourceIndex.row());
+      if (item.filename == QStringLiteral(".."))
+        continue;
       const QString entryPath = archiveEntryPath(item);
       if (!item.filename.isEmpty() && isSafeArchiveEntryPath(entryPath)) {
         entriesToExtract.append(entryPath);
       }
     }
-  }
 
-  if (entriesToExtract.isEmpty()) {
-    QMessageBox::warning(this, tr("Extraction Failed"),
-                         tr("No safe archive entries were selected for extraction."));
-    return;
+    if (entriesToExtract.isEmpty()) {
+      QMessageBox::warning(this, tr("Extraction Failed"),
+                           tr("No safe archive entries were selected for extraction."));
+      return;
+    }
   }
 
   const QStringList entries = entriesToExtract;
