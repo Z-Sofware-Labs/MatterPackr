@@ -89,9 +89,14 @@ export const ToolBar: React.FC<ToolBarProps> = ({
         {/* 4. ADD */}
         <button
           type="button"
+          disabled={!hasArchive}
           onClick={onAdd}
           title="Add files to archive (Ctrl+A / ⌘A)"
-          className="w-[50px] h-[46px] flex flex-col items-center justify-center py-0.5 px-0.5 rounded hover:bg-neutral-200/60 dark:hover:bg-neutral-800 active:bg-neutral-300 dark:active:bg-neutral-700 transition-all cursor-pointer shrink-0"
+          className={`w-[50px] h-[46px] flex flex-col items-center justify-center py-0.5 px-0.5 rounded transition-all shrink-0 ${
+            hasArchive
+              ? 'hover:bg-neutral-200/60 dark:hover:bg-neutral-800 active:bg-neutral-300 dark:active:bg-neutral-700 cursor-pointer'
+              : 'opacity-35 cursor-not-allowed grayscale'
+          }`}
         >
           <AddFilesIcon os={os} size={26} />
           <span className="text-[10px] font-medium text-neutral-800 dark:text-neutral-200 mt-0.5 truncate w-full text-center leading-tight">
@@ -120,9 +125,14 @@ export const ToolBar: React.FC<ToolBarProps> = ({
         {/* 6. VIEW */}
         <button
           type="button"
+          disabled={!hasArchive}
           onClick={onView}
           title="View selected file or first file (Ctrl+V / F3)"
-          className="w-[50px] h-[46px] flex flex-col items-center justify-center py-0.5 px-0.5 rounded hover:bg-neutral-200/60 dark:hover:bg-neutral-800 active:bg-neutral-300 dark:active:bg-neutral-700 transition-all cursor-pointer shrink-0"
+          className={`w-[50px] h-[46px] flex flex-col items-center justify-center py-0.5 px-0.5 rounded transition-all shrink-0 ${
+            hasArchive
+              ? 'hover:bg-neutral-200/60 dark:hover:bg-neutral-800 active:bg-neutral-300 dark:active:bg-neutral-700 cursor-pointer'
+              : 'opacity-35 cursor-not-allowed grayscale'
+          }`}
         >
           <ViewFileIcon os={os} size={26} />
           <span className="text-[10px] font-medium text-neutral-800 dark:text-neutral-200 mt-0.5 truncate w-full text-center leading-tight">

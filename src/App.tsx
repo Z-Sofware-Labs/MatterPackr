@@ -883,7 +883,7 @@ export default function App() {
           onAbout={() => setActiveDialog('about')}
           onCheckForUpdates={() => showNotification('MatterPackr v3.0.13 is up to date!', 'info')}
           onExportQtProject={handleExportQtProject}
-          hasArchive={archive.files.length > 0}
+          hasArchive={Boolean(archive.name || archive.files.length > 0)}
           hasSelection={selectedFileIds.length > 0}
         />
 
@@ -901,7 +901,7 @@ export default function App() {
           onToggleViewMode={() => setViewMode((prev) => (prev === 'classic' ? 'explorer' : 'classic'))}
           onToggleSearch={handleToggleFilter}
           isSearchActive={showFilter}
-          hasArchive={archive.files.length > 0}
+          hasArchive={Boolean(archive.name || archive.files.length > 0)}
           hasSelection={selectedFileIds.length > 0}
         />
 

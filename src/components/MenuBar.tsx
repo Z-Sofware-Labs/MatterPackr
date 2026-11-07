@@ -187,8 +187,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         {activeMenu === 'Actions' && (
           <div className="absolute top-full left-0 z-50 min-w-60 bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 py-1 text-neutral-800 dark:text-neutral-200 text-xs">
             <button
+              disabled={!hasArchive}
               onClick={closeAnd(onAdd)}
-              className="w-full text-left px-3 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between cursor-pointer rounded-sm"
+              className={`w-full text-left px-3 py-1.5 flex justify-between rounded-sm ${
+                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
+              }`}
             >
               <span>Add Files to Archive...</span>
               <span className="opacity-50 text-[11px]">{cmdSymbol}A</span>
@@ -215,10 +218,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({
               </button>
             )}
             <button
-              disabled={!hasSelection}
+              disabled={!hasArchive || !hasSelection}
               onClick={closeAnd(onDelete)}
               className={`w-full text-left px-3 py-1.5 flex justify-between rounded-sm ${
-                hasSelection ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
+                hasArchive && hasSelection ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
               }`}
             >
               <span>Delete Selected Files</span>
@@ -226,10 +229,10 @@ export const MenuBar: React.FC<MenuBarProps> = ({
             </button>
             <div className="my-1 border-t border-neutral-200 dark:border-neutral-700" />
             <button
-              disabled={!hasSelection}
+              disabled={!hasArchive || !hasSelection}
               onClick={closeAnd(onViewFile)}
               className={`w-full text-left px-3 py-1.5 flex justify-between rounded-sm ${
-                hasSelection ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
+                hasArchive && hasSelection ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
               }`}
             >
               <span>View Selected File...</span>

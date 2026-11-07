@@ -752,10 +752,23 @@ void MainWindow::updateEmptyStateVisibility() {
         hasFiles && ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canExtract);
   if (m_actCheckOut)
     m_actCheckOut->setEnabled(hasFiles);
+  if (m_actView)
+    m_actView->setEnabled(hasFiles);
   if (m_actSelectAll)
     m_actSelectAll->setEnabled(hasFiles);
+  if (m_actSearch)
+    m_actSearch->setEnabled(hasFiles);
+  if (m_actFilterFiles)
+    m_actFilterFiles->setEnabled(hasFiles);
   if (m_actAddCurrentFavorite)
     m_actAddCurrentFavorite->setEnabled(!m_currentArchivePath.isEmpty());
+
+  const bool hasSelection = hasFiles && m_tableView && m_tableView->selectionModel() &&
+                            !m_tableView->selectionModel()->selectedRows().isEmpty();
+  if (m_actDelete)
+    m_actDelete->setEnabled(
+        hasSelection &&
+        ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canRemove);
 }
 
 void MainWindow::setArchiveOperationActive(bool active, const QString &message) {
@@ -905,33 +918,37 @@ void MainWindow::createToolBars() {
   toolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
   // 1. New, Open
-  auto *tbNew = toolBar->addAction(QIcon(":/toolbar/new.svg"), tr("New"), this,
-                                   &MainWindow::onNewArchive);
-  tbNew->setToolTip(tr("Create a new archive (Ctrl+N)"));
+  m_actNew->setIcon(QIcon(":/toolbar/new.svg"));
+  m_actNew->setIconText(tr("New"));
+  m_actNew->setToolTip(tr("Create a new archive (Ctrl+N)"));
+  toolBar->addAction(m_actNew);
 
-  auto *tbOpen = toolBar->addAction(QIcon(":/toolbar/open.svg"), tr("Open"),
-                                    this, &MainWindow::onOpenArchive);
-  tbOpen->setToolTip(tr("Open archive from computer (Ctrl+O)"));
+  m_actOpen->setIcon(QIcon(":/toolbar/open.svg"));
+  m_actOpen->setIconText(tr("Open"));
+  m_actOpen->setToolTip(tr("Open archive from computer (Ctrl+O)"));
+  toolBar->addAction(m_actOpen);
   toolBar->addSeparator();
 
   // 2. Add, Extract, View, CheckOut
-  auto *tbAdd = toolBar->addAction(QIcon(":/toolbar/add.svg"), tr("Add"), this,
-                                   &MainWindow::onAddFiles);
-  tbAdd->setToolTip(tr("Add files to current archive (Ctrl+A)"));
+  m_actAdd->setIcon(QIcon(":/toolbar/add.svg"));
+  m_actAdd->setIconText(tr("Add"));
+  m_actAdd->setToolTip(tr("Add files to current archive (Ctrl+A)"));
+  toolBar->addAction(m_actAdd);
 
-  auto *tbExtract =
-      toolBar->addAction(QIcon(":/toolbar/extract.svg"), tr("Extract"), this,
-                         &MainWindow::onExtractFiles);
-  tbExtract->setToolTip(tr("Extract files from archive (Ctrl+E)"));
+  m_actExtract->setIcon(QIcon(":/toolbar/extract.svg"));
+  m_actExtract->setIconText(tr("Extract"));
+  m_actExtract->setToolTip(tr("Extract files from archive (Ctrl+E)"));
+  toolBar->addAction(m_actExtract);
 
-  auto *tbView = toolBar->addAction(QIcon(":/toolbar/view.svg"), tr("View"),
-                                    this, &MainWindow::onViewFile);
-  tbView->setToolTip(tr("View selected file (Ctrl+V)"));
+  m_actView->setIcon(QIcon(":/toolbar/view.svg"));
+  m_actView->setIconText(tr("View"));
+  m_actView->setToolTip(tr("View selected file (Ctrl+V)"));
+  toolBar->addAction(m_actView);
 
-  auto *tbCheckOut =
-      toolBar->addAction(QIcon(":/toolbar/checkout.svg"), tr("CheckOut"), this,
-                         &MainWindow::onCheckOut);
-  tbCheckOut->setToolTip(tr("CheckOut and test archive"));
+  m_actCheckOut->setIcon(QIcon(":/toolbar/checkout.svg"));
+  m_actCheckOut->setIconText(tr("CheckOut"));
+  m_actCheckOut->setToolTip(tr("CheckOut and test archive"));
+  toolBar->addAction(m_actCheckOut);
   toolBar->addSeparator();
 
   // 3. Classic / Explorer Toggle, Search
@@ -1019,7 +1036,7 @@ void MainWindow::updateStatusBarStats() {
     m_actDelete->setEnabled(
         hasSelection && ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canRemove);
   if (m_actView)
-    m_actView->setEnabled(hasSelection);
+    m_actView->setEnabled(totalCount > 0);
 }
 
 void MainWindow::updateWindowTitle() {
@@ -1951,6 +1968,12 @@ void MainWindow::onDeleteFiles() {
 
 void MainWindow::onViewFile() {
   auto selection = m_tableView->selectionModel()->selectedRows();
+  if (selection.isEmpty()) {
+    if (m_model && m_model->rowCount() > 0) {
+      m_tableView->selectRow(0);
+      selection = m_tableView->selectionModel()->selectedRows();
+    }
+  }
   if (selection.isEmpty()) {
     statusBar()->showMessage(tr("No file selected to view."), 2500);
     return;
