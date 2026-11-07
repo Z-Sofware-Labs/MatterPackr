@@ -64,8 +64,17 @@ void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
         QModelIndex index = indexAt(event->pos());
         if (index.isValid()) {
             m_dragItemIndex = index;
-            bool alreadySelected = selectionModel() &&
-                (selectionModel()->isSelected(index) || selectionModel()->isRowSelected(index.row(), rootIndex()));
+            bool alreadySelected = false;
+            if (selectionModel()) {
+                const int clickedRow = index.row();
+                const QModelIndexList selIndexes = selectionModel()->selectedIndexes();
+                for (const QModelIndex &selIdx : selIndexes) {
+                    if (selIdx.row() == clickedRow) {
+                        alreadySelected = true;
+                        break;
+                    }
+                }
+            }
 
             if (alreadySelected && !(m_modifiers & (Qt::ControlModifier | Qt::MetaModifier | Qt::ShiftModifier))) {
                 // Clicking an already selected item without Ctrl/Cmd/Shift:
@@ -76,6 +85,8 @@ void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
             } else if (!alreadySelected && !(m_modifiers & (Qt::ControlModifier | Qt::MetaModifier | Qt::ShiftModifier))) {
                 selectionModel()->select(index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
                 setCurrentIndex(index);
+                event->accept();
+                return;
             }
         } else {
             m_dragItemIndex = QModelIndex();
@@ -100,12 +111,21 @@ void ArchiveTableView::mouseMoveEvent(QMouseEvent *event) {
                 m_isDraggingItems = true;
                 QModelIndexList selectedRows;
                 if (selectionModel()) {
-                    selectedRows = selectionModel()->selectedRows();
+                    QSet<int> rowSet;
+                    const QModelIndexList selectedIndexes = selectionModel()->selectedIndexes();
+                    for (const QModelIndex &idx : selectedIndexes) {
+                        if (!rowSet.contains(idx.row())) {
+                            rowSet.insert(idx.row());
+                            selectedRows.append(idx.siblingAtColumn(0));
+                        }
+                    }
                 }
                 if (selectedRows.isEmpty() && m_dragItemIndex.isValid()) {
-                    selectedRows.append(m_dragItemIndex);
+                    selectedRows.append(m_dragItemIndex.siblingAtColumn(0));
                 }
                 emit dragExtractionRequested(selectedRows);
+                m_isDraggingItems = false;
+                m_dragItemIndex = QModelIndex();
                 event->accept();
                 return;
             } else if (!m_dragItemIndex.isValid() && !m_isRubberBanding) {

@@ -321,7 +321,10 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
     }
 
     const QString entryPath = QString::fromUtf8(archive_entry_pathname(entry));
-    const QString cleanPath = QDir::cleanPath(entryPath).replace('\\', '/');
+    QString cleanPath = QDir::cleanPath(entryPath).replace('\\', '/');
+    while (cleanPath.startsWith('/')) {
+      cleanPath.remove(0, 1);
+    }
     if (!isSafeEntryPath(entryPath)) {
       if (errorMessage)
         *errorMessage = QObject::tr("The archive contains an unsafe path: %1").arg(entryPath);
@@ -350,6 +353,10 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
     }
 
     const QString targetPath = QDir(destinationPath).filePath(cleanPath);
+    const QString targetDir = QFileInfo(targetPath).path();
+    if (!QDir().exists(targetDir)) {
+      QDir().mkpath(targetDir);
+    }
     const QByteArray encodedTarget = QFile::encodeName(targetPath);
     archive_entry_set_pathname(entry, encodedTarget.constData());
     if (archive_write_header(writer, entry) != ARCHIVE_OK) {

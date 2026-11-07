@@ -133,14 +133,23 @@ int main(int argc, char **argv) {
   if (!ArchiveBackend::createEmpty(zipPath, &errorMessage)
       || !ArchiveBackend::addFiles(zipPath, {addedFilePath}, &errorMessage))
     return fail(QStringLiteral("Deflated ZIP setup failed: %1").arg(errorMessage));
+  QTemporaryDir zipFullExtractionDirectory;
+  if (!zipFullExtractionDirectory.isValid()
+      || !ArchiveBackend::extractEntries(
+          zipPath, zipFullExtractionDirectory.path(), {}, &errorMessage))
+    return fail(QStringLiteral("Deflated ZIP full extraction failed: %1").arg(errorMessage));
+  if (!QFile::exists(QDir(zipFullExtractionDirectory.path())
+                         .filePath(QStringLiteral("added.txt"))))
+    return fail(QStringLiteral("Deflated ZIP full extraction produced no file."));
+
   QTemporaryDir zipExtractionDirectory;
   if (!zipExtractionDirectory.isValid()
       || !ArchiveBackend::extractEntries(
-          zipPath, zipExtractionDirectory.path(), {}, &errorMessage))
-    return fail(QStringLiteral("Deflated ZIP extraction failed: %1").arg(errorMessage));
+          zipPath, zipExtractionDirectory.path(), {QStringLiteral("added.txt")}, &errorMessage))
+    return fail(QStringLiteral("Deflated ZIP selective extraction failed: %1").arg(errorMessage));
   if (!QFile::exists(QDir(zipExtractionDirectory.path())
                          .filePath(QStringLiteral("added.txt"))))
-    return fail(QStringLiteral("Deflated ZIP extraction produced no file."));
+    return fail(QStringLiteral("Deflated ZIP selective extraction produced no file."));
 
   const QString externalArchiveDirectory =
       QDir(workspace.path()).filePath(QStringLiteral("archive-directory"));

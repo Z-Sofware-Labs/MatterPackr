@@ -2818,7 +2818,7 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
   auto *mimeData = new QMimeData();
   mimeData->setUrls(urls);
 
-  auto *drag = new QDrag(this);
+  auto *drag = new QDrag(m_tableView->viewport() ? static_cast<QWidget*>(m_tableView->viewport()) : m_tableView);
   drag->setMimeData(mimeData);
 
   QPixmap pixmap(200, 38);
@@ -2845,7 +2845,7 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
       tr("Dragging %1 item(s). Drop onto desktop or file manager to extract.")
           .arg(urls.size()),
       4000);
-  drag->exec(Qt::CopyAction);
+  drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::CopyAction);
 }
 
 void MainWindow::onFilesDropped(const QStringList &filePaths) {
