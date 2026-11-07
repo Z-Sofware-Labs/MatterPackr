@@ -1,4 +1,4 @@
-# MatterPackr 3.0.13 — Native Qt 6 Desktop Edition
+# MatterPackr 3.0.14 — Native Qt 6 Desktop Edition
 
 This directory contains the complete, native C++20 / Qt 6 source code for
 **MatterPackr**, delivering native archive operations, responsive desktop
