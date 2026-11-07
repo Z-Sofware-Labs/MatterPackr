@@ -136,7 +136,9 @@ export default function App() {
 
       if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault();
-        setShowFilter((prev) => !prev);
+        if (Boolean(archive.name || archive.files.length > 0)) {
+          setShowFilter((prev) => !prev);
+        }
       } else if (e.key === 'Escape' && showFilter && !activeDialog) {
         setShowFilter(false);
       }

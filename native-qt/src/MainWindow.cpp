@@ -767,21 +767,29 @@ void MainWindow::updateEmptyStateVisibility() {
         hasArchive && ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canAdd);
   if (m_actExtract)
     m_actExtract->setEnabled(
-        hasFiles && ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canExtract);
+        hasArchive && hasFiles && ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canExtract);
   if (m_actCheckOut)
-    m_actCheckOut->setEnabled(hasFiles);
+    m_actCheckOut->setEnabled(hasArchive && hasFiles);
   if (m_actView)
-    m_actView->setEnabled(hasFiles);
+    m_actView->setEnabled(hasArchive && hasFiles);
   if (m_actSelectAll)
-    m_actSelectAll->setEnabled(hasFiles);
+    m_actSelectAll->setEnabled(hasArchive && hasFiles);
   if (m_actSearch)
-    m_actSearch->setEnabled(hasFiles);
+    m_actSearch->setEnabled(hasArchive && hasFiles);
   if (m_actFilterFiles)
-    m_actFilterFiles->setEnabled(hasFiles);
+    m_actFilterFiles->setEnabled(hasArchive && hasFiles);
+  if (m_actToggleView)
+    m_actToggleView->setEnabled(hasArchive || hasFiles);
+  if (m_actClassic)
+    m_actClassic->setEnabled(hasArchive || hasFiles);
+  if (m_actExplorer)
+    m_actExplorer->setEnabled(hasArchive || hasFiles);
+  if (m_actToggleFolderTree)
+    m_actToggleFolderTree->setEnabled(hasArchive || hasFiles);
   if (m_actAddCurrentFavorite)
     m_actAddCurrentFavorite->setEnabled(!m_currentArchivePath.isEmpty());
 
-  const bool hasSelection = hasFiles && m_tableView && m_tableView->selectionModel() &&
+  const bool hasSelection = hasArchive && hasFiles && m_tableView && m_tableView->selectionModel() &&
                             !m_tableView->selectionModel()->selectedRows().isEmpty();
   if (m_actDelete)
     m_actDelete->setEnabled(
@@ -1049,12 +1057,12 @@ void MainWindow::updateStatusBarStats() {
 
   m_lblSelection->setText(selText);
 
-  bool hasSelection = selCount > 0;
+  bool hasSelection = selCount > 0 && !m_currentArchivePath.isEmpty();
   if (m_actDelete)
     m_actDelete->setEnabled(
         hasSelection && ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canRemove);
   if (m_actView)
-    m_actView->setEnabled(totalCount > 0);
+    m_actView->setEnabled(!m_currentArchivePath.isEmpty() && totalCount > 0);
 }
 
 void MainWindow::updateWindowTitle() {
@@ -2080,6 +2088,10 @@ void MainWindow::onDeleteFiles() {
 }
 
 void MainWindow::onViewFile() {
+  if (m_currentArchivePath.isEmpty() || !m_model || m_model->rowCount() == 0) {
+    statusBar()->showMessage(tr("No archive or file open to view."), 2500);
+    return;
+  }
   auto selection = m_tableView->selectionModel()->selectedRows();
   if (selection.isEmpty()) {
     if (m_model && m_model->rowCount() > 0) {
@@ -2634,7 +2646,7 @@ void MainWindow::onTableDoubleClicked(const QModelIndex &proxyIndex) {
 }
 
 void MainWindow::onToggleFilter() {
-  if (!m_filterBar)
+  if (!m_filterBar || m_currentArchivePath.isEmpty() || !m_model || m_model->rowCount() == 0)
     return;
 
   bool shouldShow = !m_filterBar->isVisible();

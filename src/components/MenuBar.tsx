@@ -282,8 +282,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           <div className="absolute top-full left-0 z-50 min-w-64 bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 py-1 text-neutral-800 dark:text-neutral-200 text-xs">
             {/* 1. Filter files (existing, leave it as it is) */}
             <button
+              disabled={!hasArchive}
               onClick={closeAnd(() => onToggleFilter && onToggleFilter())}
-              className="w-full text-left px-3 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between items-center cursor-pointer rounded-sm"
+              className={`w-full text-left px-3 py-1.5 flex justify-between items-center rounded-sm ${
+                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
+              }`}
             >
               <span className="flex items-center gap-2">
                 <span className="w-3 text-center text-blue-600 dark:text-blue-400 font-bold">
@@ -299,8 +302,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
             {/* 2. Classic view (with check on what is enabled) */}
             <button
+              disabled={!hasArchive}
               onClick={closeAnd(() => onSetViewMode && onSetViewMode('classic'))}
-              className="w-full text-left px-3 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between items-center cursor-pointer rounded-sm"
+              className={`w-full text-left px-3 py-1.5 flex justify-between items-center rounded-sm ${
+                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
+              }`}
             >
               <span className="flex items-center gap-2">
                 <span className="w-3 text-center text-blue-600 dark:text-blue-400 font-bold">
@@ -313,8 +319,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
             {/* 3. Explorer view (with check on what is enabled) */}
             <button
+              disabled={!hasArchive}
               onClick={closeAnd(() => onSetViewMode && onSetViewMode('explorer'))}
-              className="w-full text-left px-3 py-1.5 hover:bg-blue-500 hover:text-white flex justify-between items-center cursor-pointer rounded-sm"
+              className={`w-full text-left px-3 py-1.5 flex justify-between items-center rounded-sm ${
+                hasArchive ? 'hover:bg-blue-500 hover:text-white cursor-pointer' : 'text-slate-500 dark:text-[#8b949e] cursor-not-allowed'
+              }`}
             >
               <span className="flex items-center gap-2">
                 <span className="w-3 text-center text-blue-600 dark:text-blue-400 font-bold">

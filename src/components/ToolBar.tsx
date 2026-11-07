@@ -164,9 +164,14 @@ export const ToolBar: React.FC<ToolBarProps> = ({
         {/* 8. VIEW MODE TOGGLE (Classic View vs Explorer View) */}
         <button
           type="button"
+          disabled={!hasArchive}
           onClick={onToggleViewMode}
           title={`Switch to ${viewMode === 'classic' ? 'Explorer View (Two-Pane Folder Tree)' : 'Classic View (Flat List)'}`}
-          className="w-[54px] h-[46px] flex flex-col items-center justify-center py-0.5 px-0.5 rounded hover:bg-neutral-200/60 dark:hover:bg-neutral-800 active:bg-neutral-300 dark:active:bg-neutral-700 transition-all cursor-pointer shrink-0"
+          className={`w-[54px] h-[46px] flex flex-col items-center justify-center py-0.5 px-0.5 rounded transition-all shrink-0 ${
+            hasArchive
+              ? 'hover:bg-neutral-200/60 dark:hover:bg-neutral-800 active:bg-neutral-300 dark:active:bg-neutral-700 cursor-pointer'
+              : 'opacity-35 cursor-not-allowed grayscale'
+          }`}
         >
           <ViewModeToggleIcon os={os} viewMode={viewMode} size={24} />
           <span className="text-[10px] font-medium text-neutral-800 dark:text-neutral-200 mt-0.5 truncate w-full text-center leading-tight">
@@ -177,12 +182,15 @@ export const ToolBar: React.FC<ToolBarProps> = ({
         {/* 9. SEARCH / FILTER (After Classic Icon) */}
         <button
           type="button"
+          disabled={!hasArchive}
           onClick={onToggleSearch}
           title="Search & filter archive entries (Ctrl+F / ⌘F)"
-          className={`w-[50px] h-[46px] flex flex-col items-center justify-center py-0.5 px-0.5 rounded transition-all cursor-pointer shrink-0 ${
-            isSearchActive
-              ? 'bg-blue-100 dark:bg-blue-950/60 ring-1 ring-blue-500/50 shadow-xs'
-              : 'hover:bg-neutral-200/60 dark:hover:bg-neutral-800 active:bg-neutral-300 dark:active:bg-neutral-700'
+          className={`w-[50px] h-[46px] flex flex-col items-center justify-center py-0.5 px-0.5 rounded transition-all shrink-0 ${
+            !hasArchive
+              ? 'opacity-35 cursor-not-allowed grayscale'
+              : isSearchActive
+              ? 'bg-blue-100 dark:bg-blue-950/60 ring-1 ring-blue-500/50 shadow-xs cursor-pointer'
+              : 'hover:bg-neutral-200/60 dark:hover:bg-neutral-800 active:bg-neutral-300 dark:active:bg-neutral-700 cursor-pointer'
           }`}
         >
           <SearchToolIcon os={os} size={24} />
