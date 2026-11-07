@@ -90,6 +90,7 @@ else()
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
     FetchContent_MakeAvailable(libarchive)
+    target_compile_definitions(archive_static INTERFACE LIBARCHIVE_STATIC)
     add_library(MatterPackr::Archive ALIAS archive_static)
 endif()
 
@@ -155,6 +156,9 @@ endif()
 
 target_link_libraries(MatterPackr PRIVATE MatterPackr::Archive)
 target_compile_definitions(MatterPackr PRIVATE MATTERPACKR_HAS_LIBARCHIVE)
+if(WIN32)
+    target_compile_definitions(MatterPackr PRIVATE LIBARCHIVE_STATIC)
+endif()
 
 if(MATTERPACKR_HAS_LIBZIP)
     target_include_directories(MatterPackr PRIVATE ${LIBZIP_INCLUDE_DIR})
@@ -184,14 +188,12 @@ if(MATTERPACKR_ENABLE_7Z)
         ".*/(7zVersion\\.rc|resource\\.rc)$")
     list(FILTER MATTERPACKR_7Z_SDK_SOURCES EXCLUDE REGEX
         ".*/C/Util/.*")
-    # DllExports2Compress.cpp declares DllMain unconditionally (Windows DLL only).
-    # On Unix, DllExportsCompress.cpp also duplicates the codec registry that
-    # CreateCoder.cpp already defines, so SevenZipSdkGuids.cpp supplies the GUIDs.
-    if(NOT WIN32)
-        list(FILTER MATTERPACKR_7Z_SDK_SOURCES EXCLUDE REGEX
-            ".*/DllExports2?Compress\\.cpp$")
-        list(APPEND MATTERPACKR_7Z_SDK_SOURCES src/SevenZipSdkGuids.cpp)
-    endif()
+    # Exclude all DLL exports/entry points: DllExports2Compress declares DllMain,
+    # and DllExportsCompress duplicates the codec registry (RegisterCodec/RegisterHasher)
+    # already defined by CreateCoder.cpp. SevenZipSdkGuids.cpp provides the required GUIDs.
+    list(FILTER MATTERPACKR_7Z_SDK_SOURCES EXCLUDE REGEX
+        ".*/DllExports[^/]*\\.cpp$")
+    list(APPEND MATTERPACKR_7Z_SDK_SOURCES src/SevenZipSdkGuids.cpp)
     if(NOT WIN32)
         # Mirror the Unix source set used by 7-Zip's own makefile.gcc builds:
         # keep only the portable CPP/Windows helpers and drop Win32-only UI/OS files.
@@ -247,6 +249,9 @@ if(BUILD_TESTING)
     target_compile_definitions(MatterPackr7zSmoke PRIVATE
         MATTERPACKR_HAS_LIBARCHIVE
     )
+    if(WIN32)
+        target_compile_definitions(MatterPackr7zSmoke PRIVATE LIBARCHIVE_STATIC)
+    endif()
     target_link_libraries(MatterPackr7zSmoke PRIVATE
         Qt6::Core
         Qt6::Gui
