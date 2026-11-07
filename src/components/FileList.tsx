@@ -938,6 +938,15 @@ export const FileList: React.FC<FileListProps> = ({
                       }}
                       onDoubleClick={() => onDoubleClick(file)}
                       onContextMenu={(e) => handleContextMenu(e, file)}
+                      draggable={!file.isDirectory}
+                      onDragStart={(e) => {
+                        if (file.isDirectory) return;
+                        const content: any = file.content ?? `Extracted ${file.name}`;
+                        const blob = new Blob([content], { type: 'application/octet-stream' });
+                        const blobUrl = URL.createObjectURL(blob);
+                        e.dataTransfer.setData('DownloadURL', `application/octet-stream:${file.name}:${blobUrl}`);
+                        e.dataTransfer.setData('text/plain', file.name);
+                      }}
                       className={`cursor-pointer transition-colors ${
                         isSelected
                           ? getSelectionBg()

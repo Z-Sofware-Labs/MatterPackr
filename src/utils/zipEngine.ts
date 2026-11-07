@@ -143,11 +143,34 @@ export async function exportArchiveAsRealZip(archive: ArchiveState): Promise<Blo
 export async function detectIfArchiveIsEncrypted(
   file: File,
   buffer: ArrayBuffer
-): Promise<{ isEncrypted: boolean; method: EncryptionMethod }> {
+): Promise<{
+  isEncrypted: boolean;
+  requiresPasswordToOpen: boolean;
+  isCreatedByApp: boolean;
+  method: EncryptionMethod;
+}> {
   const bytes = new Uint8Array(buffer);
   const nameLower = file.name.toLowerCase();
 
-  // 1. Check filename hints
+  // Check for MatterPackr signature
+  const textDecoder = new TextDecoder('utf-8', { fatal: false });
+  const tailBytes = bytes.slice(Math.max(0, bytes.length - 1024));
+  const tailStr = textDecoder.decode(tailBytes);
+  const isCreatedByApp = tailStr.includes('MatterPackr');
+  const isEncryptedByApp = tailStr.includes('MatterPackr:Encrypted');
+
+  if (isEncryptedByApp) {
+    return { isEncrypted: true, requiresPasswordToOpen: true, isCreatedByApp: true, method: 'aes-256' };
+  }
+
+  // Check 7-Zip header (7z\xbc\xaf\x27\x1c)
+  if (bytes[0] === 0x37 && bytes[1] === 0x7A && bytes[2] === 0xBC && bytes[3] === 0xAF) {
+    if (nameLower.includes('encrypt') || nameLower.includes('pass') || nameLower.includes('vault') || isCreatedByApp) {
+      return { isEncrypted: true, requiresPasswordToOpen: true, isCreatedByApp, method: 'aes-256' };
+    }
+  }
+
+  // Check filename hints
   if (
     nameLower.includes('encrypt') ||
     nameLower.includes('vault') ||
@@ -155,36 +178,29 @@ export async function detectIfArchiveIsEncrypted(
     nameLower.includes('secret') ||
     nameLower.includes('password')
   ) {
-    return { isEncrypted: true, method: 'aes-256' };
+    return { isEncrypted: true, requiresPasswordToOpen: true, isCreatedByApp, method: 'aes-256' };
   }
 
-  // 2. Scan ZIP local headers (PK\x03\x04)
+  // Scan ZIP local headers (PK\x03\x04)
   for (let i = 0; i < Math.min(bytes.length - 30, 131072); i++) {
     if (bytes[i] === 0x50 && bytes[i + 1] === 0x4B && bytes[i + 2] === 0x03 && bytes[i + 3] === 0x04) {
       // General purpose bit flag is 2 bytes at offset 6
       const flags = bytes[i + 6] | (bytes[i + 7] << 8);
       if ((flags & 0x0001) !== 0) {
-        // Bit 0 = 1 indicates encryption
-        return { isEncrypted: true, method: 'aes-256' };
+        // Bit 0 = 1 indicates encryption (data encrypted, unencrypted headers)
+        return { isEncrypted: true, requiresPasswordToOpen: false, isCreatedByApp, method: 'aes-256' };
       }
     }
   }
 
-  // 3. Scan 7-Zip header (7z\xbc\xaf\x27\x1c)
-  if (bytes[0] === 0x37 && bytes[1] === 0x7A && bytes[2] === 0xBC && bytes[3] === 0xAF) {
-    if (nameLower.includes('encrypt') || nameLower.includes('pass') || nameLower.includes('vault')) {
-      return { isEncrypted: true, method: 'aes-256' };
-    }
-  }
-
-  // 4. Scan RAR header (Rar!\x1a\x07)
+  // Scan RAR header (Rar!\x1a\x07)
   if (bytes[0] === 0x52 && bytes[1] === 0x61 && bytes[2] === 0x72 && bytes[3] === 0x21) {
     if (nameLower.includes('encrypt') || nameLower.includes('pass') || nameLower.includes('vault')) {
-      return { isEncrypted: true, method: 'aes-256' };
+      return { isEncrypted: true, requiresPasswordToOpen: true, isCreatedByApp, method: 'aes-256' };
     }
   }
 
-  return { isEncrypted: false, method: 'none' };
+  return { isEncrypted: false, requiresPasswordToOpen: false, isCreatedByApp, method: 'none' };
 }
 
 /**

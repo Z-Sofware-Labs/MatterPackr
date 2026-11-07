@@ -15,6 +15,7 @@ public:
   explicit NewArchiveDialog(const QString &archivePath, QWidget *parent = nullptr);
 
   QStringList files() const;
+  void addFiles(const QStringList &files);
   QString password() const;
   QString format() const;
 

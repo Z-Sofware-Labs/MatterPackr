@@ -43,6 +43,13 @@ protected:
     void closeEvent(QCloseEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
     bool eventFilter(QObject *obj, QEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dragMoveEvent(QDragMoveEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
+
+private slots:
+    void onDragExtractionRequested(const QModelIndexList &selectedRows);
+    void onFilesDropped(const QStringList &filePaths);
 
 private slots:
     // File menu
@@ -106,6 +113,9 @@ private:
     void onFolderTreeItemClicked(QTreeWidgetItem *item, int column);
     void onNavUpClicked();
     bool promptAndCleanUpCheckOut();
+    void onNewArchiveWithFiles(const QStringList &files);
+    bool ensureArchiveUnlocked(bool forExtraction = false);
+    void refreshCurrentArchive();
 
     QString m_currentArchivePath;
     bool m_isCurrentEncrypted = false;

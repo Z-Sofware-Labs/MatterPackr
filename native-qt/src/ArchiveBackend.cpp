@@ -74,8 +74,84 @@ bool isAvailable() {
 #endif
 }
 
+static void stampMatterPackrZipComment(const QString &filePath, bool encrypted) {
+  QFile file(filePath);
+  if (!file.open(QIODevice::ReadWrite))
+    return;
+  qint64 size = file.size();
+  if (size < 22)
+    return;
+  qint64 searchStart = qMax<qint64>(0, size - 1024);
+  file.seek(searchStart);
+  QByteArray buffer = file.read(1024);
+  int pos = buffer.lastIndexOf("\x50\x4B\x05\x06");
+  if (pos >= 0) {
+    qint64 eocdPos = searchStart + pos;
+    QByteArray comment = encrypted ? QByteArray("MatterPackr:Encrypted") : QByteArray("MatterPackr");
+    quint16 commentLen = static_cast<quint16>(comment.size());
+    file.seek(eocdPos + 20);
+    char lenBytes[2] = {
+      static_cast<char>(commentLen & 0xFF),
+      static_cast<char>((commentLen >> 8) & 0xFF)
+    };
+    file.write(lenBytes, 2);
+    file.write(comment);
+    file.resize(eocdPos + 22 + comment.size());
+  }
+}
+
+bool isArchiveCreatedByApp(const QString &archivePath) {
+  QFile file(archivePath);
+  if (!file.open(QIODevice::ReadOnly))
+    return false;
+  qint64 size = file.size();
+  if (size < 22)
+    return false;
+  qint64 searchStart = qMax<qint64>(0, size - 1024);
+  file.seek(searchStart);
+  QByteArray tail = file.read(1024);
+  return tail.contains("MatterPackr");
+}
+
+bool archiveRequiresPasswordBeforeOpen(const QString &archivePath) {
+  // If created by MatterPackr with encryption marker:
+  QFile file(archivePath);
+  if (file.open(QIODevice::ReadOnly)) {
+    qint64 size = file.size();
+    if (size >= 22) {
+      qint64 searchStart = qMax<qint64>(0, size - 1024);
+      file.seek(searchStart);
+      QByteArray tail = file.read(1024);
+      if (tail.contains("MatterPackr:Encrypted")) {
+        return true;
+      }
+    }
+  }
+
+  // If it's a 7Z archive, check if headers are encrypted:
+  const QString lower = archivePath.toLower();
+  if (lower.endsWith(QStringLiteral(".7z"))) {
+    bool needsPw = false;
+    bool hasEnc = false;
+    QVector<ArchiveItem> items;
+    QString err;
+    if (!listEntries(archivePath, &items, &err, QString(), &needsPw, &hasEnc)) {
+      if (needsPw || err.toLower().contains("passphrase") || err.toLower().contains("encrypted"))
+        return true;
+    }
+  }
+
+  return false;
+}
+
 bool listEntries(const QString &archivePath, QVector<ArchiveItem> *items,
-                 QString *errorMessage) {
+                 QString *errorMessage, const QString &password,
+                 bool *needsPassword, bool *hasEncryptedEntries) {
+  if (needsPassword)
+    *needsPassword = false;
+  if (hasEncryptedEntries)
+    *hasEncryptedEntries = false;
+
 #ifdef MATTERPACKR_HAS_LIBARCHIVE
   archive *reader = archive_read_new();
   if (!reader) {
@@ -86,12 +162,20 @@ bool listEntries(const QString &archivePath, QVector<ArchiveItem> *items,
 
   archive_read_support_filter_all(reader);
   archive_read_support_format_all(reader);
+  if (!password.isEmpty()) {
+    archive_read_add_passphrase(reader, password.toUtf8().constData());
+  }
   const QByteArray encodedPath = QFile::encodeName(archivePath);
   if (archive_read_open_filename(reader, encodedPath.constData(), 10240) != ARCHIVE_OK) {
     if (errorMessage) {
       *errorMessage = QString::fromUtf8(archive_error_string(reader));
       if (errorMessage->isEmpty())
         *errorMessage = QObject::tr("The libarchive reader could not open the archive.");
+    }
+    const QString errStr = errorMessage ? errorMessage->toLower() : QString();
+    if (errStr.contains("passphrase") || errStr.contains("password") || errStr.contains("encrypted")) {
+      if (needsPassword)
+        *needsPassword = true;
     }
     archive_read_free(reader);
     return false;
@@ -131,14 +215,32 @@ bool listEntries(const QString &archivePath, QVector<ArchiveItem> *items,
     item.crc32 = QStringLiteral("-");
     item.modified = QDateTime::fromSecsSinceEpoch(
         static_cast<qint64>(archive_entry_mtime(entry)));
+
+    if (archive_entry_is_encrypted(entry)) {
+      item.isEncrypted = true;
+      item.encryptionMethod = QStringLiteral("AES");
+      if (hasEncryptedEntries)
+        *hasEncryptedEntries = true;
+    }
+
     result.append(item);
 
     if (archive_read_data_skip(reader) != ARCHIVE_OK) {
       if (errorMessage)
         *errorMessage = QString::fromUtf8(archive_error_string(reader));
+      const QString errStr = errorMessage ? errorMessage->toLower() : QString();
+      if (errStr.contains("passphrase") || errStr.contains("password") || errStr.contains("encrypted")) {
+        if (needsPassword)
+          *needsPassword = true;
+      }
       archive_read_free(reader);
       return false;
     }
+  }
+
+  if (archive_read_has_encrypted_entries(reader) == 1) {
+    if (hasEncryptedEntries)
+      *hasEncryptedEntries = true;
   }
 
   if (status != ARCHIVE_EOF) {
@@ -146,6 +248,11 @@ bool listEntries(const QString &archivePath, QVector<ArchiveItem> *items,
       *errorMessage = QString::fromUtf8(archive_error_string(reader));
       if (errorMessage->isEmpty())
         *errorMessage = QObject::tr("The libarchive reader failed while reading entries.");
+    }
+    const QString errStr = errorMessage ? errorMessage->toLower() : QString();
+    if (errStr.contains("passphrase") || errStr.contains("password") || errStr.contains("encrypted")) {
+      if (needsPassword)
+        *needsPassword = true;
     }
     archive_read_free(reader);
     return false;
@@ -158,13 +265,17 @@ bool listEntries(const QString &archivePath, QVector<ArchiveItem> *items,
   Q_UNUSED(archivePath);
   Q_UNUSED(items);
   Q_UNUSED(errorMessage);
+  Q_UNUSED(password);
+  Q_UNUSED(needsPassword);
+  Q_UNUSED(hasEncryptedEntries);
   return false;
 #endif
 }
 
 bool extractEntries(const QString &archivePath, const QString &destinationPath,
                     const QStringList &selectedEntries, QString *errorMessage,
-                    const OperationCancel &cancel) {
+                    const OperationCancel &cancel,
+                    const QString &password) {
 #ifdef MATTERPACKR_HAS_LIBARCHIVE
   archive *reader = archive_read_new();
   archive *writer = archive_write_disk_new();
@@ -180,6 +291,9 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
 
   archive_read_support_filter_all(reader);
   archive_read_support_format_all(reader);
+  if (!password.isEmpty()) {
+    archive_read_add_passphrase(reader, password.toUtf8().constData());
+  }
   archive_write_disk_set_options(writer, ARCHIVE_EXTRACT_TIME
                                            | ARCHIVE_EXTRACT_PERM
                                            | ARCHIVE_EXTRACT_ACL
@@ -291,6 +405,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
   Q_UNUSED(selectedEntries);
   Q_UNUSED(errorMessage);
   Q_UNUSED(cancel);
+  Q_UNUSED(password);
   return false;
 #endif
 }
@@ -429,6 +544,9 @@ bool writeDirectoryArchive(const QString &outputPath, const QString &formatPath,
     return false;
   }
   archive_write_free(writer);
+  if (lower.endsWith(QStringLiteral(".zip"))) {
+    stampMatterPackrZipComment(outputPath, !options.password.isEmpty());
+  }
   return true;
 #else
   Q_UNUSED(outputPath); Q_UNUSED(formatPath); Q_UNUSED(rootPath);

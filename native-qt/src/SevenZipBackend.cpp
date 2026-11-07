@@ -10,6 +10,18 @@
 #include "7zip/Archive/IArchive.h"
 #include "7zip/Archive/7z/7zHandler.h"
 #include "7zip/Common/FileStreams.h"
+#include "7zip/Common/RegisterCodec.h"
+#include "7zip/Compress/CopyCoder.h"
+#include "7zip/Compress/LzmaDecoder.h"
+#include "7zip/Compress/LzmaEncoder.h"
+#include "7zip/Compress/Lzma2Decoder.h"
+#include "7zip/Compress/Lzma2Encoder.h"
+#include "7zip/Compress/BcjCoder.h"
+#include "7zip/Compress/Bcj2Coder.h"
+#include "7zip/Crypto/7zAes.h"
+#include "7zip/IPassword.h"
+#include "Bra.h"
+#include "Common/MyCom.h"
 #include "Windows/PropVariant.h"
 
 namespace {
@@ -17,14 +29,52 @@ namespace {
 using namespace NWindows;
 using namespace NWindows::NCOM;
 
+static void *CreateDec_LZMA() { return (void *)(ICompressCoder *)(new NCompress::NLzma::CDecoder()); }
+static void *CreateEnc_LZMA() { return (void *)(ICompressCoder *)(new NCompress::NLzma::CEncoder()); }
+static const CCodecInfo g_Codec_LZMA = { CreateDec_LZMA, CreateEnc_LZMA, 0x30101, "LZMA", 1, false };
+
+static void *CreateDec_LZMA2() { return (void *)(ICompressCoder *)(new NCompress::NLzma2::CDecoder()); }
+static void *CreateEnc_LZMA2() { return (void *)(ICompressCoder *)(new NCompress::NLzma2::CEncoder()); }
+static const CCodecInfo g_Codec_LZMA2 = { CreateDec_LZMA2, CreateEnc_LZMA2, 0x21, "LZMA2", 1, false };
+
+static void *CreateDec_7zAES() { return (void *)(ICompressFilter *)(new NCrypto::N7z::CDecoder()); }
+static void *CreateEnc_7zAES() { return (void *)(ICompressFilter *)(new NCrypto::N7z::CEncoder()); }
+static const CCodecInfo g_Codec_7zAES = { CreateDec_7zAES, CreateEnc_7zAES, 0x6F10701, "7zAES", 1, true };
+
+static void *Create_Copy() { return (void *)(ICompressCoder *)(new NCompress::CCopyCoder()); }
+static const CCodecInfo g_Codec_Copy = { Create_Copy, Create_Copy, 0, "Copy", 1, false };
+
+static void *CreateDec_BCJ() { return (void *)(ICompressFilter *)(new NCompress::NBcj::CCoder2(z7_BranchConvSt_X86_Dec)); }
+static void *CreateEnc_BCJ() { return (void *)(ICompressFilter *)(new NCompress::NBcj::CCoder2(z7_BranchConvSt_X86_Enc)); }
+static const CCodecInfo g_Codec_BCJ = { CreateDec_BCJ, CreateEnc_BCJ, 0x3030103, "BCJ", 1, true };
+
+static void *CreateDec_BCJ2() { return (void *)(ICompressCoder2 *)(new NCompress::NBcj2::CDecoder()); }
+static void *CreateEnc_BCJ2() { return (void *)(ICompressCoder2 *)(new NCompress::NBcj2::CEncoder()); }
+static const CCodecInfo g_Codec_BCJ2 = { CreateDec_BCJ2, CreateEnc_BCJ2, 0x303011B, "BCJ2", 4, false };
+
+void ensureCodecsRegistered() {
+  static bool registered = false;
+  if (registered)
+    return;
+  registered = true;
+  RegisterCodec(&g_Codec_LZMA);
+  RegisterCodec(&g_Codec_LZMA2);
+  RegisterCodec(&g_Codec_7zAES);
+  RegisterCodec(&g_Codec_Copy);
+  RegisterCodec(&g_Codec_BCJ);
+  RegisterCodec(&g_Codec_BCJ2);
+}
+
 QString sdkError(HRESULT result) {
   return QObject::tr("The 7-Zip SDK rejected the operation (0x%1).")
       .arg(static_cast<quint32>(result), 8, 16, QLatin1Char('0'));
 }
 
 UString sdkString(const QString &value) {
+  UString str;
   const std::wstring wide = value.toStdWString();
-  return UString(wide.c_str());
+  str.SetFrom(wide.c_str(), static_cast<unsigned>(wide.length()));
+  return str;
 }
 
 // CFSTR is wchar_t-based on Windows but char-based (filesystem encoding) on Unix.
@@ -39,11 +89,12 @@ const char *sdkPathData(const SdkPath &path) { return path.constData(); }
 #endif
 
 class DirectoryUpdateCallback final : public IArchiveUpdateCallback,
-                                       public CMyUnknownImp {
+                                      public ICryptoGetTextPassword2,
+                                      public CMyUnknownImp {
 public:
-  DirectoryUpdateCallback(const QStringList &files,
+  DirectoryUpdateCallback(const QStringList &files, const QString &password,
                           const ArchiveBackend::OperationCancel &cancel)
-      : m_cancel(cancel) {
+      : m_password(password), m_cancel(cancel) {
     for (const QString &file : files) {
       const QFileInfo info(file);
       if (info.exists())
@@ -52,6 +103,7 @@ public:
   }
 
   Z7_COM_QI_BEGIN2(IArchiveUpdateCallback)
+  Z7_COM_QI_ENTRY(ICryptoGetTextPassword2)
   Z7_COM_QI_END
   Z7_COM_ADDREF_RELEASE
 
@@ -66,6 +118,17 @@ private:
 
 public:
   UInt32 itemCount() const { return static_cast<UInt32>(m_items.size()); }
+
+  HRESULT CryptoGetTextPassword2(Int32 *passwordIsDefined, BSTR *password) throw() override {
+    if (m_password.isEmpty()) {
+      *passwordIsDefined = 0;
+      *password = nullptr;
+      return S_OK;
+    }
+    *passwordIsDefined = 1;
+    const std::wstring wide = m_password.toStdWString();
+    return StringToBstr(wide.c_str(), password);
+  }
 
   HRESULT GetUpdateItemInfo(UInt32 index, Int32 *newData, Int32 *newProps,
                             UInt32 *indexInArchive) throw() override {
@@ -140,6 +203,7 @@ private:
   }
 
   QVector<Item> m_items;
+  QString m_password;
   ArchiveBackend::OperationCancel m_cancel;
 };
 
@@ -147,6 +211,8 @@ bool writeEncrypted7z(const QString &archivePath, const QStringList &files,
                       const ArchiveBackend::ArchiveOptions &options,
                       QString *errorMessage,
                       const ArchiveBackend::OperationCancel &cancel) {
+  ensureCodecsRegistered();
+
   QString replacementPath;
   {
     QTemporaryFile replacement(
@@ -161,42 +227,40 @@ bool writeEncrypted7z(const QString &archivePath, const QStringList &files,
     replacementPath = replacement.fileName();
   }
 
-  auto *output = new COutFileStream();
+  COutFileStream *outFileStream = new COutFileStream();
+  CMyComPtr<IOutStream> output = outFileStream;
   const SdkPath outputPath = sdkPath(replacementPath);
-  if (!output->Create_ALWAYS(sdkPathData(outputPath))) {
-    static_cast<IOutStream *>(output)->Release();
+  if (!outFileStream->Create_ALWAYS(sdkPathData(outputPath))) {
+    output.Release();
     QFile::remove(replacementPath);
     if (errorMessage)
       *errorMessage = QObject::tr("Could not create the encrypted 7Z output file.");
     return false;
   }
 
-  auto *handler = new NArchive::N7z::CHandler();
-  auto *callback = new DirectoryUpdateCallback(files, cancel);
-  IOutArchive *outArchive = static_cast<IOutArchive *>(handler);
+  NArchive::N7z::CHandler *handler = new NArchive::N7z::CHandler();
+  CMyComPtr<IOutArchive> outArchive = handler;
+  DirectoryUpdateCallback *callbackSpec =
+      new DirectoryUpdateCallback(files, options.password, cancel);
+  CMyComPtr<IArchiveUpdateCallback> callback = callbackSpec;
 
-  const UString password = sdkString(options.password);
-  CPropVariant passwordValue(password);
   CPropVariant headersValue(options.encryptHeaders);
-  const wchar_t *names[] = {L"p", L"he"};
-  PROPVARIANT values[] = {passwordValue, headersValue};
+  const wchar_t *names[] = {L"he"};
+  PROPVARIANT values[] = {headersValue};
   ISetProperties *properties = nullptr;
   HRESULT result = outArchive->QueryInterface(
       IID_ISetProperties, reinterpret_cast<void **>(&properties));
   if (SUCCEEDED(result))
-    result = properties->SetProperties(names, values, 2);
+    result = properties->SetProperties(names, values, 1);
   if (properties)
     properties->Release();
   if (SUCCEEDED(result)) {
     result = outArchive->UpdateItems(
-        static_cast<ISequentialOutStream *>(output), callback->itemCount(),
+        output, callbackSpec->itemCount(),
         callback);
   }
 
-  output->Close();
-  static_cast<IOutStream *>(output)->Release();
-  static_cast<IArchiveUpdateCallback *>(callback)->Release();
-  outArchive->Release();
+  outFileStream->Close();
 
   if (FAILED(result) || (cancel && cancel->load())) {
     QFile::remove(replacementPath);

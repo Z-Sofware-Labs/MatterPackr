@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(MatterPackr VERSION 3.0.14 LANGUAGES C CXX)
+project(MatterPackr VERSION 3.0.15 LANGUAGES C CXX)
 
 include(CTest)
 
@@ -114,6 +114,7 @@ set(SOURCES
     src/CheckOutDialog.cpp
     src/NewArchiveDialog.cpp
     src/FavoritesDialog.cpp
+    src/PasswordPromptDialog.cpp
     resources.qrc
 )
 
@@ -133,6 +134,7 @@ set(HEADERS
     src/CheckOutDialog.h
     src/NewArchiveDialog.h
     src/FavoritesDialog.h
+    src/PasswordPromptDialog.h
 )
 
 add_executable(MatterPackr
@@ -224,7 +226,7 @@ if(MATTERPACKR_ENABLE_7Z)
         ${sevenzip_sdk_SOURCE_DIR}/C
         ${sevenzip_sdk_SOURCE_DIR}/CPP
     )
-    target_compile_definitions(MatterPackrSevenZip PRIVATE
+    target_compile_definitions(MatterPackrSevenZip PUBLIC
         Z7_EXTERNAL_CODECS
         Z7_7Z_SET_PROPERTIES
         MATTERPACKR_HAS_7Z_SDK

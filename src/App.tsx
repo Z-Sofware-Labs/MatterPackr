@@ -320,20 +320,31 @@ export default function App() {
       const parsedEntries = await parseArchiveFile(file, buffer);
 
       if (encInfo.isEncrypted) {
-        // Archive has password protection / encryption: prompt user with Unlock dialog
+        // Archive has password protection / encryption
         const encryptedEntries = parsedEntries.map((e) => ({
           ...e,
           encrypted: true,
           encryptionMethod: encInfo.method,
         }));
 
-        setPendingEncryptedArchive({
-          file,
-          buffer,
-          entries: encryptedEntries,
-          method: encInfo.method,
-        });
-        setActiveDialog('unlock_archive');
+        if (encInfo.requiresPasswordToOpen) {
+          // Encrypted headers or created by MatterPackr: require password FIRST before contents is opened and extracted
+          setPendingEncryptedArchive({
+            file,
+            buffer,
+            entries: encryptedEntries,
+            method: encInfo.method,
+          });
+          setActiveDialog('unlock_archive');
+          return;
+        }
+
+        // Unencrypted headers: viewable entries, but password is required before extraction
+        loadArchiveIntoState(file.name, encryptedEntries, true, undefined, encInfo.method);
+        showNotification(
+          `Opened '${file.name}' (${parsedEntries.length} items). Password required to extract encrypted files.`,
+          'info'
+        );
         return;
       }
 
@@ -518,6 +529,17 @@ export default function App() {
     password?: string,
     preservePath: boolean = true
   ) => {
+    if (archive.isEncrypted && !archive.password && !password) {
+      setPendingEncryptedArchive({
+        file: new File([], archive.name),
+        buffer: new ArrayBuffer(0),
+        entries: archive.files,
+        method: archive.encryptionMethod || 'aes-256',
+      });
+      setActiveDialog('unlock_archive');
+      return;
+    }
+
     const rawFiles = extractAll ? archive.files : selectedFiles;
     if (rawFiles.length === 0) return;
 
@@ -881,7 +903,7 @@ export default function App() {
           onWizard={() => setActiveDialog('wizard')}
           onTipOfDay={() => setActiveDialog('tip')}
           onAbout={() => setActiveDialog('about')}
-          onCheckForUpdates={() => showNotification('MatterPackr v3.0.14 is up to date!', 'info')}
+          onCheckForUpdates={() => showNotification('MatterPackr v3.0.15 is up to date!', 'info')}
           onExportQtProject={handleExportQtProject}
           hasArchive={Boolean(archive.name || archive.files.length > 0)}
           hasSelection={selectedFileIds.length > 0}

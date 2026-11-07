@@ -1,13 +1,19 @@
 #include "ArchiveTableView.h"
 #include <QApplication>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QPainter>
+#include <QUrl>
 
 ArchiveTableView::ArchiveTableView(QWidget *parent)
     : QTableView(parent) {
     // Ensure viewport receives mouse moves and paints cleanly
     viewport()->setAttribute(Qt::WA_Hover, true);
+    setAcceptDrops(true);
 
     QPixmap raw(":/app.png");
     if (!raw.isNull()) {
@@ -45,6 +51,7 @@ void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
         m_dragStartPos = event->pos();
         m_currentDragPos = event->pos();
         m_isRubberBanding = false;
+        m_isDraggingItems = false;
         m_modifiers = event->modifiers();
 
         if (selectionModel()) {
@@ -54,7 +61,15 @@ void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
         }
 
         QModelIndex index = indexAt(event->pos());
-        if (!index.isValid()) {
+        if (index.isValid()) {
+            m_dragItemIndex = index;
+            if (selectionModel() && !selectionModel()->isRowSelected(index.row(), rootIndex()) &&
+                !(m_modifiers & (Qt::ControlModifier | Qt::ShiftModifier))) {
+                selectionModel()->select(index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+                setCurrentIndex(index);
+            }
+        } else {
+            m_dragItemIndex = QModelIndex();
             // Clicked on empty space below or beside table items
             if (!(m_modifiers & (Qt::ControlModifier | Qt::ShiftModifier))) {
                 clearSelection();
@@ -69,8 +84,21 @@ void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
 
 void ArchiveTableView::mouseMoveEvent(QMouseEvent *event) {
     if (event->buttons() & Qt::LeftButton) {
-        if (!m_isRubberBanding) {
-            if ((event->pos() - m_dragStartPos).manhattanLength() >= QApplication::startDragDistance()) {
+        int distance = (event->pos() - m_dragStartPos).manhattanLength();
+        if (distance >= QApplication::startDragDistance()) {
+            if (m_dragItemIndex.isValid() && !m_isRubberBanding) {
+                m_isDraggingItems = true;
+                QModelIndexList selectedRows;
+                if (selectionModel()) {
+                    selectedRows = selectionModel()->selectedRows();
+                }
+                if (selectedRows.isEmpty() && m_dragItemIndex.isValid()) {
+                    selectedRows.append(m_dragItemIndex);
+                }
+                emit dragExtractionRequested(selectedRows);
+                event->accept();
+                return;
+            } else if (!m_dragItemIndex.isValid() && !m_isRubberBanding) {
                 m_isRubberBanding = true;
                 if (!m_rubberBand) {
                     m_rubberBand = new QRubberBand(QRubberBand::Rectangle, viewport());
@@ -107,6 +135,8 @@ void ArchiveTableView::mouseMoveEvent(QMouseEvent *event) {
 
 void ArchiveTableView::mouseReleaseEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
+        m_dragItemIndex = QModelIndex();
+        m_isDraggingItems = false;
         if (m_isRubberBanding) {
             m_isRubberBanding = false;
             if (m_rubberBand) {
@@ -117,6 +147,39 @@ void ArchiveTableView::mouseReleaseEvent(QMouseEvent *event) {
         }
     }
     QTableView::mouseReleaseEvent(event);
+}
+
+void ArchiveTableView::dragEnterEvent(QDragEnterEvent *event) {
+    if (event->mimeData()->hasUrls()) {
+        event->acceptProposedAction();
+    } else {
+        event->ignore();
+    }
+}
+
+void ArchiveTableView::dragMoveEvent(QDragMoveEvent *event) {
+    if (event->mimeData()->hasUrls()) {
+        event->acceptProposedAction();
+    } else {
+        event->ignore();
+    }
+}
+
+void ArchiveTableView::dropEvent(QDropEvent *event) {
+    if (event->mimeData()->hasUrls()) {
+        QStringList paths;
+        for (const QUrl &url : event->mimeData()->urls()) {
+            if (url.isLocalFile()) {
+                paths.append(url.toLocalFile());
+            }
+        }
+        if (!paths.isEmpty()) {
+            event->acceptProposedAction();
+            emit filesDropped(paths);
+            return;
+        }
+    }
+    event->ignore();
 }
 
 void ArchiveTableView::updateRubberBandSelection(const QRect &rect) {

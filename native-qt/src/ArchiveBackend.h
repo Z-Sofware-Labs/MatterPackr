@@ -37,10 +37,15 @@ bool add7z(const QString &archivePath, const QStringList &files,
 bool remove7z(const QString &archivePath, const QStringList &entryPaths,
               QString *errorMessage, const OperationCancel &cancel = {});
 bool listEntries(const QString &archivePath, QVector<ArchiveItem> *items,
-                 QString *errorMessage);
+                 QString *errorMessage, const QString &password = QString(),
+                 bool *needsPassword = nullptr,
+                 bool *hasEncryptedEntries = nullptr);
 bool extractEntries(const QString &archivePath, const QString &destinationPath,
                     const QStringList &selectedEntries, QString *errorMessage,
-                    const OperationCancel &cancel = {});
+                    const OperationCancel &cancel = {},
+                    const QString &password = QString());
+bool isArchiveCreatedByApp(const QString &archivePath);
+bool archiveRequiresPasswordBeforeOpen(const QString &archivePath);
 bool createEmpty(const QString &archivePath, QString *errorMessage,
                  const OperationCancel &cancel = {},
                  const ArchiveOptions &options = {});

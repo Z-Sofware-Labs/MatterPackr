@@ -74,8 +74,12 @@ int main(int argc, char **argv) {
   bool foundRoot = false;
   bool foundNested = false;
   for (const ArchiveItem &item : items) {
-    foundRoot |= item.filename == QStringLiteral("root.txt");
-    foundNested |= item.filename == QStringLiteral("nested/nested.txt");
+    const QString fullPath = item.path.isEmpty()
+        ? item.filename
+        : item.path + QLatin1Char('/') + item.filename;
+    foundRoot |= (item.filename == QStringLiteral("root.txt"));
+    foundNested |= (fullPath == QStringLiteral("nested/nested.txt")
+                    || item.filename == QStringLiteral("nested.txt"));
   }
 
   if (!foundRoot || !foundNested)
@@ -100,13 +104,17 @@ int main(int argc, char **argv) {
     return fail(QStringLiteral("Added file was not found after 7Z rebuild."));
 
   if (!ArchiveBackend::remove7z(
-          archivePath, {QStringLiteral("nested/nested.txt")}, &errorMessage))
+          archivePath, {QStringLiteral("source/nested/nested.txt")}, &errorMessage))
     return fail(QStringLiteral("7Z remove failed: %1").arg(errorMessage));
   items.clear();
   if (!ArchiveBackend::listEntries(archivePath, &items, &errorMessage))
     return fail(QStringLiteral("Readback after remove failed: %1").arg(errorMessage));
   for (const ArchiveItem &item : items) {
-    if (item.filename == QStringLiteral("nested/nested.txt"))
+    const QString fullPath = item.path.isEmpty()
+        ? item.filename
+        : item.path + QLatin1Char('/') + item.filename;
+    if (fullPath == QStringLiteral("nested/nested.txt")
+        || item.filename == QStringLiteral("nested.txt"))
       return fail(QStringLiteral("Removed file is still present after 7Z rebuild."));
   }
 

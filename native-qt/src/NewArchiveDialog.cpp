@@ -137,7 +137,11 @@ NewArchiveDialog::NewArchiveDialog(const QString &archivePath, QWidget *parent)
 void NewArchiveDialog::chooseFiles() {
   const QStringList selected = QFileDialog::getOpenFileNames(
       this, tr("Select Files to Add"), QString(), tr("All Files (*.*)"));
-  for (const QString &file : selected) {
+  addFiles(selected);
+}
+
+void NewArchiveDialog::addFiles(const QStringList &files) {
+  for (const QString &file : files) {
     if (m_fileList->findItems(file, Qt::MatchExactly).isEmpty())
       m_fileList->addItem(file);
   }
