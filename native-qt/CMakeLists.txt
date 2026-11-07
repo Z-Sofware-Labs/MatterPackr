@@ -130,6 +130,18 @@ else()
     set(ENABLE_LIBXML2 OFF CACHE BOOL "" FORCE)
     set(ENABLE_EXPAT OFF CACHE BOOL "" FORCE)
     set(ENABLE_PCREPOSIX OFF CACHE BOOL "" FORCE)
+    if(WIN32)
+        # Windows CRT provides standard wide-character functions as intrinsics.
+        # Pre-seed cache to prevent CMake's CheckFunctionExists failing on MSVC intrinsics.
+        set(HAVE_WCSCMP 1 CACHE INTERNAL "Have function wcscmp")
+        set(HAVE_WCSCPY 1 CACHE INTERNAL "Have function wcscpy")
+        set(HAVE_WCSLEN 1 CACHE INTERNAL "Have function wcslen")
+        set(HAVE_WMEMCMP 1 CACHE INTERNAL "Have function wmemcmp")
+        set(HAVE_WMEMCPY 1 CACHE INTERNAL "Have function wmemcpy")
+        set(HAVE_WMEMMOVE 1 CACHE INTERNAL "Have function wmemmove")
+        set(HAVE_WCRTOMB 1 CACHE INTERNAL "Have function wcrtomb")
+        set(HAVE_WCTOMB 1 CACHE INTERNAL "Have function wctomb")
+    endif()
     FetchContent_Declare(
         libarchive
         URL https://github.com/libarchive/libarchive/releases/download/v3.7.7/libarchive-3.7.7.tar.gz
@@ -138,6 +150,18 @@ else()
     )
     FetchContent_MakeAvailable(libarchive)
     target_compile_definitions(archive_static INTERFACE LIBARCHIVE_STATIC)
+    if(WIN32)
+        target_compile_definitions(archive_static PRIVATE
+            HAVE_WCSCMP=1
+            HAVE_WCSCPY=1
+            HAVE_WCSLEN=1
+            HAVE_WMEMCMP=1
+            HAVE_WMEMCPY=1
+            HAVE_WMEMMOVE=1
+            HAVE_WCRTOMB=1
+            HAVE_WCTOMB=1
+        )
+    endif()
     add_library(MatterPackr::Archive ALIAS archive_static)
 endif()
 
