@@ -162,6 +162,8 @@ bool listEntries(const QString &archivePath, QVector<ArchiveItem> *items,
 
   archive_read_support_filter_all(reader);
   archive_read_support_format_all(reader);
+  archive_read_set_option(reader, "zip", "mac-ext", nullptr);
+  archive_read_set_option(reader, "tar", "mac-ext", nullptr);
   if (!password.isEmpty()) {
     archive_read_add_passphrase(reader, password.toUtf8().constData());
   }
@@ -291,6 +293,8 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
 
   archive_read_support_filter_all(reader);
   archive_read_support_format_all(reader);
+  archive_read_set_option(reader, "zip", "mac-ext", nullptr);
+  archive_read_set_option(reader, "tar", "mac-ext", nullptr);
   if (!password.isEmpty()) {
     archive_read_add_passphrase(reader, password.toUtf8().constData());
   }
