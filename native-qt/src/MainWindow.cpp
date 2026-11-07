@@ -36,6 +36,7 @@
 #include <QFileOpenEvent>
 #include <QProcess>
 #include <QtConcurrent>
+#include <QThreadPool>
 #include <QDir>
 #include <QTemporaryFile>
 #include <QTemporaryDir>
@@ -1139,7 +1140,7 @@ void MainWindow::onNewArchive() {
 
   setArchiveOperationActive(true, tr("Creating archive..."));
   const OperationCancel cancel = m_archiveOperationCancel;
-  QtConcurrent::run([this, filename, format, files, archiveOptions, cancel]() {
+  QThreadPool::globalInstance()->start([this, filename, format, files, archiveOptions, cancel]() {
     QString errorMessage;
     bool success = false;
     if (format == QStringLiteral("7z")) {
@@ -1218,7 +1219,7 @@ void MainWindow::openArchiveFile(const QString &filename) {
   }
   setArchiveOperationActive(true, tr("Opening archive..."));
   const OperationCancel cancel = m_archiveOperationCancel;
-  QtConcurrent::run([this, archivePath, cancel]() {
+  QThreadPool::globalInstance()->start([this, archivePath, cancel]() {
     QString errorMessage;
     const QVector<ArchiveItem> archiveItems =
         listArchiveEntries(archivePath, &errorMessage, cancel);
@@ -1481,7 +1482,7 @@ void MainWindow::onTestArchiveIntegrity() {
   const QString archivePath = m_currentArchivePath;
   setArchiveOperationActive(true, tr("Testing archive integrity..."));
   const OperationCancel cancel = m_archiveOperationCancel;
-  QtConcurrent::run([this, archivePath, cancel]() {
+  QThreadPool::globalInstance()->start([this, archivePath, cancel]() {
     QString errorMessage;
     const bool success = verifyArchiveContents(archivePath, &errorMessage, cancel);
     QMetaObject::invokeMethod(this, [this, archivePath, success, errorMessage]() {
@@ -1633,7 +1634,7 @@ void MainWindow::onAddFiles() {
   const QString archivePath = m_currentArchivePath;
   setArchiveOperationActive(true, tr("Adding files to archive..."));
   const OperationCancel cancel = m_archiveOperationCancel;
-  QtConcurrent::run([this, archivePath, files, cancel]() {
+  QThreadPool::globalInstance()->start([this, archivePath, files, cancel]() {
     QString errorMessage;
     bool success = addFilesToArchive(archivePath, files, &errorMessage, cancel);
     QVector<ArchiveItem> archiveItems;
@@ -1700,7 +1701,7 @@ void MainWindow::onExtractFiles() {
   const QString archivePath = m_currentArchivePath;
   setArchiveOperationActive(true, tr("Extracting files..."));
   const OperationCancel cancel = m_archiveOperationCancel;
-  QtConcurrent::run([this, archivePath, entries, dir, cancel]() {
+  QThreadPool::globalInstance()->start([this, archivePath, entries, dir, cancel]() {
     QString errorMessage;
     bool success = false;
 #ifdef MATTERPACKR_HAS_LIBARCHIVE
@@ -1942,7 +1943,7 @@ void MainWindow::onDeleteFiles() {
   const int removedCount = idsToRemove.size();
   setArchiveOperationActive(true, tr("Deleting selected files..."));
   const OperationCancel cancel = m_archiveOperationCancel;
-  QtConcurrent::run([this, archivePath, entryPaths, removedCount, cancel]() {
+  QThreadPool::globalInstance()->start([this, archivePath, entryPaths, removedCount, cancel]() {
     QString errorMessage;
     bool success = removeEntriesFromArchive(archivePath, entryPaths, &errorMessage, cancel);
     QVector<ArchiveItem> archiveItems;
