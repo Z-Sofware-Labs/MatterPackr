@@ -941,11 +941,65 @@ export const FileList: React.FC<FileListProps> = ({
                       draggable={!file.isDirectory}
                       onDragStart={(e) => {
                         if (file.isDirectory) return;
-                        const content: any = file.content ?? `Extracted ${file.name}`;
-                        const blob = new Blob([content], { type: 'application/octet-stream' });
-                        const blobUrl = URL.createObjectURL(blob);
-                        e.dataTransfer.setData('DownloadURL', `application/octet-stream:${file.name}:${blobUrl}`);
-                        e.dataTransfer.setData('text/plain', file.name);
+
+                        const isPartOfMultiSelect = selectedIds.includes(file.id) && selectedIds.length > 1;
+                        const filesToDrag = isPartOfMultiSelect
+                          ? files.filter((f) => selectedIds.includes(f.id) && !f.isDirectory)
+                          : [file];
+
+                        if (filesToDrag.length === 0) return;
+
+                        if (filesToDrag.length === 1) {
+                          const target = filesToDrag[0];
+                          const content: any = target.content ?? `Extracted ${target.name}`;
+                          const blob = new Blob([content], { type: 'application/octet-stream' });
+                          const blobUrl = URL.createObjectURL(blob);
+                          e.dataTransfer.setData('DownloadURL', `application/octet-stream:${target.name}:${blobUrl}`);
+                          e.dataTransfer.setData('text/plain', target.name);
+                          e.dataTransfer.setData(
+                            'application/json',
+                            JSON.stringify({
+                              files: [{ id: target.id, name: target.name, path: target.path, size: target.size }],
+                            })
+                          );
+                        } else {
+                          const fileNames = filesToDrag.map((f) => f.name).join('\n');
+                          const filesMetadata = filesToDrag.map((f) => ({
+                            id: f.id,
+                            name: f.name,
+                            path: f.path,
+                            size: f.size,
+                          }));
+                          e.dataTransfer.setData('text/plain', fileNames);
+                          e.dataTransfer.setData(
+                            'application/json',
+                            JSON.stringify({ files: filesMetadata })
+                          );
+                          e.dataTransfer.setData(
+                            'application/x-matterpackr-files',
+                            JSON.stringify(filesMetadata)
+                          );
+
+                          // Visual badge drag image for multi-file dragging
+                          const badge = document.createElement('div');
+                          badge.style.position = 'absolute';
+                          badge.style.top = '-1000px';
+                          badge.style.padding = '4px 10px';
+                          badge.style.background = '#1e293b';
+                          badge.style.color = '#ffffff';
+                          badge.style.borderRadius = '6px';
+                          badge.style.fontSize = '12px';
+                          badge.style.fontWeight = 'bold';
+                          badge.style.boxShadow = '0 4px 6px rgba(0,0,0,0.3)';
+                          badge.innerText = `Extracting ${filesToDrag.length} items`;
+                          document.body.appendChild(badge);
+                          e.dataTransfer.setDragImage(badge, badge.offsetWidth / 2, badge.offsetHeight / 2);
+                          setTimeout(() => {
+                            if (document.body.contains(badge)) {
+                              document.body.removeChild(badge);
+                            }
+                          }, 0);
+                        }
                       }}
                       className={`cursor-pointer transition-colors ${
                         isSelected

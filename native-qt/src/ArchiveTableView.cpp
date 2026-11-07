@@ -52,6 +52,7 @@ void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
         m_currentDragPos = event->pos();
         m_isRubberBanding = false;
         m_isDraggingItems = false;
+        m_pendingSingleSelectIndex = QModelIndex();
         m_modifiers = event->modifiers();
 
         if (selectionModel()) {
@@ -63,15 +64,23 @@ void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
         QModelIndex index = indexAt(event->pos());
         if (index.isValid()) {
             m_dragItemIndex = index;
-            if (selectionModel() && !selectionModel()->isRowSelected(index.row(), rootIndex()) &&
-                !(m_modifiers & (Qt::ControlModifier | Qt::ShiftModifier))) {
+            bool alreadySelected = selectionModel() &&
+                (selectionModel()->isSelected(index) || selectionModel()->isRowSelected(index.row(), rootIndex()));
+
+            if (alreadySelected && !(m_modifiers & (Qt::ControlModifier | Qt::MetaModifier | Qt::ShiftModifier))) {
+                // Clicking an already selected item without Ctrl/Cmd/Shift:
+                // Defer changing selection to mouseReleaseEvent so dragging multiple items remains possible.
+                m_pendingSingleSelectIndex = index;
+                event->accept();
+                return;
+            } else if (!alreadySelected && !(m_modifiers & (Qt::ControlModifier | Qt::MetaModifier | Qt::ShiftModifier))) {
                 selectionModel()->select(index, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
                 setCurrentIndex(index);
             }
         } else {
             m_dragItemIndex = QModelIndex();
             // Clicked on empty space below or beside table items
-            if (!(m_modifiers & (Qt::ControlModifier | Qt::ShiftModifier))) {
+            if (!(m_modifiers & (Qt::ControlModifier | Qt::MetaModifier | Qt::ShiftModifier))) {
                 clearSelection();
                 m_initialSelection.clear();
             }
@@ -87,6 +96,7 @@ void ArchiveTableView::mouseMoveEvent(QMouseEvent *event) {
         int distance = (event->pos() - m_dragStartPos).manhattanLength();
         if (distance >= QApplication::startDragDistance()) {
             if (m_dragItemIndex.isValid() && !m_isRubberBanding) {
+                m_pendingSingleSelectIndex = QModelIndex();
                 m_isDraggingItems = true;
                 QModelIndexList selectedRows;
                 if (selectionModel()) {
@@ -103,7 +113,7 @@ void ArchiveTableView::mouseMoveEvent(QMouseEvent *event) {
                 if (!m_rubberBand) {
                     m_rubberBand = new QRubberBand(QRubberBand::Rectangle, viewport());
                 }
-                if (!(m_modifiers & Qt::ControlModifier)) {
+                if (!(m_modifiers & (Qt::ControlModifier | Qt::MetaModifier))) {
                     m_initialSelection.clear();
                 }
             }
@@ -142,6 +152,15 @@ void ArchiveTableView::mouseReleaseEvent(QMouseEvent *event) {
             if (m_rubberBand) {
                 m_rubberBand->hide();
             }
+            event->accept();
+            return;
+        }
+        if (m_pendingSingleSelectIndex.isValid()) {
+            if (selectionModel()) {
+                selectionModel()->select(m_pendingSingleSelectIndex, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+                setCurrentIndex(m_pendingSingleSelectIndex);
+            }
+            m_pendingSingleSelectIndex = QModelIndex();
             event->accept();
             return;
         }
@@ -196,7 +215,7 @@ void ArchiveTableView::updateRubberBandSelection(const QRect &rect) {
     int botY = qMin(viewport()->height() - 1, rect.bottom());
 
     if (topY > botY) {
-        if (m_modifiers & Qt::ControlModifier) {
+        if (m_modifiers & (Qt::ControlModifier | Qt::MetaModifier)) {
             selectionModel()->select(m_initialSelection, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
         } else {
             selectionModel()->clearSelection();
@@ -262,7 +281,7 @@ void ArchiveTableView::updateRubberBandSelection(const QRect &rect) {
 
     // If no row intersects the box, don't select anything
     if (startRow == -1 || endRow == -1 || startRow > endRow) {
-        if (m_modifiers & Qt::ControlModifier) {
+        if (m_modifiers & (Qt::ControlModifier | Qt::MetaModifier)) {
             selectionModel()->select(m_initialSelection, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
         } else {
             selectionModel()->clearSelection();
@@ -275,7 +294,7 @@ void ArchiveTableView::updateRubberBandSelection(const QRect &rect) {
     QModelIndex rightIdx = model()->index(endRow, cols - 1);
     rubberBandSelection.select(leftIdx, rightIdx);
 
-    if (m_modifiers & Qt::ControlModifier) {
+    if (m_modifiers & (Qt::ControlModifier | Qt::MetaModifier)) {
         QItemSelection combined = m_initialSelection;
         combined.merge(rubberBandSelection, QItemSelectionModel::Select);
         selectionModel()->select(combined, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);

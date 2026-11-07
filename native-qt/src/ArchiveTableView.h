@@ -34,6 +34,7 @@ private:
     bool m_isRubberBanding = false;
     bool m_isDraggingItems = false;
     QModelIndex m_dragItemIndex;
+    QModelIndex m_pendingSingleSelectIndex;
     QRubberBand *m_rubberBand = nullptr;
     QItemSelection m_initialSelection;
     Qt::KeyboardModifiers m_modifiers = Qt::NoModifier;

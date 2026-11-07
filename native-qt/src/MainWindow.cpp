@@ -2702,6 +2702,7 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
   if (selectedRows.isEmpty())
     return;
 
+  QSet<QString> seenEntries;
   QStringList entriesToExtract;
   for (const QModelIndex &proxyIndex : selectedRows) {
     const QModelIndex sourceIndex = m_proxyModel->mapToSource(proxyIndex);
@@ -2711,8 +2712,22 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
     if (item.filename == QStringLiteral(".."))
       continue;
     const QString entryPath = archiveEntryPath(item);
-    if (!item.filename.isEmpty() && isSafeArchiveEntryPath(entryPath)) {
+    if (!item.filename.isEmpty() && isSafeArchiveEntryPath(entryPath) && !seenEntries.contains(entryPath)) {
+      seenEntries.insert(entryPath);
       entriesToExtract.append(entryPath);
+    }
+  }
+
+  // If checkboxes are enabled, also include any checked items
+  if (m_model && m_model->showCheckboxes()) {
+    for (const ArchiveItem &item : m_model->items()) {
+      if (item.isChecked && item.filename != QStringLiteral("..")) {
+        const QString entryPath = archiveEntryPath(item);
+        if (!item.filename.isEmpty() && isSafeArchiveEntryPath(entryPath) && !seenEntries.contains(entryPath)) {
+          seenEntries.insert(entryPath);
+          entriesToExtract.append(entryPath);
+        }
+      }
     }
   }
 
@@ -2721,9 +2736,8 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
 
   bool requiresPassword = m_isCurrentEncrypted;
   if (!requiresPassword) {
-    for (const QModelIndex &proxyIndex : selectedRows) {
-      const QModelIndex sourceIndex = m_proxyModel->mapToSource(proxyIndex);
-      if (sourceIndex.isValid() && m_model->itemAt(sourceIndex.row()).isEncrypted) {
+    for (const ArchiveItem &item : m_model->allItems()) {
+      if (seenEntries.contains(archiveEntryPath(item)) && item.isEncrypted) {
         requiresPassword = true;
         break;
       }
@@ -2816,7 +2830,7 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
   drag->setHotSpot(QPoint(pixmap.width() / 2, pixmap.height() / 2));
 
   statusBar()->showMessage(
-      tr("Dragging %1 item(s). Drop onto Explorer or Desktop to extract.")
+      tr("Dragging %1 item(s). Drop onto desktop or file manager to extract.")
           .arg(urls.size()),
       4000);
   drag->exec(Qt::CopyAction);
