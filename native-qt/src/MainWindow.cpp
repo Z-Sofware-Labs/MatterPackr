@@ -1861,9 +1861,10 @@ void MainWindow::onExtractFiles() {
   QThreadPool::globalInstance()->start([this, archivePath, entries, dir, cancel, password]() {
     QString errorMessage;
     bool success = false;
+    ArchiveBackend::ExtractionTelemetry telem;
 #ifdef MATTERPACKR_HAS_LIBARCHIVE
     success = ArchiveBackend::extractEntries(
-        archivePath, dir, entries, &errorMessage, cancel, password);
+        archivePath, dir, entries, &errorMessage, cancel, password, &telem);
 #endif
     if (!success && errorMessage.isEmpty()) {
       QStringList arguments{QStringLiteral("-xf"), archivePath,
@@ -1871,7 +1872,7 @@ void MainWindow::onExtractFiles() {
       arguments.append(entries);
       success = runArchiveCommand(arguments, nullptr, &errorMessage, cancel);
     }
-    QMetaObject::invokeMethod(this, [this, entries, dir, success, errorMessage]() {
+    QMetaObject::invokeMethod(this, [this, entries, dir, success, errorMessage, telem]() {
       setArchiveOperationActive(false);
       if (!success) {
         if (isEncryptionError(errorMessage)) {
@@ -1884,7 +1885,9 @@ void MainWindow::onExtractFiles() {
         return;
       }
       statusBar()->showMessage(
-          tr("Extracted %1 item(s) to %2").arg(entries.size()).arg(dir), 3500);
+          tr("Extracted %1 item(s) (%2)")
+              .arg(telem.entryCount > 0 ? telem.entryCount : entries.size())
+              .arg(telem.summary()), 10000);
     });
   });
 }
@@ -2866,10 +2869,11 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
   QString errorMessage;
   bool ok = true;
   if (!entriesNeeded.isEmpty()) {
+    ArchiveBackend::ExtractionTelemetry telem;
 #ifdef MATTERPACKR_HAS_LIBARCHIVE
     ok = ArchiveBackend::extractEntries(
         m_currentArchivePath, sessionDropDir, entriesNeeded, &errorMessage,
-        nullptr, m_currentPassword);
+        nullptr, m_currentPassword, &telem);
 #endif
     if (!ok && errorMessage.isEmpty()) {
       QStringList arguments{QStringLiteral("-xf"), m_currentArchivePath,
