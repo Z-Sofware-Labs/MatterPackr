@@ -9,12 +9,7 @@
 #include <QThread>
 #include <QSet>
 #include <QRegularExpression>
-#include <QElapsedTimer>
-#include <QStandardPaths>
 #include <QDateTime>
-#include <QTextStream>
-#include <QDebug>
-#include <cstdio>
 
 #ifdef MATTERPACKR_HAS_LIBARCHIVE
 #include <archive.h>
@@ -283,14 +278,8 @@ bool listEntries(const QString &archivePath, QVector<ArchiveItem> *items,
 bool extractEntries(const QString &archivePath, const QString &destinationPath,
                     const QStringList &selectedEntries, QString *errorMessage,
                     const OperationCancel &cancel,
-                    const QString &password,
-                    ExtractionTelemetry *telemetry) {
+                    const QString &password) {
 #ifdef MATTERPACKR_HAS_LIBARCHIVE
-  ExtractionTelemetry localTelem;
-  QElapsedTimer totalTimer;
-  totalTimer.start();
-  QElapsedTimer stageTimer;
-
   archive *reader = archive_read_new();
   archive *writer = archive_write_disk_new();
   if (!reader || !writer) {
@@ -329,9 +318,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
   archive_entry *entry = nullptr;
   int status = ARCHIVE_OK;
   while (true) {
-    stageTimer.start();
     status = archive_read_next_header(reader, &entry);
-    localTelem.readHeaderDurationNs += stageTimer.nsecsElapsed();
     if (status != ARCHIVE_OK)
       break;
 
@@ -343,7 +330,6 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
       return false;
     }
 
-    stageTimer.start();
     const QString entryPath = QString::fromUtf8(archive_entry_pathname(entry));
     QString cleanPath = QDir::cleanPath(entryPath).replace('\\', '/');
     while (cleanPath.startsWith('/')) {
@@ -365,11 +351,8 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
         }
       }
     }
-    localTelem.pathResolveDurationNs += stageTimer.nsecsElapsed();
 
     if (!selectedForExtraction) {
-      localTelem.skippedCount++;
-      stageTimer.start();
       if (archive_read_data_skip(reader) != ARCHIVE_OK) {
         if (errorMessage)
           *errorMessage = QString::fromUtf8(archive_error_string(reader));
@@ -377,11 +360,9 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
         archive_read_free(reader);
         return false;
       }
-      localTelem.readDataDurationNs += stageTimer.nsecsElapsed();
       continue;
     }
 
-    stageTimer.start();
     const QString targetPath = QDir(destinationPath).filePath(cleanPath);
     const QString targetDir = QFileInfo(targetPath).path();
     if (!createdDirs.contains(targetDir)) {
@@ -390,9 +371,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
       }
       createdDirs.insert(targetDir);
     }
-    localTelem.dirPrepDurationNs += stageTimer.nsecsElapsed();
 
-    stageTimer.start();
     const QByteArray encodedTarget = QFile::encodeName(targetPath);
     archive_entry_set_pathname(entry, encodedTarget.constData());
     if (archive_write_header(writer, entry) != ARCHIVE_OK) {
@@ -402,19 +381,14 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
       archive_read_free(reader);
       return false;
     }
-    localTelem.writeHeaderDurationNs += stageTimer.nsecsElapsed();
 
     const void *buffer = nullptr;
     size_t size = 0;
     la_int64_t offset = 0;
     while (true) {
-      stageTimer.start();
       status = archive_read_data_block(reader, &buffer, &size, &offset);
-      localTelem.readDataDurationNs += stageTimer.nsecsElapsed();
       if (status != ARCHIVE_OK)
         break;
-
-      localTelem.totalBytes += static_cast<qint64>(size);
 
       if (cancel && cancel->load()) {
         if (errorMessage)
@@ -424,7 +398,6 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
         return false;
       }
 
-      stageTimer.start();
       if (archive_write_data_block(writer, buffer, size, offset) < 0) {
         if (errorMessage)
           *errorMessage = QString::fromUtf8(archive_error_string(writer));
@@ -432,7 +405,6 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
         archive_read_free(reader);
         return false;
       }
-      localTelem.writeDataDurationNs += stageTimer.nsecsElapsed();
     }
 
     if (status != ARCHIVE_EOF && status != ARCHIVE_OK) {
@@ -443,10 +415,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
       return false;
     }
 
-    stageTimer.start();
     archive_write_finish_entry(writer);
-    localTelem.finishEntryDurationNs += stageTimer.nsecsElapsed();
-    localTelem.entryCount++;
   }
 
   if (status != ARCHIVE_EOF) {
@@ -458,25 +427,6 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
   }
   archive_write_free(writer);
   archive_read_free(reader);
-
-  localTelem.totalDurationNs = totalTimer.nsecsElapsed();
-  if (telemetry) {
-    *telemetry = localTelem;
-  }
-
-  qDebug().noquote() << localTelem.toString();
-  std::fprintf(stderr, "%s\n", qPrintable(localTelem.toString()));
-
-  const QString logPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) +
-                          QStringLiteral("/MatterPackr_Extraction_Telemetry.log");
-  QFile logFile(logPath);
-  if (logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-    QTextStream ts(&logFile);
-    ts << QDateTime::currentDateTime().toString(Qt::ISODate) << " | "
-       << QFileInfo(archivePath).fileName() << " -> " << destinationPath << "\n"
-       << localTelem.toString() << "\n\n";
-  }
-
   return true;
 #else
   Q_UNUSED(archivePath);
@@ -485,7 +435,6 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
   Q_UNUSED(errorMessage);
   Q_UNUSED(cancel);
   Q_UNUSED(password);
-  Q_UNUSED(telemetry);
   return false;
 #endif
 }
