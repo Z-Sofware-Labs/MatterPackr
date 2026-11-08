@@ -781,11 +781,11 @@ void MainWindow::updateEmptyStateVisibility() {
   if (m_actFilterFiles)
     m_actFilterFiles->setEnabled(hasArchive && hasFiles);
   if (m_actToggleView)
-    m_actToggleView->setEnabled(hasArchive || hasFiles);
+    m_actToggleView->setEnabled(true);
   if (m_actClassic)
-    m_actClassic->setEnabled(hasArchive || hasFiles);
+    m_actClassic->setEnabled(true);
   if (m_actExplorer)
-    m_actExplorer->setEnabled(hasArchive || hasFiles);
+    m_actExplorer->setEnabled(true);
   if (m_actToggleFolderTree)
     m_actToggleFolderTree->setEnabled(hasArchive || hasFiles);
   if (m_actAddCurrentFavorite)
@@ -816,6 +816,21 @@ void MainWindow::setArchiveOperationActive(bool active, const QString &message) 
     m_archiveProgress->deleteLater();
     m_archiveProgress = nullptr;
     m_archiveOperationCancel.reset();
+  }
+  if (m_lblBadge) {
+    if (active) {
+      m_lblBadge->setStyleSheet("background-color: #ef4444; "
+                                "border: 1px solid #dc2626; "
+                                "border-radius: 6px; "
+                                "margin-right: 6px;");
+      m_lblBadge->setToolTip(tr("Busy"));
+    } else {
+      m_lblBadge->setStyleSheet("background-color: #22c55e; "
+                                "border: 1px solid #16a34a; "
+                                "border-radius: 6px; "
+                                "margin-right: 6px;");
+      m_lblBadge->setToolTip(tr("Ready"));
+    }
   }
   const QList<QAction *> actions = {
       m_actNew, m_actOpen, m_actCloseArchive, m_actSaveAs, m_actProperties,
@@ -1016,15 +1031,13 @@ void MainWindow::createStatusBar() {
                               "500; margin-right: 6px;");
   status->addPermanentWidget(m_lblThreads);
 
-  m_lblBadge = new QLabel(tr("● READY"), this);
-  m_lblBadge->setStyleSheet("background-color: #064e3b; "
-                            "color: #34d399; "
-                            "border: 1px solid #059669; "
-                            "border-radius: 7px; "
-                            "padding: 1px 6px; "
-                            "font-weight: bold; "
-                            "font-size: 9px; "
+  m_lblBadge = new QLabel(this);
+  m_lblBadge->setFixedSize(12, 12);
+  m_lblBadge->setStyleSheet("background-color: #22c55e; "
+                            "border: 1px solid #16a34a; "
+                            "border-radius: 6px; "
                             "margin-right: 6px;");
+  m_lblBadge->setToolTip(tr("Ready"));
   status->addPermanentWidget(m_lblBadge);
 }
 

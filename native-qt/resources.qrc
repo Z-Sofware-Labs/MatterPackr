@@ -3,6 +3,7 @@
     <qresource prefix="/">
         <file alias="app.ico">resources/app.ico</file>
         <file alias="app.png">resources/app.png</file>
+        <file alias="zsoftwarelabs.png">resources/zsoftwarelabs.png</file>
         <file alias="style.qss">resources/style.qss</file>
         <file alias="style-light.qss">resources/style-light.qss</file>
         <file alias="checkmark.svg">resources/checkmark.svg</file>

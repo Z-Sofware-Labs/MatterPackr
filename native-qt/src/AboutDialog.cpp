@@ -21,9 +21,8 @@ AboutDialog::AboutDialog(QWidget *parent)
     : QDialog(parent) {
     setWindowTitle(tr("About MatterPackr"));
     setModal(true);
-    setMinimumSize(440, 520);
-    setWindowFlags(windowFlags() | Qt::WindowMinimizeButtonHint
-                   | Qt::WindowMaximizeButtonHint);
+    setFixedSize(360, 480);
+    setWindowFlags(Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
 
     setAutoFillBackground(true);
 
@@ -53,22 +52,18 @@ void AboutDialog::setupUi() {
                                        : QStringLiteral("#1e293b");
     const QString mutedColor = darkMode ? QStringLiteral("#9ca3af")
                                         : QStringLiteral("#64748b");
-    const QString inputColor = darkMode ? QStringLiteral("#16171c")
+    const QString inputColor = darkMode ? QStringLiteral("#121318")
                                         : QStringLiteral("#ffffff");
-    const QString borderColor = darkMode ? QStringLiteral("#4b516b")
-                                         : QStringLiteral("#94a3b8");
+    const QString borderColor = darkMode ? QStringLiteral("#2d313e")
+                                         : QStringLiteral("#cbd5e1");
     setStyleSheet(QStringLiteral(
         "QDialog { background-color: %1; color: %2; }"
-        "QLabel { color: %2; }"
-        "QTextEdit { background-color: %3; color: %2; border: 1px solid %4;"
-        " border-radius: 6px; padding: 8px; }"
-        "QPushButton { color: %2; background-color: %3; border: 1px solid %4;"
-        " border-radius: 4px; padding: 5px 12px; }")
-        .arg(windowColor, textColor, inputColor, borderColor));
+        "QLabel { color: %2; }")
+        .arg(windowColor, textColor));
 
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(24, 20, 24, 20);
-    layout->setSpacing(8);
+    layout->setContentsMargins(20, 16, 20, 16);
+    layout->setSpacing(6);
 
     // 1. App Icon
     auto *lblIcon = new QLabel(this);
@@ -77,28 +72,43 @@ void AboutDialog::setupUi() {
     if (icon.isNull()) {
         icon = QIcon(":/app.ico");
     }
-    lblIcon->setPixmap(icon.pixmap(64, 64));
+    lblIcon->setPixmap(icon.pixmap(56, 56));
     layout->addWidget(lblIcon);
 
     // 2. Title & Version
     auto *lblTitle = new QLabel("MatterPackr", this);
     lblTitle->setAlignment(Qt::AlignCenter);
-    lblTitle->setStyleSheet("font-size: 18px; font-weight: bold; margin-top: 2px;");
+    lblTitle->setStyleSheet("font-size: 16px; font-weight: bold; margin-top: 2px;");
     layout->addWidget(lblTitle);
 
     auto *lblVersion = new QLabel(tr("Version %1").arg(qApp->applicationVersion()), this);
     lblVersion->setAlignment(Qt::AlignCenter);
     lblVersion->setStyleSheet(
-        QStringLiteral("font-size: 12px; color: %1;").arg(mutedColor));
+        QStringLiteral("font-size: 11px; color: %1;").arg(mutedColor));
     layout->addWidget(lblVersion);
 
-    // 3. Copyright
-    auto *lblCopyright = new QLabel(tr("Copyright © 2026 Z Software Labs. All rights reserved."), this);
-    lblCopyright->setAlignment(Qt::AlignCenter);
-    lblCopyright->setStyleSheet(
-        QStringLiteral("font-size: 11px; color: %1; margin-top: 2px;")
-            .arg(mutedColor));
-    layout->addWidget(lblCopyright);
+    // 3. Copyright with Z Software Labs Logo
+    auto *copyrightLayout = new QHBoxLayout();
+    copyrightLayout->setAlignment(Qt::AlignCenter);
+    copyrightLayout->setSpacing(4);
+    copyrightLayout->setContentsMargins(0, 2, 0, 2);
+
+    auto *lblCopyPrefix = new QLabel(tr("Copyright © 2026"), this);
+    lblCopyPrefix->setStyleSheet(QStringLiteral("font-size: 10.5px; color: %1;").arg(mutedColor));
+
+    auto *lblZLogo = new QLabel(this);
+    QPixmap zPix(":/zsoftwarelabs.png");
+    if (!zPix.isNull()) {
+        lblZLogo->setPixmap(zPix.scaled(14, 14, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    }
+
+    auto *lblCopySuffix = new QLabel(tr("Z Software Labs. All rights reserved."), this);
+    lblCopySuffix->setStyleSheet(QStringLiteral("font-size: 10.5px; color: %1;").arg(mutedColor));
+
+    copyrightLayout->addWidget(lblCopyPrefix);
+    copyrightLayout->addWidget(lblZLogo);
+    copyrightLayout->addWidget(lblCopySuffix);
+    layout->addLayout(copyrightLayout);
 
     // 4. Description
     auto *lblDesc = new QLabel(
@@ -106,44 +116,45 @@ void AboutDialog::setupUi() {
            "designed for fast, effortless compression workflows."), this);
     lblDesc->setAlignment(Qt::AlignCenter);
     lblDesc->setWordWrap(true);
-    lblDesc->setStyleSheet("font-size: 12px; margin-top: 4px; margin-bottom: 2px;");
+    lblDesc->setStyleSheet("font-size: 11px; margin-top: 2px; margin-bottom: 2px;");
     layout->addWidget(lblDesc);
 
     // 5. License header link
     auto *lblLicense = new QLabel(
         tr("This application is licensed under "
-           "<a href=\"https://opensource.org/licenses/MIT\" style=\"color: #2563eb; text-decoration: none;\"><b>MIT ↗</b></a>"), this);
+           "<a href=\"https://opensource.org/licenses/MIT\" style=\"color: #3b82f6; text-decoration: none;\"><b>MIT ↗</b></a>"), this);
     lblLicense->setAlignment(Qt::AlignCenter);
     lblLicense->setOpenExternalLinks(true);
-    lblLicense->setStyleSheet("font-size: 13px; margin-bottom: 4px;");
+    lblLicense->setStyleSheet("font-size: 11.5px; margin-bottom: 2px;");
     layout->addWidget(lblLicense);
 
-    // 6. Scrollable License text box with MIT + Third-Party Credits
+    // 6. Compact Scrollable License text box with MIT + Third-Party Credits
     auto *txtLicense = new QTextEdit(this);
     txtLicense->setReadOnly(true);
+    txtLicense->setFixedHeight(120);
     txtLicense->setStyleSheet(QStringLiteral(
         "QTextEdit { font-family: Consolas, 'Courier New', monospace;"
-        " font-size: 10pt; line-height: 1.4; background-color: %1;"
-        " color: %2; border: 1px solid %3; border-radius: 6px; padding: 8px; }")
+        " font-size: 8.5pt; line-height: 1.35; background-color: %1;"
+        " color: %2; border: 1px solid %3; border-radius: 6px; padding: 6px; }")
         .arg(inputColor, textColor, borderColor));
 
     const QString licenseHtml = QString(
-        "<p style='margin-bottom: 8px;'>Permission is hereby granted, free of charge, to any person obtaining a copy "
+        "<p style='margin-bottom: 6px;'>Permission is hereby granted, free of charge, to any person obtaining a copy "
         "of this software and associated documentation files (the \"Software\"), to deal in the Software without "
         "restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, "
         "sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, "
         "subject to the following conditions:</p>"
-        "<p style='margin-bottom: 8px;'>The above copyright notice and this permission notice shall be included in all "
+        "<p style='margin-bottom: 6px;'>The above copyright notice and this permission notice shall be included in all "
         "copies or substantial portions of the Software.</p>"
-        "<p style='margin-bottom: 12px;'>THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR "
+        "<p style='margin-bottom: 8px;'>THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR "
         "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND "
         "NONINFRINGEMENT.</p>"
-        "<hr style='border: none; border-top: 1px solid #9ca3af; margin: 8px 0;'/>"
-        "<p style='font-family: sans-serif; font-size: 10pt; font-weight: bold; margin-bottom: 4px;'>Third-Party Licenses</p>"
-        "<p style='margin-bottom: 3px;'><b>libarchive:</b> Copyright © 2003-2007 Tim Kientzle. BSD License.</p>"
-        "<p style='margin-bottom: 3px;'><b>7-Zip:</b> Copyright © 1999-2026 Igor Pavlov. GNU Lesser GPL.</p>"
-        "<p style='margin-bottom: 3px;'><b>UnRAR:</b> Copyright © Alexander Roshal. Freeware license.</p>"
-    );
+        "<hr style='border: none; border-top: 1px solid %1; margin: 6px 0;'/>"
+        "<p style='font-family: sans-serif; font-size: 8.5pt; font-weight: bold; margin-bottom: 3px;'>Third-Party Licenses</p>"
+        "<p style='margin-bottom: 2px;'><b>libarchive:</b> Copyright © 2003-2007 Tim Kientzle. BSD License.</p>"
+        "<p style='margin-bottom: 2px;'><b>7-Zip:</b> Copyright © 1999-2026 Igor Pavlov. GNU Lesser GPL.</p>"
+        "<p style='margin-bottom: 2px;'><b>UnRAR:</b> Copyright © Alexander Roshal. Freeware license.</p>"
+    ).arg(borderColor);
 
     txtLicense->setHtml(licenseHtml);
     layout->addWidget(txtLicense);
@@ -153,7 +164,17 @@ void AboutDialog::setupUi() {
     btnLayout->addStretch();
     auto *btnOk = new QPushButton(tr("OK"), this);
     btnOk->setDefault(true);
-    btnOk->setFixedWidth(100);
+    btnOk->setFixedWidth(84);
+    btnOk->setFixedHeight(28);
+    const QString btnBg = darkMode ? QStringLiteral("qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #333842, stop:1 #22252c)")
+                                   : QStringLiteral("qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 #e2e8f0)");
+    const QString btnBorder = darkMode ? QStringLiteral("#4a5060") : QStringLiteral("#cbd5e1");
+    btnOk->setStyleSheet(QStringLiteral(
+        "QPushButton { color: %1; background: %2; border: 1px solid %3;"
+        " border-radius: 5px; font-size: 11px; font-weight: 600; padding: 2px 14px; }"
+        "QPushButton:hover { border-color: #60687d; }"
+        "QPushButton:pressed { background: #1c1e24; }")
+        .arg(textColor, btnBg, btnBorder));
     connect(btnOk, &QPushButton::clicked, this, &QDialog::accept);
     btnLayout->addWidget(btnOk);
     btnLayout->addStretch();
