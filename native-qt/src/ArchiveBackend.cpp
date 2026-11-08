@@ -331,7 +331,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
   while (true) {
     stageTimer.start();
     status = archive_read_next_header(reader, &entry);
-    localTelem.readHeaderDurationMs += stageTimer.elapsed();
+    localTelem.readHeaderDurationNs += stageTimer.nsecsElapsed();
     if (status != ARCHIVE_OK)
       break;
 
@@ -365,7 +365,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
         }
       }
     }
-    localTelem.pathResolveDurationMs += stageTimer.elapsed();
+    localTelem.pathResolveDurationNs += stageTimer.nsecsElapsed();
 
     if (!selectedForExtraction) {
       localTelem.skippedCount++;
@@ -377,7 +377,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
         archive_read_free(reader);
         return false;
       }
-      localTelem.readDataDurationMs += stageTimer.elapsed();
+      localTelem.readDataDurationNs += stageTimer.nsecsElapsed();
       continue;
     }
 
@@ -390,7 +390,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
       }
       createdDirs.insert(targetDir);
     }
-    localTelem.dirPrepDurationMs += stageTimer.elapsed();
+    localTelem.dirPrepDurationNs += stageTimer.nsecsElapsed();
 
     stageTimer.start();
     const QByteArray encodedTarget = QFile::encodeName(targetPath);
@@ -402,7 +402,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
       archive_read_free(reader);
       return false;
     }
-    localTelem.writeHeaderDurationMs += stageTimer.elapsed();
+    localTelem.writeHeaderDurationNs += stageTimer.nsecsElapsed();
 
     const void *buffer = nullptr;
     size_t size = 0;
@@ -410,7 +410,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
     while (true) {
       stageTimer.start();
       status = archive_read_data_block(reader, &buffer, &size, &offset);
-      localTelem.readDataDurationMs += stageTimer.elapsed();
+      localTelem.readDataDurationNs += stageTimer.nsecsElapsed();
       if (status != ARCHIVE_OK)
         break;
 
@@ -432,7 +432,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
         archive_read_free(reader);
         return false;
       }
-      localTelem.writeDataDurationMs += stageTimer.elapsed();
+      localTelem.writeDataDurationNs += stageTimer.nsecsElapsed();
     }
 
     if (status != ARCHIVE_EOF && status != ARCHIVE_OK) {
@@ -445,7 +445,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
 
     stageTimer.start();
     archive_write_finish_entry(writer);
-    localTelem.finishEntryDurationMs += stageTimer.elapsed();
+    localTelem.finishEntryDurationNs += stageTimer.nsecsElapsed();
     localTelem.entryCount++;
   }
 
@@ -459,7 +459,7 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
   archive_write_free(writer);
   archive_read_free(reader);
 
-  localTelem.totalDurationMs = totalTimer.elapsed();
+  localTelem.totalDurationNs = totalTimer.nsecsElapsed();
   if (telemetry) {
     *telemetry = localTelem;
   }

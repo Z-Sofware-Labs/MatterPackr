@@ -25,21 +25,30 @@ struct Capabilities {
 };
 
 struct ExtractionTelemetry {
-  qint64 totalDurationMs = 0;
-  qint64 readHeaderDurationMs = 0;
-  qint64 pathResolveDurationMs = 0;
-  qint64 dirPrepDurationMs = 0;
-  qint64 writeHeaderDurationMs = 0;
-  qint64 readDataDurationMs = 0;
-  qint64 writeDataDurationMs = 0;
-  qint64 finishEntryDurationMs = 0;
+  qint64 totalDurationNs = 0;
+  qint64 readHeaderDurationNs = 0;
+  qint64 pathResolveDurationNs = 0;
+  qint64 dirPrepDurationNs = 0;
+  qint64 writeHeaderDurationNs = 0;
+  qint64 readDataDurationNs = 0;
+  qint64 writeDataDurationNs = 0;
+  qint64 finishEntryDurationNs = 0;
   qint64 totalBytes = 0;
   qint64 entryCount = 0;
   qint64 skippedCount = 0;
 
+  qint64 totalDurationMs() const { return totalDurationNs / 1000000; }
+  qint64 readHeaderDurationMs() const { return readHeaderDurationNs / 1000000; }
+  qint64 pathResolveDurationMs() const { return pathResolveDurationNs / 1000000; }
+  qint64 dirPrepDurationMs() const { return dirPrepDurationNs / 1000000; }
+  qint64 writeHeaderDurationMs() const { return writeHeaderDurationNs / 1000000; }
+  qint64 readDataDurationMs() const { return readDataDurationNs / 1000000; }
+  qint64 writeDataDurationMs() const { return writeDataDurationNs / 1000000; }
+  qint64 finishEntryDurationMs() const { return finishEntryDurationNs / 1000000; }
+
   double throughputMBs() const {
-    if (totalDurationMs <= 0) return 0.0;
-    return (static_cast<double>(totalBytes) / (1024.0 * 1024.0)) / (static_cast<double>(totalDurationMs) / 1000.0);
+    if (totalDurationNs <= 0) return 0.0;
+    return (static_cast<double>(totalBytes) / (1024.0 * 1024.0)) / (static_cast<double>(totalDurationNs) / 1000000000.0);
   }
 
   double totalMB() const {
@@ -49,14 +58,15 @@ struct ExtractionTelemetry {
   QString summary() const {
     return QStringLiteral("%1 MB in %2s (%3 MB/s) [Read: %4ms, Write: %5ms, Dirs: %6ms]")
         .arg(QString::number(totalMB(), 'f', 1))
-        .arg(QString::number(static_cast<double>(totalDurationMs) / 1000.0, 'f', 2))
+        .arg(QString::number(static_cast<double>(totalDurationNs) / 1000000000.0, 'f', 2))
         .arg(QString::number(throughputMBs(), 'f', 1))
-        .arg(readDataDurationMs)
-        .arg(writeDataDurationMs)
-        .arg(dirPrepDurationMs);
+        .arg(readDataDurationMs())
+        .arg(writeDataDurationMs())
+        .arg(dirPrepDurationMs());
   }
 
   QString toString() const {
+    const qint64 totMs = totalDurationMs();
     return QStringLiteral(
         "[Telemetry] Extraction Breakdown:\n"
         "  - Total Elapsed:      %1 ms (%2 s)\n"
@@ -66,27 +76,28 @@ struct ExtractionTelemetry {
         "  - Time in ReadHeader: %8 ms (%9%)\n"
         "  - Time in PathCheck:  %10 ms\n"
         "  - Time in DirPrep:    %11 ms\n"
-        "  - Time in WriteHeader:%12 ms\n"
-        "  - Time in ReadData:   %13 ms (%14%) [Decompress]\n"
-        "  - Time in WriteData:  %15 ms (%16%) [Disk Write]\n"
-        "  - Time in Finish:     %17 ms")
-        .arg(totalDurationMs)
-        .arg(QString::number(static_cast<double>(totalDurationMs) / 1000.0, 'f', 2))
+        "  - Time in WriteHeader:%12 ms (%13%)\n"
+        "  - Time in ReadData:   %14 ms (%15%) [Decompress]\n"
+        "  - Time in WriteData:  %16 ms (%17%) [Disk Write]\n"
+        "  - Time in Finish:     %18 ms")
+        .arg(totMs)
+        .arg(QString::number(static_cast<double>(totalDurationNs) / 1000000000.0, 'f', 2))
         .arg(QString::number(totalMB(), 'f', 2))
         .arg(totalBytes)
         .arg(QString::number(throughputMBs(), 'f', 2))
         .arg(entryCount)
         .arg(skippedCount)
-        .arg(readHeaderDurationMs)
-        .arg(totalDurationMs > 0 ? (readHeaderDurationMs * 100 / totalDurationMs) : 0)
-        .arg(pathResolveDurationMs)
-        .arg(dirPrepDurationMs)
-        .arg(writeHeaderDurationMs)
-        .arg(readDataDurationMs)
-        .arg(totalDurationMs > 0 ? (readDataDurationMs * 100 / totalDurationMs) : 0)
-        .arg(writeDataDurationMs)
-        .arg(totalDurationMs > 0 ? (writeDataDurationMs * 100 / totalDurationMs) : 0)
-        .arg(finishEntryDurationMs);
+        .arg(readHeaderDurationMs())
+        .arg(totMs > 0 ? (readHeaderDurationMs() * 100 / totMs) : 0)
+        .arg(pathResolveDurationMs())
+        .arg(dirPrepDurationMs())
+        .arg(writeHeaderDurationMs())
+        .arg(totMs > 0 ? (writeHeaderDurationMs() * 100 / totMs) : 0)
+        .arg(readDataDurationMs())
+        .arg(totMs > 0 ? (readDataDurationMs() * 100 / totMs) : 0)
+        .arg(writeDataDurationMs())
+        .arg(totMs > 0 ? (writeDataDurationMs() * 100 / totMs) : 0)
+        .arg(finishEntryDurationMs());
   }
 };
 
