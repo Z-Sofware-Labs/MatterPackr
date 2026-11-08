@@ -833,26 +833,34 @@ void MainWindow::updateEmptyStateVisibility() {
         ArchiveBackend::capabilitiesForArchive(m_currentArchivePath).canRemove);
 }
 
-void MainWindow::setArchiveOperationActive(bool active, const QString &message) {
+void MainWindow::setArchiveOperationActive(bool active, const QString &message, bool showProgressDialog) {
   m_archiveOperationActive = active;
   if (active) {
     m_archiveOperationCancel = std::make_shared<std::atomic_bool>(false);
-    m_archiveProgress = new QProgressDialog(message, tr("Cancel"), 0, 0, this);
-    m_archiveProgress->setWindowTitle(tr("MatterPackr"));
-    m_archiveProgress->setWindowModality(Qt::WindowModal);
-    m_archiveProgress->setAutoClose(false);
-    m_archiveProgress->setMinimumDuration(0);
-    connect(m_archiveProgress, &QProgressDialog::canceled,
-            this, &MainWindow::cancelArchiveOperation);
-    m_archiveProgress->show();
+    if (showProgressDialog && !message.isEmpty()) {
+      m_archiveProgress = new QProgressDialog(message, tr("Cancel"), 0, 0, this);
+      m_archiveProgress->setWindowTitle(tr("MatterPackr"));
+      m_archiveProgress->setWindowModality(Qt::WindowModal);
+      m_archiveProgress->setAutoClose(false);
+      m_archiveProgress->setMinimumDuration(0);
+      connect(m_archiveProgress, &QProgressDialog::canceled,
+              this, &MainWindow::cancelArchiveOperation);
+      m_archiveProgress->show();
+    }
   } else if (m_archiveProgress) {
     m_archiveProgress->close();
     m_archiveProgress->deleteLater();
     m_archiveProgress = nullptr;
     m_archiveOperationCancel.reset();
   }
+  if (!active) {
+    m_archiveOperationCancel.reset();
+  }
   if (auto *light = dynamic_cast<StatusTrafficLight *>(m_lblBadge)) {
     light->setBusy(active);
+  }
+  if (!message.isEmpty()) {
+    statusBar()->showMessage(message);
   }
   const QList<QAction *> actions = {
       m_actNew, m_actOpen, m_actCloseArchive, m_actSaveAs, m_actProperties,
@@ -2203,7 +2211,7 @@ void MainWindow::onViewFile() {
   const QString password = m_currentPassword;
   const QString entryRelPath = item.path.isEmpty() ? item.filename : (item.path + "/" + item.filename);
 
-  setArchiveOperationActive(true, tr("Preparing \"%1\" for viewing...").arg(item.filename));
+  setArchiveOperationActive(true, tr("Preparing \"%1\" for viewing...").arg(item.filename), false);
   const OperationCancel cancel = m_archiveOperationCancel;
 
   QThreadPool::globalInstance()->start([this, archivePath, sessionSubDir, entryRelPath, targetFilePath, item, cancel, password]() {
@@ -2851,23 +2859,15 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
   const QString password = m_currentPassword;
   const OperationCancel cancel = std::make_shared<std::atomic_bool>(false);
 
-  setArchiveOperationActive(true, tr("Preparing files for drag and drop..."));
+  setArchiveOperationActive(true, QString(), false);
   QApplication::setOverrideCursor(Qt::WaitCursor);
-
-  QProgressDialog progress(tr("Preparing files for drag and drop..."), tr("Cancel"), 0, 0, this);
-  progress.setWindowModality(Qt::WindowModal);
-  progress.setMinimumDuration(600);
-
-  QEventLoop loop;
-  connect(&progress, &QProgressDialog::canceled, [&]() {
-    cancel->store(true);
-  });
 
   struct DragExtractResult {
     bool ok = false;
     QString errorMessage;
   };
 
+  QEventLoop loop;
   QFutureWatcher<DragExtractResult> watcher;
   connect(&watcher, &QFutureWatcher<DragExtractResult>::finished, &loop, &QEventLoop::quit);
 
@@ -2890,15 +2890,8 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
   watcher.setFuture(future);
   loop.exec();
   watcher.waitForFinished();
-  progress.close();
   QApplication::restoreOverrideCursor();
   setArchiveOperationActive(false);
-
-  if (cancel && cancel->load()) {
-    QDir(sessionDropDir).removeRecursively();
-    statusBar()->showMessage(tr("Drag and drop cancelled."), 3000);
-    return;
-  }
 
   DragExtractResult res = future.result();
   if (!res.ok) {

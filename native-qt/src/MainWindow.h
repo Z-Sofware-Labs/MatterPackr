@@ -107,7 +107,7 @@ private:
     void updateFolderTree();
     void updateNavBar();
     void updateViewModeUI();
-    void setArchiveOperationActive(bool active, const QString &message = QString());
+    void setArchiveOperationActive(bool active, const QString &message = QString(), bool showProgressDialog = true);
     void cancelArchiveOperation();
     void highlightCurrentFolderInTree();
     void onFolderTreeItemClicked(QTreeWidgetItem *item, int column);
