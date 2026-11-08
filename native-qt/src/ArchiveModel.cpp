@@ -346,9 +346,9 @@ void ArchiveModel::rebuildVisibleItems() {
                             stats.latestMod = item.modified;
                         }
                     } else if (itemPath.startsWith(normCurrent) && itemPath.length() > normCurrentLen && itemPath.at(normCurrentLen) == '/') {
-                        QString relPath = itemPath.mid(normCurrentLen + 1);
-                        int slashIdx = relPath.indexOf('/');
-                        QString firstPart = (slashIdx == -1) ? relPath : relPath.left(slashIdx);
+                        const int startIdx = normCurrentLen + 1;
+                        int slashIdx = itemPath.indexOf('/', startIdx);
+                        QString firstPart = (slashIdx == -1) ? itemPath.mid(startIdx) : itemPath.mid(startIdx, slashIdx - startIdx);
                         auto &stats = folderStatsMap[firstPart];
                         if (!stats.latestMod.isValid() || item.modified > stats.latestMod) {
                             stats.latestMod = item.modified;
@@ -357,9 +357,9 @@ void ArchiveModel::rebuildVisibleItems() {
                 } else if (itemPath == normCurrent) {
                     immediateFiles.append(item);
                 } else if (itemPath.startsWith(normCurrent) && itemPath.length() > normCurrentLen && itemPath.at(normCurrentLen) == '/') {
-                    QString relPath = itemPath.mid(normCurrentLen + 1);
-                    int slashIdx = relPath.indexOf('/');
-                    QString firstPart = (slashIdx == -1) ? relPath : relPath.left(slashIdx);
+                    const int startIdx = normCurrentLen + 1;
+                    int slashIdx = itemPath.indexOf('/', startIdx);
+                    QString firstPart = (slashIdx == -1) ? itemPath.mid(startIdx) : itemPath.mid(startIdx, slashIdx - startIdx);
                     auto &stats = folderStatsMap[firstPart];
                     stats.size += item.size;
                     stats.packed += item.packedSize;

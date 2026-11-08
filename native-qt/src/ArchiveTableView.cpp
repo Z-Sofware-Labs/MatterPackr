@@ -111,7 +111,8 @@ void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
 void ArchiveTableView::mouseMoveEvent(QMouseEvent *event) {
     if (event->buttons() & Qt::LeftButton) {
         int distance = (event->pos() - m_dragStartPos).manhattanLength();
-        if (distance >= QApplication::startDragDistance()) {
+        int dragThreshold = qMax(14, QApplication::startDragDistance() * 2);
+        if (distance >= dragThreshold) {
             if (m_dragItemIndex.isValid() && !m_isRubberBanding) {
                 m_pendingSingleSelectIndex = QModelIndex();
                 m_isDraggingItems = true;
@@ -192,6 +193,28 @@ void ArchiveTableView::mouseReleaseEvent(QMouseEvent *event) {
         }
     }
     QTableView::mouseReleaseEvent(event);
+}
+
+void ArchiveTableView::mouseDoubleClickEvent(QMouseEvent *event) {
+    if (event->button() == Qt::LeftButton) {
+        m_dragItemIndex = QModelIndex();
+        m_pendingSingleSelectIndex = QModelIndex();
+        m_isDraggingItems = false;
+
+        QModelIndex index = indexAt(event->pos());
+        if (!index.isValid()) {
+            int row = rowAt(event->pos().y());
+            if (row >= 0 && model()) {
+                index = model()->index(row, 0);
+            }
+        }
+        if (index.isValid()) {
+            emit doubleClicked(index);
+            event->accept();
+            return;
+        }
+    }
+    QTableView::mouseDoubleClickEvent(event);
 }
 
 void ArchiveTableView::dragEnterEvent(QDragEnterEvent *event) {

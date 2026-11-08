@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(MatterPackr VERSION 3.1.4 LANGUAGES C CXX)
+project(MatterPackr VERSION 3.1.5 LANGUAGES C CXX)
 
 include(CTest)
 
