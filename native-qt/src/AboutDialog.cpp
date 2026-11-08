@@ -78,37 +78,38 @@ void AboutDialog::setupUi() {
     layout->addWidget(lblIcon);
     layout->addSpacing(12);
 
-    // 2. Title & Version
+    // 2. Title & Version (No blank line)
     auto *lblTitle = new QLabel("MatterPackr", this);
     lblTitle->setAlignment(Qt::AlignCenter);
-    lblTitle->setStyleSheet("font-size: 17px; font-weight: bold; margin: 0;");
+    lblTitle->setStyleSheet("font-size: 17px; font-weight: bold; margin: 0; padding: 0;");
     layout->addWidget(lblTitle);
-    layout->addSpacing(3);
+    layout->addSpacing(1);
 
     auto *lblVersion = new QLabel(tr("Version %1").arg(qApp->applicationVersion()), this);
     lblVersion->setAlignment(Qt::AlignCenter);
     lblVersion->setStyleSheet(
-        QStringLiteral("font-size: 11px; color: %1; margin: 0;").arg(mutedColor));
+        QStringLiteral("font-size: 11px; color: %1; margin: 0; padding: 0;").arg(mutedColor));
     layout->addWidget(lblVersion);
-    layout->addSpacing(16);
+    layout->addSpacing(2);
 
-    // 3. Copyright with Z Software Labs Logo
+    // 3. Copyright with Z Software Labs Logo (No blank line above)
     auto *copyrightLayout = new QHBoxLayout();
     copyrightLayout->setAlignment(Qt::AlignCenter);
     copyrightLayout->setSpacing(4);
     copyrightLayout->setContentsMargins(0, 0, 0, 0);
 
     auto *lblCopyPrefix = new QLabel(tr("Copyright © 2026"), this);
-    lblCopyPrefix->setStyleSheet(QStringLiteral("font-size: 10.5px; color: %1;").arg(mutedColor));
+    lblCopyPrefix->setStyleSheet(QStringLiteral("font-size: 10.5px; color: %1; margin: 0; padding: 0;").arg(mutedColor));
 
     auto *lblZLogo = new QLabel(this);
     QPixmap zPix(":/zsoftwarelabs.png");
     if (!zPix.isNull()) {
         lblZLogo->setPixmap(zPix.scaled(13, 13, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     }
+    lblZLogo->setStyleSheet("margin: 0; padding: 0;");
 
     auto *lblCopySuffix = new QLabel(tr("Z Software Labs. All rights reserved."), this);
-    lblCopySuffix->setStyleSheet(QStringLiteral("font-size: 10.5px; color: %1;").arg(mutedColor));
+    lblCopySuffix->setStyleSheet(QStringLiteral("font-size: 10.5px; color: %1; margin: 0; padding: 0;").arg(mutedColor));
 
     copyrightLayout->addWidget(lblCopyPrefix);
     copyrightLayout->addWidget(lblZLogo);
