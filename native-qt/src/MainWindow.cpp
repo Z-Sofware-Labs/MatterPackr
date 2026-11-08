@@ -94,6 +94,19 @@ QString archiveEntryPath(const ArchiveItem &item) {
 
 using OperationCancel = std::shared_ptr<std::atomic_bool>;
 
+QPixmap createTrafficLightPixmap(bool busy) {
+  QPixmap pix(24, 24);
+  pix.fill(Qt::transparent);
+  QPainter p(&pix);
+  p.setRenderHint(QPainter::Antialiasing);
+  QColor fill = busy ? QColor(QStringLiteral("#ef4444")) : QColor(QStringLiteral("#22c55e"));
+  QColor border = busy ? QColor(QStringLiteral("#dc2626")) : QColor(QStringLiteral("#16a34a"));
+  p.setBrush(fill);
+  p.setPen(QPen(border, 1.5));
+  p.drawEllipse(QRectF(2.0, 2.0, 20.0, 20.0));
+  return pix;
+}
+
 bool isEncryptionError(const QString &errorMessage) {
   const QString normalized = errorMessage.toLower();
   return normalized.contains(QStringLiteral("encrypted"))
@@ -818,19 +831,8 @@ void MainWindow::setArchiveOperationActive(bool active, const QString &message) 
     m_archiveOperationCancel.reset();
   }
   if (m_lblBadge) {
-    if (active) {
-      m_lblBadge->setStyleSheet("background-color: #ef4444; "
-                                "border: 1px solid #dc2626; "
-                                "border-radius: 6px; "
-                                "margin-right: 6px;");
-      m_lblBadge->setToolTip(tr("Busy"));
-    } else {
-      m_lblBadge->setStyleSheet("background-color: #22c55e; "
-                                "border: 1px solid #16a34a; "
-                                "border-radius: 6px; "
-                                "margin-right: 6px;");
-      m_lblBadge->setToolTip(tr("Ready"));
-    }
+    m_lblBadge->setPixmap(createTrafficLightPixmap(active));
+    m_lblBadge->setToolTip(active ? tr("Busy") : tr("Ready"));
   }
   const QList<QAction *> actions = {
       m_actNew, m_actOpen, m_actCloseArchive, m_actSaveAs, m_actProperties,
@@ -1033,11 +1035,10 @@ void MainWindow::createStatusBar() {
 
   m_lblBadge = new QLabel(this);
   m_lblBadge->setFixedSize(12, 12);
-  m_lblBadge->setStyleSheet("background-color: #22c55e; "
-                            "border: 1px solid #16a34a; "
-                            "border-radius: 6px; "
-                            "margin-right: 6px;");
+  m_lblBadge->setScaledContents(true);
+  m_lblBadge->setPixmap(createTrafficLightPixmap(false));
   m_lblBadge->setToolTip(tr("Ready"));
+  m_lblBadge->setStyleSheet("margin-right: 6px;");
   status->addPermanentWidget(m_lblBadge);
 }
 
