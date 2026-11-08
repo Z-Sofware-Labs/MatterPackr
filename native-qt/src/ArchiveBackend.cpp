@@ -300,8 +300,6 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
   }
   archive_write_disk_set_options(writer, ARCHIVE_EXTRACT_TIME
                                            | ARCHIVE_EXTRACT_PERM
-                                           | ARCHIVE_EXTRACT_ACL
-                                           | ARCHIVE_EXTRACT_FFLAGS
                                            | ARCHIVE_EXTRACT_SECURE_SYMLINKS);
   const QByteArray encodedPath = QFile::encodeName(archivePath);
   if (archive_read_open_filename(reader, encodedPath.constData(), 131072) != ARCHIVE_OK) {

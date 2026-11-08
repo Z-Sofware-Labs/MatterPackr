@@ -603,9 +603,10 @@ void MainWindow::createCentralGrid() {
   m_tableView->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
   m_tableView->verticalHeader()->setDefaultSectionSize(22);
   m_tableView->verticalHeader()->setVisible(false);
+  m_tableView->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
   auto *header = m_tableView->horizontalHeader();
-  header->setStretchLastSection(false);
+  header->setStretchLastSection(true);
   header->setHighlightSections(false);
   header->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
   header->setFixedHeight(24);
@@ -2851,22 +2852,31 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
       QStringLiteral("/MatterPackr_DragDrop");
   QString sessionDropDir =
       tempDropBase + QLatin1Char('/') +
-      QString::number(QCoreApplication::applicationPid()) + QLatin1Char('_') +
-      QString::number(QDateTime::currentMSecsSinceEpoch());
+      QString::number(qHash(m_currentArchivePath), 16);
   QDir().mkpath(sessionDropDir);
 
+  QStringList entriesNeeded;
+  for (const QString &entryPath : entriesToExtract) {
+    QString extractedPath = QDir(sessionDropDir).filePath(entryPath);
+    if (!QFile::exists(extractedPath) && !QDir(extractedPath).exists()) {
+      entriesNeeded.append(entryPath);
+    }
+  }
+
   QString errorMessage;
-  bool ok = false;
+  bool ok = true;
+  if (!entriesNeeded.isEmpty()) {
 #ifdef MATTERPACKR_HAS_LIBARCHIVE
-  ok = ArchiveBackend::extractEntries(
-      m_currentArchivePath, sessionDropDir, entriesToExtract, &errorMessage,
-      nullptr, m_currentPassword);
+    ok = ArchiveBackend::extractEntries(
+        m_currentArchivePath, sessionDropDir, entriesNeeded, &errorMessage,
+        nullptr, m_currentPassword);
 #endif
-  if (!ok && errorMessage.isEmpty()) {
-    QStringList arguments{QStringLiteral("-xf"), m_currentArchivePath,
-                          QStringLiteral("-C"), sessionDropDir};
-    arguments.append(entriesToExtract);
-    ok = runArchiveCommand(arguments, nullptr, &errorMessage);
+    if (!ok && errorMessage.isEmpty()) {
+      QStringList arguments{QStringLiteral("-xf"), m_currentArchivePath,
+                            QStringLiteral("-C"), sessionDropDir};
+      arguments.append(entriesNeeded);
+      ok = runArchiveCommand(arguments, nullptr, &errorMessage);
+    }
   }
 
   if (!ok) {

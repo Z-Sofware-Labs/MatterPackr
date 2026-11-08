@@ -62,6 +62,12 @@ void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
         }
 
         QModelIndex index = indexAt(event->pos());
+        if (!index.isValid()) {
+            int row = rowAt(event->pos().y());
+            if (row >= 0 && model()) {
+                index = model()->index(row, 0);
+            }
+        }
         if (index.isValid()) {
             m_dragItemIndex = index;
             bool alreadySelected = false;
@@ -90,7 +96,7 @@ void ArchiveTableView::mousePressEvent(QMouseEvent *event) {
             }
         } else {
             m_dragItemIndex = QModelIndex();
-            // Clicked on empty space below or beside table items
+            // Clicked on empty space strictly below all table items
             if (!(m_modifiers & (Qt::ControlModifier | Qt::MetaModifier | Qt::ShiftModifier))) {
                 clearSelection();
                 m_initialSelection.clear();
