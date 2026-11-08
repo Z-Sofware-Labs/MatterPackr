@@ -2855,54 +2855,29 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
       QString::number(QDateTime::currentMSecsSinceEpoch());
   QDir().mkpath(sessionDropDir);
 
-  const QString archivePath = m_currentArchivePath;
-  const QString password = m_currentPassword;
-  const OperationCancel cancel = std::make_shared<std::atomic_bool>(false);
-
-  setArchiveOperationActive(true, QString(), false);
-  QApplication::setOverrideCursor(Qt::WaitCursor);
-
-  struct DragExtractResult {
-    bool ok = false;
-    QString errorMessage;
-  };
-
-  QEventLoop loop;
-  QFutureWatcher<DragExtractResult> watcher;
-  connect(&watcher, &QFutureWatcher<DragExtractResult>::finished, &loop, &QEventLoop::quit);
-
-  QFuture<DragExtractResult> future = QtConcurrent::run([archivePath, sessionDropDir, entriesToExtract, cancel, password]() {
-    DragExtractResult res;
+  QString errorMessage;
+  bool ok = false;
 #ifdef MATTERPACKR_HAS_LIBARCHIVE
-    res.ok = ArchiveBackend::extractEntries(
-        archivePath, sessionDropDir, entriesToExtract, &res.errorMessage,
-        cancel, password);
+  ok = ArchiveBackend::extractEntries(
+      m_currentArchivePath, sessionDropDir, entriesToExtract, &errorMessage,
+      nullptr, m_currentPassword);
 #endif
-    if (!res.ok && res.errorMessage.isEmpty() && (!cancel || !cancel->load())) {
-      QStringList arguments{QStringLiteral("-xf"), archivePath,
-                            QStringLiteral("-C"), sessionDropDir};
-      arguments.append(entriesToExtract);
-      res.ok = runArchiveCommand(arguments, nullptr, &res.errorMessage, cancel);
-    }
-    return res;
-  });
+  if (!ok && errorMessage.isEmpty()) {
+    QStringList arguments{QStringLiteral("-xf"), m_currentArchivePath,
+                          QStringLiteral("-C"), sessionDropDir};
+    arguments.append(entriesToExtract);
+    ok = runArchiveCommand(arguments, nullptr, &errorMessage);
+  }
 
-  watcher.setFuture(future);
-  loop.exec();
-  watcher.waitForFinished();
-  QApplication::restoreOverrideCursor();
-  setArchiveOperationActive(false);
-
-  DragExtractResult res = future.result();
-  if (!res.ok) {
-    if (isEncryptionError(res.errorMessage)) {
+  if (!ok) {
+    if (isEncryptionError(errorMessage)) {
       m_currentPassword.clear();
       QMessageBox::warning(
           this, tr("Drag Extraction Failed"),
           tr("Incorrect password. Could not extract files for drag-and-drop."));
       return;
     }
-    QMessageBox::warning(this, tr("Drag Extraction Failed"), res.errorMessage);
+    QMessageBox::warning(this, tr("Drag Extraction Failed"), errorMessage);
     return;
   }
 
@@ -2933,7 +2908,6 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
   if (QClipboard *clipboard = QApplication::clipboard()) {
     clipboard->setMimeData(clipMimeData, QClipboard::Clipboard);
   }
-  mimeData->setUrls(urls);
 
   auto *drag = new QDrag(m_tableView->viewport() ? static_cast<QWidget*>(m_tableView->viewport()) : m_tableView);
   drag->setMimeData(mimeData);
@@ -2952,7 +2926,7 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
   painter.setFont(font);
   QString label = urls.size() == 1
       ? QFileInfo(urls.first().toLocalFile()).fileName()
-      : tr("Extracting %1 items").arg(urls.size());
+      : tr("%1 items").arg(urls.size());
   painter.drawText(pixmap.rect(), Qt::AlignCenter, label);
   painter.end();
   drag->setPixmap(pixmap);
