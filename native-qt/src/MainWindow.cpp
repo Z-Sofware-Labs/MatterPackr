@@ -42,11 +42,15 @@
 #include <QFileOpenEvent>
 #include <QProcess>
 #include <QtConcurrent>
+#include <QFutureWatcher>
 #include <QThreadPool>
 #include <QDir>
 #include <QTemporaryFile>
 #include <QTemporaryDir>
 #include <QRegularExpression>
+#include <QProgressDialog>
+#include <QClipboard>
+#include <QEventLoop>
 #include <algorithm>
 #include <functional>
 
@@ -2170,31 +2174,62 @@ void MainWindow::onViewFile() {
   QDir().mkpath(destDirPath);
   QString targetFilePath = destDirPath + "/" + item.filename;
 
-  bool extracted = false;
-
-  // 1. If an actual archive file exists on disk, extract the exact file transparently using libarchive or bsdtar
-  if (!m_currentArchivePath.isEmpty() && QFile::exists(m_currentArchivePath)) {
-    QString entryRelPath = item.path.isEmpty() ? item.filename : (item.path + "/" + item.filename);
-
-#ifdef MATTERPACKR_HAS_LIBARCHIVE
-    QString extractErr;
-    if (ArchiveBackend::extractEntries(m_currentArchivePath, sessionSubDir, {entryRelPath}, &extractErr, nullptr, m_currentPassword)
-        && QFile::exists(targetFilePath)) {
-      extracted = true;
+  // Check if file is already extracted with matching size
+  if (QFile::exists(targetFilePath) && item.size > 0 && QFileInfo(targetFilePath).size() == item.size) {
+    QUrl fileUrl = QUrl::fromLocalFile(targetFilePath);
+    bool launched = QDesktopServices::openUrl(fileUrl);
+#ifdef Q_OS_WIN
+    if (!launched) {
+      std::wstring nativePath = QDir::toNativeSeparators(targetFilePath).toStdWString();
+      HINSTANCE res = ShellExecuteW(NULL, L"open", nativePath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+      launched = ((INT_PTR)res > 32);
+    }
+#elif defined(Q_OS_MAC)
+    if (!launched) {
+      launched = QProcess::startDetached("open", QStringList() << targetFilePath);
+    }
+#else
+    if (!launched) {
+      launched = QProcess::startDetached("xdg-open", QStringList() << targetFilePath);
     }
 #endif
-    if (!extracted) {
-      QProcess tarProc;
-      tarProc.start("tar", QStringList() << "-xf" << m_currentArchivePath << "-C" << sessionSubDir << entryRelPath);
-      if (tarProc.waitForFinished(3000) && tarProc.exitCode() == 0 && QFile::exists(targetFilePath)) {
-        extracted = true;
-      }
+    if (launched) {
+      statusBar()->showMessage(tr("Opened \"%1\" with default system viewer").arg(item.filename), 3500);
     }
+    return;
   }
 
-  // 2. If the file is not yet extracted (e.g. sample files or in-memory archive), create valid typed content
-  if (!extracted || !QFile::exists(targetFilePath)) {
-    QFile file(targetFilePath);
+  const QString archivePath = m_currentArchivePath;
+  const QString password = m_currentPassword;
+  const QString entryRelPath = item.path.isEmpty() ? item.filename : (item.path + "/" + item.filename);
+
+  setArchiveOperationActive(true, tr("Preparing \"%1\" for viewing...").arg(item.filename));
+  const OperationCancel cancel = m_archiveOperationCancel;
+
+  QThreadPool::globalInstance()->start([this, archivePath, sessionSubDir, entryRelPath, targetFilePath, item, cancel, password]() {
+    bool extracted = false;
+
+    // 1. If an actual archive file exists on disk, extract the exact file transparently using libarchive or bsdtar
+    if (!archivePath.isEmpty() && QFile::exists(archivePath)) {
+#ifdef MATTERPACKR_HAS_LIBARCHIVE
+      QString extractErr;
+      if (ArchiveBackend::extractEntries(archivePath, sessionSubDir, {entryRelPath}, &extractErr, cancel, password)
+          && QFile::exists(targetFilePath)) {
+        extracted = true;
+      }
+#endif
+      if (!extracted && (!cancel || !cancel->load())) {
+        QProcess tarProc;
+        tarProc.start("tar", QStringList() << "-xf" << archivePath << "-C" << sessionSubDir << entryRelPath);
+        if (tarProc.waitForFinished(30000) && tarProc.exitCode() == 0 && QFile::exists(targetFilePath)) {
+          extracted = true;
+        }
+      }
+    }
+
+    // 2. If the file is not yet extracted (e.g. sample files or in-memory archive), create valid typed content
+    if ((!extracted || !QFile::exists(targetFilePath)) && (!cancel || !cancel->load())) {
+      QFile file(targetFilePath);
     if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
       QString lower = item.filename.toLower();
       if (lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") ||
@@ -2210,9 +2245,9 @@ void MainWindow::onViewFile() {
         grad.setColorAt(1, QColor(0x0f, 0x17, 0x2a));
         p.fillRect(QRect(0, 0, 800, 600), grad);
 
-        QPixmap iconPix(":/app.png");
-        if (!iconPix.isNull()) {
-          p.drawPixmap(400 - 48, 170, iconPix.scaled(96, 96, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        QImage iconImg(":/app.png");
+        if (!iconImg.isNull()) {
+          p.drawImage(QRect(400 - 48, 170, 96, 96), iconImg);
         }
 
         p.setPen(QColor(0xff, 0xff, 0xff));
@@ -2284,38 +2319,45 @@ void MainWindow::onViewFile() {
     }
   }
 
-  if (!QFile::exists(targetFilePath)) {
-    QMessageBox::warning(this, tr("View Error"),
-                         tr("Failed to extract file for viewing:\n%1").arg(item.filename));
-    return;
-  }
+    QMetaObject::invokeMethod(this, [this, targetFilePath, item, cancel]() {
+      setArchiveOperationActive(false);
+      if (cancel && cancel->load())
+        return;
 
-  // 3. Open in default operating system application
-  QUrl fileUrl = QUrl::fromLocalFile(targetFilePath);
-  bool launched = QDesktopServices::openUrl(fileUrl);
+      if (!QFile::exists(targetFilePath)) {
+        QMessageBox::warning(this, tr("View Error"),
+                             tr("Failed to extract file for viewing:\n%1").arg(item.filename));
+        return;
+      }
+
+      // 3. Open in default operating system application
+      QUrl fileUrl = QUrl::fromLocalFile(targetFilePath);
+      bool launched = QDesktopServices::openUrl(fileUrl);
 
 #ifdef Q_OS_WIN
-  if (!launched) {
-    std::wstring nativePath = QDir::toNativeSeparators(targetFilePath).toStdWString();
-    HINSTANCE res = ShellExecuteW(NULL, L"open", nativePath.c_str(), NULL, NULL, SW_SHOWNORMAL);
-    launched = ((INT_PTR)res > 32);
-  }
+      if (!launched) {
+        std::wstring nativePath = QDir::toNativeSeparators(targetFilePath).toStdWString();
+        HINSTANCE res = ShellExecuteW(NULL, L"open", nativePath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        launched = ((INT_PTR)res > 32);
+      }
 #elif defined(Q_OS_MAC)
-  if (!launched) {
-    launched = QProcess::startDetached("open", QStringList() << targetFilePath);
-  }
+      if (!launched) {
+        launched = QProcess::startDetached("open", QStringList() << targetFilePath);
+      }
 #else
-  if (!launched) {
-    launched = QProcess::startDetached("xdg-open", QStringList() << targetFilePath);
-  }
+      if (!launched) {
+        launched = QProcess::startDetached("xdg-open", QStringList() << targetFilePath);
+      }
 #endif
 
-  if (launched) {
-    statusBar()->showMessage(tr("Opened \"%1\" with default system viewer").arg(item.filename), 3500);
-  } else {
-    QMessageBox::warning(this, tr("Open Failed"),
-                         tr("Could not find a registered default application to open:\n%1").arg(item.filename));
-  }
+      if (launched) {
+        statusBar()->showMessage(tr("Opened \"%1\" with default system viewer").arg(item.filename), 3500);
+      } else {
+        QMessageBox::warning(this, tr("Open Failed"),
+                             tr("Could not find a registered default application to open:\n%1").arg(item.filename));
+      }
+    });
+  });
 }
 
 void MainWindow::onSelectAllEntries() { m_tableView->selectAll(); }
@@ -2805,29 +2847,69 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
       QString::number(QDateTime::currentMSecsSinceEpoch());
   QDir().mkpath(sessionDropDir);
 
-  QString errorMessage;
-  bool ok = false;
+  const QString archivePath = m_currentArchivePath;
+  const QString password = m_currentPassword;
+  const OperationCancel cancel = std::make_shared<std::atomic_bool>(false);
+
+  setArchiveOperationActive(true, tr("Preparing files for drag and drop..."));
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+
+  QProgressDialog progress(tr("Preparing files for drag and drop..."), tr("Cancel"), 0, 0, this);
+  progress.setWindowModality(Qt::WindowModal);
+  progress.setMinimumDuration(600);
+
+  QEventLoop loop;
+  connect(&progress, &QProgressDialog::canceled, [&]() {
+    cancel->store(true);
+  });
+
+  struct DragExtractResult {
+    bool ok = false;
+    QString errorMessage;
+  };
+
+  QFutureWatcher<DragExtractResult> watcher;
+  connect(&watcher, &QFutureWatcher<DragExtractResult>::finished, &loop, &QEventLoop::quit);
+
+  QFuture<DragExtractResult> future = QtConcurrent::run([archivePath, sessionDropDir, entriesToExtract, cancel, password]() {
+    DragExtractResult res;
 #ifdef MATTERPACKR_HAS_LIBARCHIVE
-  ok = ArchiveBackend::extractEntries(
-      m_currentArchivePath, sessionDropDir, entriesToExtract, &errorMessage,
-      nullptr, m_currentPassword);
+    res.ok = ArchiveBackend::extractEntries(
+        archivePath, sessionDropDir, entriesToExtract, &res.errorMessage,
+        cancel, password);
 #endif
-  if (!ok && errorMessage.isEmpty()) {
-    QStringList arguments{QStringLiteral("-xf"), m_currentArchivePath,
-                          QStringLiteral("-C"), sessionDropDir};
-    arguments.append(entriesToExtract);
-    ok = runArchiveCommand(arguments, nullptr, &errorMessage);
+    if (!res.ok && res.errorMessage.isEmpty() && (!cancel || !cancel->load())) {
+      QStringList arguments{QStringLiteral("-xf"), archivePath,
+                            QStringLiteral("-C"), sessionDropDir};
+      arguments.append(entriesToExtract);
+      res.ok = runArchiveCommand(arguments, nullptr, &res.errorMessage, cancel);
+    }
+    return res;
+  });
+
+  watcher.setFuture(future);
+  loop.exec();
+  watcher.waitForFinished();
+  progress.close();
+  QApplication::restoreOverrideCursor();
+  setArchiveOperationActive(false);
+
+  if (cancel && cancel->load()) {
+    QDir(sessionDropDir).removeRecursively();
+    statusBar()->showMessage(tr("Drag and drop cancelled."), 3000);
+    return;
   }
 
-  if (!ok) {
-    if (isEncryptionError(errorMessage)) {
+  DragExtractResult res = future.result();
+  if (!res.ok) {
+    if (isEncryptionError(res.errorMessage)) {
       m_currentPassword.clear();
       QMessageBox::warning(
           this, tr("Drag Extraction Failed"),
           tr("Incorrect password. Could not extract files for drag-and-drop."));
       return;
     }
-    QMessageBox::warning(this, tr("Drag Extraction Failed"), errorMessage);
+    QMessageBox::warning(this, tr("Drag Extraction Failed"), res.errorMessage);
     return;
   }
 
@@ -2851,6 +2933,13 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
     return;
 
   auto *mimeData = new QMimeData();
+  mimeData->setUrls(urls);
+
+  auto *clipMimeData = new QMimeData();
+  clipMimeData->setUrls(urls);
+  if (QClipboard *clipboard = QApplication::clipboard()) {
+    clipboard->setMimeData(clipMimeData, QClipboard::Clipboard);
+  }
   mimeData->setUrls(urls);
 
   auto *drag = new QDrag(m_tableView->viewport() ? static_cast<QWidget*>(m_tableView->viewport()) : m_tableView);
