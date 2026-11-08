@@ -7,7 +7,6 @@
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QThread>
-#include <QCoreApplication>
 #include <QSet>
 #include <QRegularExpression>
 
@@ -189,9 +188,6 @@ bool listEntries(const QString &archivePath, QVector<ArchiveItem> *items,
   int id = 0;
   int status = ARCHIVE_OK;
   while ((status = archive_read_next_header(reader, &entry)) == ARCHIVE_OK) {
-    if (id % 128 == 0 && QCoreApplication::instance() && QThread::currentThread() == QCoreApplication::instance()->thread()) {
-      QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-    }
     const QString entryPath = QString::fromUtf8(archive_entry_pathname(entry));
     if (!isSafeEntryPath(entryPath)) {
       if (errorMessage)
@@ -320,9 +316,6 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
   archive_entry *entry = nullptr;
   int status = ARCHIVE_OK;
   while ((status = archive_read_next_header(reader, &entry)) == ARCHIVE_OK) {
-    if (QCoreApplication::instance() && QThread::currentThread() == QCoreApplication::instance()->thread()) {
-      QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-    }
     if (cancel && cancel->load()) {
       if (errorMessage)
         *errorMessage = QObject::tr("The archive operation was cancelled.");
@@ -381,7 +374,6 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
     const void *buffer = nullptr;
     size_t size = 0;
     la_int64_t offset = 0;
-    int blockCounter = 0;
     while ((status = archive_read_data_block(reader, &buffer, &size, &offset)) == ARCHIVE_OK) {
       if (cancel && cancel->load()) {
         if (errorMessage)
@@ -396,11 +388,6 @@ bool extractEntries(const QString &archivePath, const QString &destinationPath,
         archive_write_free(writer);
         archive_read_free(reader);
         return false;
-      }
-      if (++blockCounter % 32 == 0) {
-        if (QCoreApplication::instance() && QThread::currentThread() == QCoreApplication::instance()->thread()) {
-          QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-        }
       }
     }
     if (status != ARCHIVE_EOF && status != ARCHIVE_OK) {

@@ -2903,34 +2903,8 @@ void MainWindow::onDragExtractionRequested(const QModelIndexList &selectedRows) 
   auto *mimeData = new QMimeData();
   mimeData->setUrls(urls);
 
-  auto *clipMimeData = new QMimeData();
-  clipMimeData->setUrls(urls);
-  if (QClipboard *clipboard = QApplication::clipboard()) {
-    clipboard->setMimeData(clipMimeData, QClipboard::Clipboard);
-  }
-
-  auto *drag = new QDrag(m_tableView->viewport() ? static_cast<QWidget*>(m_tableView->viewport()) : m_tableView);
+  auto *drag = new QDrag(m_tableView);
   drag->setMimeData(mimeData);
-
-  QPixmap pixmap(200, 38);
-  pixmap.fill(Qt::transparent);
-  QPainter painter(&pixmap);
-  painter.setRenderHint(QPainter::Antialiasing);
-  painter.setBrush(QColor(30, 41, 59, 230));
-  painter.setPen(QPen(QColor(59, 130, 246), 1.5));
-  painter.drawRoundedRect(pixmap.rect().adjusted(1, 1, -1, -1), 6, 6);
-  painter.setPen(Qt::white);
-  QFont font = painter.font();
-  font.setPointSize(9);
-  font.setBold(true);
-  painter.setFont(font);
-  QString label = urls.size() == 1
-      ? QFileInfo(urls.first().toLocalFile()).fileName()
-      : tr("%1 items").arg(urls.size());
-  painter.drawText(pixmap.rect(), Qt::AlignCenter, label);
-  painter.end();
-  drag->setPixmap(pixmap);
-  drag->setHotSpot(QPoint(pixmap.width() / 2, pixmap.height() / 2));
 
   statusBar()->showMessage(
       tr("Dragging %1 item(s). Drop onto desktop or file manager to extract.")
