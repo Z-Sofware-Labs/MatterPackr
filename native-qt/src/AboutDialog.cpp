@@ -21,7 +21,7 @@ AboutDialog::AboutDialog(QWidget *parent)
     : QDialog(parent) {
     setWindowTitle(tr("About MatterPackr"));
     setModal(true);
-    setFixedSize(350, 460);
+    setFixedWidth(350);
     setWindowFlags(Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
 
     setAutoFillBackground(true);
@@ -64,7 +64,8 @@ void AboutDialog::setupUi() {
         .arg(windowColor, textColor));
 
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(22, 20, 22, 20);
+    layout->setSizeConstraint(QLayout::SetFixedSize);
+    layout->setContentsMargins(22, 20, 22, 18);
     layout->setSpacing(0);
 
     // 1. App Icon
@@ -199,5 +200,4 @@ void AboutDialog::setupUi() {
     btnLayout->addWidget(btnOk);
     btnLayout->addStretch();
     layout->addLayout(btnLayout);
-    layout->addStretch();
 }
