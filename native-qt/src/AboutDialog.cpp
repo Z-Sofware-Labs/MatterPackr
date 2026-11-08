@@ -21,7 +21,7 @@ AboutDialog::AboutDialog(QWidget *parent)
     : QDialog(parent) {
     setWindowTitle(tr("About MatterPackr"));
     setModal(true);
-    setFixedSize(350, 480);
+    setFixedSize(350, 460);
     setWindowFlags(Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
 
     setAutoFillBackground(true);
@@ -64,7 +64,7 @@ void AboutDialog::setupUi() {
         .arg(windowColor, textColor));
 
     auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(24, 24, 24, 20);
+    layout->setContentsMargins(22, 20, 22, 20);
     layout->setSpacing(0);
 
     // 1. App Icon
@@ -74,72 +74,77 @@ void AboutDialog::setupUi() {
     if (icon.isNull()) {
         icon = QIcon(":/app.ico");
     }
-    lblIcon->setPixmap(icon.pixmap(58, 58));
+    lblIcon->setPixmap(icon.pixmap(56, 56));
     layout->addWidget(lblIcon);
     layout->addSpacing(12);
 
-    // 2. Title & Version (No blank line)
-    auto *lblTitle = new QLabel("MatterPackr", this);
-    lblTitle->setAlignment(Qt::AlignCenter);
-    lblTitle->setStyleSheet("font-size: 17px; font-weight: bold; margin: 0; padding: 0;");
-    layout->addWidget(lblTitle);
-    layout->addSpacing(1);
+    // 2. Title, Version & Copyright — strictly grouped in headerGroup with NO blank lines
+    auto *headerGroup = new QWidget(this);
+    headerGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    auto *headerLayout = new QVBoxLayout(headerGroup);
+    headerLayout->setContentsMargins(0, 0, 0, 0);
+    headerLayout->setSpacing(2);
 
-    auto *lblVersion = new QLabel(tr("Version %1").arg(qApp->applicationVersion()), this);
+    auto *lblTitle = new QLabel("MatterPackr", headerGroup);
+    lblTitle->setAlignment(Qt::AlignCenter);
+    lblTitle->setStyleSheet("font-size: 16px; font-weight: bold; margin: 0; padding: 0;");
+    headerLayout->addWidget(lblTitle);
+
+    auto *lblVersion = new QLabel(tr("Version %1").arg(qApp->applicationVersion()), headerGroup);
     lblVersion->setAlignment(Qt::AlignCenter);
     lblVersion->setStyleSheet(
         QStringLiteral("font-size: 11px; color: %1; margin: 0; padding: 0;").arg(mutedColor));
-    layout->addWidget(lblVersion);
-    layout->addSpacing(2);
+    headerLayout->addWidget(lblVersion);
 
-    // 3. Copyright with Z Software Labs Logo (No blank line above)
     auto *copyrightLayout = new QHBoxLayout();
     copyrightLayout->setAlignment(Qt::AlignCenter);
     copyrightLayout->setSpacing(4);
     copyrightLayout->setContentsMargins(0, 0, 0, 0);
 
-    auto *lblCopyPrefix = new QLabel(tr("Copyright © 2026"), this);
+    auto *lblCopyPrefix = new QLabel(tr("Copyright © 2026"), headerGroup);
     lblCopyPrefix->setStyleSheet(QStringLiteral("font-size: 10.5px; color: %1; margin: 0; padding: 0;").arg(mutedColor));
 
-    auto *lblZLogo = new QLabel(this);
+    auto *lblZLogo = new QLabel(headerGroup);
     QPixmap zPix(":/zsoftwarelabs.png");
     if (!zPix.isNull()) {
         lblZLogo->setPixmap(zPix.scaled(13, 13, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     }
     lblZLogo->setStyleSheet("margin: 0; padding: 0;");
 
-    auto *lblCopySuffix = new QLabel(tr("Z Software Labs. All rights reserved."), this);
+    auto *lblCopySuffix = new QLabel(tr("Z Software Labs. All rights reserved."), headerGroup);
     lblCopySuffix->setStyleSheet(QStringLiteral("font-size: 10.5px; color: %1; margin: 0; padding: 0;").arg(mutedColor));
 
     copyrightLayout->addWidget(lblCopyPrefix);
     copyrightLayout->addWidget(lblZLogo);
     copyrightLayout->addWidget(lblCopySuffix);
-    layout->addLayout(copyrightLayout);
+    headerLayout->addLayout(copyrightLayout);
+
+    layout->addWidget(headerGroup);
     layout->addSpacing(18);
 
-    // 4. Description
+    // 3. Description
     auto *lblDesc = new QLabel(
         tr("MatterPackr is a lightweight, utility-driven desktop archive manager "
            "designed for effortless local compression management."), this);
     lblDesc->setAlignment(Qt::AlignCenter);
     lblDesc->setWordWrap(true);
     lblDesc->setStyleSheet(QStringLiteral(
-        "font-size: 11px; color: %1; line-height: 1.45; margin: 0;").arg(descColor));
+        "font-size: 11px; color: %1; line-height: 1.45; margin: 0; padding: 0;").arg(descColor));
     layout->addWidget(lblDesc);
     layout->addSpacing(14);
 
-    // 5. License header link
+    // 4. License header link
     auto *lblLicense = new QLabel(
         QStringLiteral("<span style='color: %1;'>This application is licensed under </span>"
-                       "<a href=\"https://opensource.org/licenses/MIT\" style=\"color: #3b82f6; text-decoration: none;\"><b>MIT ↗</b></a>")
+                       "<a href=\"https://opensource.org/licenses/MIT\" style=\"color: #2563eb; text-decoration: none;\"><b>MIT ↗</b></a>")
             .arg(mutedColor), this);
     lblLicense->setAlignment(Qt::AlignCenter);
     lblLicense->setOpenExternalLinks(true);
-    lblLicense->setStyleSheet("font-size: 11px; margin: 0;");
+    lblLicense->setStyleSheet("font-size: 11px; margin: 0; padding: 0;");
     layout->addWidget(lblLicense);
     layout->addSpacing(10);
 
-    // 6. Compact Scrollable License text box with pure MIT License
+    // 5. Compact Scrollable License text box with pure MIT License
     auto *txtLicense = new QTextEdit(this);
     txtLicense->setReadOnly(true);
     txtLicense->setFixedHeight(115);
@@ -168,24 +173,31 @@ void AboutDialog::setupUi() {
     layout->addWidget(txtLicense);
     layout->addSpacing(14);
 
-    // 7. OK Button
+    // 6. OK Button (Properly compliant with both Light Mode and Dark Mode)
     auto *btnLayout = new QHBoxLayout();
     btnLayout->addStretch();
     auto *btnOk = new QPushButton(tr("OK"), this);
     btnOk->setDefault(true);
-    btnOk->setFixedWidth(80);
-    btnOk->setFixedHeight(26);
-    const QString btnBg = darkMode ? QStringLiteral("qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #333842, stop:1 #22252c)")
-                                   : QStringLiteral("qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 #e2e8f0)");
-    const QString btnBorder = darkMode ? QStringLiteral("#4a5060") : QStringLiteral("#cbd5e1");
-    btnOk->setStyleSheet(QStringLiteral(
-        "QPushButton { color: %1; background: %2; border: 1px solid %3;"
-        " border-radius: 4px; font-size: 11px; font-weight: 600; padding: 2px 12px; }"
-        "QPushButton:hover { border-color: #60687d; }"
-        "QPushButton:pressed { background: #1c1e24; }")
-        .arg(textColor, btnBg, btnBorder));
+    btnOk->setFixedWidth(84);
+    btnOk->setFixedHeight(28);
+
+    if (darkMode) {
+        btnOk->setStyleSheet(
+            "QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #333842, stop:1 #22252c);"
+            " color: #f3f4f6; border: 1px solid #4a5060; border-radius: 4px; font-size: 11px; font-weight: 600; padding: 3px 16px; }"
+            "QPushButton:hover { background: #3e4452; border-color: #60687d; color: #ffffff; }"
+            "QPushButton:pressed { background: #1c1e24; }");
+    } else {
+        btnOk->setStyleSheet(
+            "QPushButton { background-color: #ffffff; color: #0f172a; border: 1px solid #cbd5e1;"
+            " border-radius: 4px; font-size: 11px; font-weight: 600; padding: 3px 16px; }"
+            "QPushButton:hover { background-color: #f1f5f9; border-color: #94a3b8; color: #000000; }"
+            "QPushButton:pressed { background-color: #e2e8f0; }");
+    }
+
     connect(btnOk, &QPushButton::clicked, this, &QDialog::accept);
     btnLayout->addWidget(btnOk);
     btnLayout->addStretch();
     layout->addLayout(btnLayout);
+    layout->addStretch();
 }
