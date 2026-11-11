@@ -843,7 +843,7 @@ void MainWindow::setArchiveOperationActive(bool active, const QString &message, 
       m_archiveProgress->setWindowTitle(tr("MatterPackr"));
       m_archiveProgress->setWindowModality(Qt::WindowModal);
       m_archiveProgress->setAutoClose(false);
-      m_archiveProgress->setMinimumDuration(0);
+      m_archiveProgress->setMinimumDuration(1500);
       connect(m_archiveProgress, &QProgressDialog::canceled,
               this, &MainWindow::cancelArchiveOperation);
       m_archiveProgress->show();
@@ -1276,6 +1276,16 @@ void MainWindow::openArchiveFile(const QString &filename) {
   }
 
   const QString archivePath = fileInfo.exists() ? fileInfo.absoluteFilePath() : path;
+  if (fileInfo.exists()) {
+    QDir parentDir = fileInfo.dir();
+    const QStringList staleFiles = parentDir.entryList(
+        {QStringLiteral(".matterpackr-replacement-*"), QStringLiteral("*.matterpackr-backup")},
+        QDir::Files | QDir::Hidden);
+    for (const QString &stale : staleFiles) {
+      QFile::remove(parentDir.filePath(stale));
+    }
+  }
+
   if (isRemovedDeveloperArchive(archivePath)) {
     QMessageBox::information(
         this, tr("Archive Format Not Supported"),
@@ -1299,7 +1309,7 @@ void MainWindow::openArchiveFile(const QString &filename) {
     initialPassword = dlg.password();
   }
 
-  setArchiveOperationActive(true, tr("Opening archive..."));
+  setArchiveOperationActive(true, tr("Opening archive..."), false);
   const OperationCancel cancel = m_archiveOperationCancel;
   QThreadPool::globalInstance()->start([this, archivePath, cancel, initialPassword]() {
     QString errorMessage;
@@ -1323,7 +1333,7 @@ void MainWindow::openArchiveFile(const QString &filename) {
             this);
         if (dlg.exec() == QDialog::Accepted) {
           const QString retryPassword = dlg.password();
-          setArchiveOperationActive(true, tr("Opening archive..."));
+          setArchiveOperationActive(true, tr("Opening archive..."), false);
           const OperationCancel cancelRetry = m_archiveOperationCancel;
           QThreadPool::globalInstance()->start([this, archivePath, cancelRetry, retryPassword]() {
             QString retryErr;

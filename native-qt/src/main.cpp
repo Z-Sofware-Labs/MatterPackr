@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
 
     QApplication app(argc, argv);
     app.setApplicationName("MatterPackr");
-    app.setApplicationVersion("3.1.5");
+    app.setApplicationVersion("3.1.6");
     app.setOrganizationName("MatterPackr Core Engineering");
 
     // Set application icon from embedded Qt resources
@@ -35,6 +35,7 @@ int main(int argc, char *argv[]) {
 
     MainWindow window;
     window.setWindowIcon(appIcon);
+    window.show();
 
     // Open file passed via command-line arguments (e.g. double-clicked associated archive)
     const QStringList args = QApplication::arguments();
@@ -59,8 +60,6 @@ int main(int argc, char *argv[]) {
         window.openArchiveFile(arg);
         break;
     }
-
-    window.show();
 
     return app.exec();
 }

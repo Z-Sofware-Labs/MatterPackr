@@ -11,6 +11,13 @@
 #include <QRegularExpression>
 #include <QDateTime>
 
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #ifdef MATTERPACKR_HAS_LIBARCHIVE
 #include <archive.h>
 #include <archive_entry.h>
@@ -98,6 +105,8 @@ static void stampMatterPackrZipComment(const QString &filePath, bool encrypted) 
     file.write(lenBytes, 2);
     file.write(comment);
     file.resize(eocdPos + 22 + comment.size());
+    file.flush();
+    file.close();
   }
 }
 
@@ -587,59 +596,113 @@ bool writeDirectoryArchive(const QString &outputPath, const QString &formatPath,
 bool replaceFromDirectory(const QString &archivePath, const QString &rootPath,
                           QString *errorMessage, const OperationCancel &cancel) {
   const QFileInfo archiveInfo(archivePath);
-  const QString replacementTemplate =
-      QDir(archiveInfo.absolutePath()).filePath(
-          QStringLiteral(".matterpackr-replacement-XXXXXX"));
-  QTemporaryFile replacement(replacementTemplate);
-  replacement.setAutoRemove(false);
-  if (!replacement.open()) {
-    if (errorMessage)
-      *errorMessage = QObject::tr("Could not prepare the replacement archive.");
-    return false;
+  const QString archiveDir = archiveInfo.absolutePath();
+
+  auto cleanupFile = [](const QString &path) {
+    if (path.isEmpty())
+      return;
+    for (int i = 0; i < 10; ++i) {
+      if (!QFile::exists(path))
+        return;
+      if (QFile::remove(path))
+        return;
+      QThread::msleep(50);
+    }
+#ifdef Q_OS_WIN
+    if (QFile::exists(path)) {
+      DeleteFileW(QDir::toNativeSeparators(path).toStdWString().c_str());
+    }
+#endif
+  };
+
+  // Clean up any stale leftover replacement or backup files from previous runs
+  QDir dir(archiveDir);
+  const QStringList staleFiles = dir.entryList(
+      {QStringLiteral(".matterpackr-replacement-*"), QStringLiteral("*.matterpackr-backup")},
+      QDir::Files | QDir::Hidden);
+  for (const QString &stale : staleFiles) {
+    cleanupFile(dir.filePath(stale));
   }
-  const QString replacementPath = replacement.fileName();
-  replacement.close();
-  QFile::remove(replacementPath);
+
+  // Generate a unique replacement filename and immediately close and destroy QTemporaryFile
+  // so no file handle is kept open by Qt's QFSFileEngine on Windows.
+  QString replacementPath;
+  {
+    QTemporaryFile temp(dir.filePath(QStringLiteral(".matterpackr-replacement-XXXXXX")));
+    temp.setAutoRemove(false);
+    if (!temp.open()) {
+      if (errorMessage)
+        *errorMessage = QObject::tr("Could not prepare the replacement archive.");
+      return false;
+    }
+    replacementPath = temp.fileName();
+    temp.close();
+  }
+  cleanupFile(replacementPath);
+
   if (!writeDirectoryArchive(replacementPath, archivePath, rootPath,
                              errorMessage, cancel)) {
-    QFile::remove(replacementPath);
+    cleanupFile(replacementPath);
     return false;
   }
+
   const QString backupPath = archivePath + QStringLiteral(".matterpackr-backup");
-  QFile::remove(backupPath);
-  if (!QFile::rename(archivePath, backupPath)) {
-    QFile::remove(replacementPath);
-    if (errorMessage)
-      *errorMessage = QObject::tr("Could not safely replace the original archive.");
-    return false;
-  }
+  cleanupFile(backupPath);
+
   bool installed = false;
+#ifdef Q_OS_WIN
+  const std::wstring wArchive = QDir::toNativeSeparators(archivePath).toStdWString();
+  const std::wstring wReplacement = QDir::toNativeSeparators(replacementPath).toStdWString();
+  const std::wstring wBackup = QDir::toNativeSeparators(backupPath).toStdWString();
+
+  // Try Win32 ReplaceFileW first (atomic, preserves NTFS metadata and handles)
   for (int attempt = 0; attempt < 5 && !installed; ++attempt) {
-    installed = QFile::rename(replacementPath, archivePath);
-    if (!installed)
-      QThread::msleep(100);
+    if (ReplaceFileW(wArchive.c_str(), wReplacement.c_str(), wBackup.c_str(),
+                     REPLACEFILE_IGNORE_MERGE_ERRORS, nullptr, nullptr)) {
+      installed = true;
+      break;
+    }
+    QThread::msleep(100);
   }
+#endif
+
   if (!installed) {
-    // Some Windows filesystem filters reject rename while allowing a copy.
-    // The original remains recoverable in backupPath until the copy succeeds.
-    QFile replacementFile(replacementPath);
-    if (replacementFile.copy(archivePath)) {
-      QFile::remove(replacementPath);
-      QFile::remove(backupPath);
+    if (!QFile::rename(archivePath, backupPath)) {
+      cleanupFile(replacementPath);
+      if (errorMessage)
+        *errorMessage = QObject::tr("Could not safely replace the original archive.");
+      return false;
+    }
+    for (int attempt = 0; attempt < 5 && !installed; ++attempt) {
+      installed = QFile::rename(replacementPath, archivePath);
+      if (!installed)
+        QThread::msleep(100);
+    }
+  }
+
+  if (!installed) {
+    // Fallback: copy replacement over destination
+    cleanupFile(archivePath);
+    for (int attempt = 0; attempt < 5 && !installed; ++attempt) {
+      installed = QFile::copy(replacementPath, archivePath);
+      if (!installed)
+        QThread::msleep(100);
+    }
+    if (installed) {
+      cleanupFile(replacementPath);
+      cleanupFile(backupPath);
       return true;
     }
-    const QString copyError = replacementFile.errorString();
+    // Restore backup if copy failed
     QFile::rename(backupPath, archivePath);
+    cleanupFile(replacementPath);
     if (errorMessage)
-      *errorMessage = QObject::tr(
-          "Could not install the replacement archive.\n"
-          "Replacement: %1\n"
-          "Destination: %2\n"
-          "Reason: %3")
-                          .arg(replacementPath, archivePath, copyError);
+      *errorMessage = QObject::tr("Could not install the replacement archive.");
     return false;
   }
-  QFile::remove(backupPath);
+
+  cleanupFile(replacementPath);
+  cleanupFile(backupPath);
   return true;
 }
 
