@@ -28,11 +28,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install Linux Build Dependencies & Packaging Tools
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libgl1-mesa-dev libxkbcommon-dev libx11-xcb1 libglu1-mesa-dev dpkg-dev rpm
+
       - name: Install Qt 6 (jurplel/install-qt-action)
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.6.2'
           arch: ${{ matrix.os == 'windows-latest' && 'win64_msvc2019_64' || '' }}
+          install-deps: 'false'
 
       - name: Setup Ninja
         uses: ashutoshvarma/setup-ninja@master
@@ -49,12 +56,6 @@ jobs:
       - name: Setup MSVC Environment (Windows)
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Install Linux Build Dependencies & Packaging Tools
-        if: matrix.os == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libgl1-mesa-dev libxkbcommon-dev libx11-xcb1 libglu1-mesa-dev dpkg-dev rpm
 
       - name: Setup macOS OpenGL / AGL Compatibility
         if: matrix.os == 'macos-latest'
